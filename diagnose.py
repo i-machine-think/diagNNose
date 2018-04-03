@@ -20,6 +20,11 @@ parser.add_argument('--cuda', action='store_true')
 ######################################################################
 # Prepare data
 
+try:
+    raw_input
+except:
+    raw_input = input
+
 args = parser.parse_args()
 max_len = 20
 device = None if torch.cuda.is_available() else -1
@@ -64,7 +69,7 @@ if __name__ == '__main__':
 
     # generate datafields
     sentences = torchtext.data.Field(sequential=True, tokenize=tokeniser, preprocessing=preprocessing, include_lengths=True, use_vocab=True)
-    targets = torchtext.data.Field(sequential=True, tokenize=tokeniser_targets, use_vocab=False, include_lengths=True)
+    targets = torchtext.data.Field(sequential=True, tokenize=tokeniser_targets, use_vocab=False, include_lengths=True, tensor_type=torch.cuda.FloatTensor)
 
     # generate vocab and attach to data field
     vocab = get_vocab(args.vocab)
@@ -91,7 +96,7 @@ if __name__ == '__main__':
     
     loss = dc.diagnose(train_data, 10, 10)
 
-    print loss
+    print(loss)
 
     # test_loss = evaluate(model, dictionary, test_data, criterion, args.eval_batch_size)
     # print('=' * 89)
