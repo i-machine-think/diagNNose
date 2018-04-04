@@ -36,7 +36,7 @@ def tokeniser(text):
     return text.split()
 
 def tokeniser_targets(targets):
-    return [int(target) for target in targets.split()]
+    return [float(target) for target in targets.split()]
 
 def preprocessing(seq):
     return seq + ['<eos>']
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     # generate datafields
     sentences = torchtext.data.Field(sequential=True, tokenize=tokeniser, preprocessing=preprocessing, include_lengths=True, use_vocab=True)
-    targets = torchtext.data.Field(sequential=True, tokenize=tokeniser_targets, use_vocab=False, include_lengths=True, tensor_type=torch.cuda.FloatTensor)
+    targets = torchtext.data.Field(sequential=True, tokenize=tokeniser_targets, use_vocab=False, include_lengths=True, tensor_type=torch.FloatTensor, pad_token=-1.)
 
     # generate vocab and attach to data field
     vocab = get_vocab(args.vocab)

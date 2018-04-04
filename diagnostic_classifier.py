@@ -15,6 +15,9 @@ class DiagnosticClassifier():
     """
     def __init__(self, model, n_layer):
         self.model = self.set_model(model, n_layer)
+        self.rnn_type = model.rnn_type
+        self.nhid = model.nhid
+        self.nlayers = model.nlayers
         self.diagnostic_layer = None
 
     def set_model(self, model, n_layer):
@@ -30,6 +33,15 @@ class DiagnosticClassifier():
             param.requires_grad = False
 
         return model
+
+    def init_hidden(self, batch_size):
+        weight = next(self.model.parameters()).data
+        if self.rnn_type == 'LSTM':
+            return (Variable(weight.new(self.nlayers, batch_size, self.nhid).zero_()),
+                    Variable(weight.new(self.nlayers, batch_size, self.nhid).zero_()))
+        else:
+            return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
+
 
     def add_linear(self):
         """
@@ -48,7 +60,7 @@ class DiagnosticClassifier():
 
         device = None if torch.cuda.is_available() else -1
 
-        for epoch in xrange(n_epochs):
+        for epoch in range(n_epochs):
 
             loss, iteration = self.train_epoch(data, batch_size, iteration, device)
             print("Loss after epoch %i: %f" % (epoch, loss))
@@ -71,13 +83,21 @@ class DiagnosticClassifier():
 
         for batch in batch_iterator:
             # get batch data
-            inputs, input_lengths = getattr(batch, sentences)
-            targets = getattr(batch, targets)
+            inputs, input_lengths = getattr(batch, 'sentences')
+            targets = getattr(batch, 'targets')
 
             # run model
-            hidden = model.init_hidden(eval_batch_size)
-            model.zero_grad()
-            output = model(inputs, hidden)
+            hidden = self.init_hidden(batch.batch_size)
+            self.diagnostic_layer.zero_grad()
+            hidden = self.model(inputs)
+            # hidden2 = self.model(inputs, hidden)
+
+            print hidden
+            raw_input()
+            print hidden2
+            raw_input()
+
+            output = self.diagnostic_layer(hidden)
 
             # compute loss and do backward pass
             loss = self.criterion(output, targets)
