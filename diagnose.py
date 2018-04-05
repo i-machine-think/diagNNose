@@ -39,7 +39,7 @@ def tokeniser_targets(targets):
     return [float(target) for target in targets.split()]
 
 def preprocessing(seq):
-    return seq + ['<eos>']
+    return seq
 
 def get_vocab(vocab_file):
     vocab = Vocab(Counter())
@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     dc.add_linear()
     
-    loss = dc.diagnose(train_data, 10, 10)
+    loss = dc.diagnose(train_data, n_epochs=100, batch_size=10)
 
     print(loss)
 
