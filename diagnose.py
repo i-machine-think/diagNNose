@@ -9,7 +9,8 @@ from torchtext.vocab import Vocab
 from diagnostic_classifier import DiagnosticClassifier
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data', type=str, help='location of the training data')
+parser.add_argument('--train', type=str, help='location of the training data')
+parser.add_argument('--test', type=str, help='location of the test data')
 parser.add_argument('--model', type=str, help='path to load the model')
 parser.add_argument('--vocab', type=str, help='path to load the model dict')
 parser.add_argument('--bptt', type=int, default=60, help='max sequence length')
@@ -68,8 +69,10 @@ if __name__ == '__main__':
         model = torch.load(f, map_location=lambda storage, loc: storage)
 
     # generate datafields
+    print("Generate training data and vocabulary")
     sentences = torchtext.data.Field(sequential=True, tokenize=tokeniser, preprocessing=preprocessing, include_lengths=True, use_vocab=True)
     targets = torchtext.data.Field(sequential=True, tokenize=tokeniser_targets, use_vocab=False, include_lengths=True, tensor_type=torch.FloatTensor, pad_token=-1.)
+
 
     # generate vocab and attach to data field
     vocab = get_vocab(args.vocab)
@@ -78,23 +81,25 @@ if __name__ == '__main__':
 
     # generate train and test data and vocabulary
     train_data = torchtext.data.TabularDataset(
-        path=args.data, format='tsv',
+        path=args.train, format='tsv',
         fields=[('sentences', sentences), ('targets', targets)],
         filter_pred=len_filter
     )
 
-    # test_data = torchtext.data.TabularDataset(
-    #     path=args.test, format='tsv',
-    #     fields=[('sentences', sentences), ('targets', targets)],
-    #     filter_pred=len_filter
-    # )
+    test_data = torchtext.data.TabularDataset(
+        path=args.test, format='tsv',
+        fields=[('sentences', sentences), ('targets', targets)],
+        filter_pred=len_filter
+    )
 
+    print("Create diagnostic model")
     # create diagnostic classifier
     dc = DiagnosticClassifier(model, n_layer=-1)
 
     dc.add_linear()
     
-    loss = dc.diagnose(train_data, n_epochs=100, batch_size=10)
+    print("Run training")
+    loss = dc.diagnose(train_data, test_data, n_epochs=100, batch_size=10)
 
     print(loss)
 
