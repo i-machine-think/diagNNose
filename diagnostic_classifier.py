@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import optim
 from torch.autograd import Variable
 import torchtext
 from torchtext.vocab import Vocab
@@ -58,13 +59,85 @@ class DiagnosticClassifier():
         Add a linear diagnostic classifier.
         """
         self.diagnostic_layer = nn.Linear(self.model[-1].hidden_size, 1)
+        # TODO do I need this?
+        for name, parameter in self.diagnostic_layer.named_parameters():
+            parameter.requires_grad = True
         self.criterion = torch.nn.MSELoss()
 
-    def diagnose(self, data, n_epochs, batch_size, print_every=50):
+    def evaluate(self, data, batch_size, criterion, device):
+        """
+        Evaluate model.
+        """
+        total_loss = 0
+        total_loss2 = 0
+        batch_no = 0
+        no_items = 0
+
+        criterion2=self.get_criterion(criterion, average=True)
+        criterion=self.get_criterion(criterion, average=False)
+
+        # generate batch iterator
+        batch_iterator = torchtext.data.BucketIterator(
+                dataset=data, batch_size=batch_size,
+                sort=False, sort_within_batch=True,
+                sort_key=lambda x: len(x.sentences),
+                device=device, repeat=False)
+
+        for batch in batch_iterator:
+            # get batch data
+            inputs, input_lengths = getattr(batch, 'sentences')
+            targets, _ = getattr(batch, 'targets')      # TODO no idea what this second var is supposed to contain...
+
+            # run model
+            
+            layer_output, hidden = self.model(inputs)
+
+            output = self.diagnostic_layer(layer_output)
+
+            # create mask to select non-padding values
+            non_padding = targets.ne(-1)
+
+            masked_targets = torch.masked_select(targets, non_padding)
+            masked_outputs = torch.masked_select(output.squeeze(), non_padding)
+            batch_items = masked_outputs.size(0)
+
+            # print masked_outputs.size(0), non_padding.sum().data[0]
+
+            # compute loss
+            loss = criterion(masked_outputs, masked_targets)
+            loss2 = criterion2(masked_outputs, masked_targets)
+            total_loss += loss.data
+            total_loss2 += loss2.data
+
+            no_items+=batch_items
+            batch_no+=1
+
+        # print "loss size average", (total_loss2/batch_no)[0]
+        # print "total loss not size average", (total_loss/no_items)[0]
+
+        return total_loss/no_items
+
+    def get_criterion(self, criterion, average):
+        """
+        Create a pytorch criterion based on string
+        annotation of criterion
+        """
+        if criterion == 'mse':
+            criterion = torch.nn.MSELoss(size_average=average)
+        elif criterion == 'mae':
+            criterion = torch.nn.L1Loss(size_average=average)
+        else:
+            raise ValueError("Criterion not supported")
+
+        return criterion
+
+
+    def diagnose(self, train_data, val_data, n_epochs, batch_size, print_every=50):
 
         if not self.diagnostic_layer:
             raise ValueError("Diagnostic layer not set")
 
+        self.optimizer = optim.Adam(self.diagnostic_layer.parameters(), lr=0.001)
         total_loss = 0
         iteration = 0
 
@@ -72,17 +145,23 @@ class DiagnosticClassifier():
 
         for epoch in range(n_epochs):
 
-            loss, iteration = self.train_epoch(data, batch_size, iteration, device)
-            print("Loss after epoch %i: %f" % (epoch, loss))
+            loss, iteration = self.train_epoch(train_data, batch_size, iteration, device, print_every)
+            train_mse = self.evaluate(train_data, batch_size=500, criterion='mse', device=device)
+            train_mae = self.evaluate(train_data, batch_size=500, criterion='mae', device=device)
+            train_mae = self.evaluate(train_data, batch_size=500, criterion='mae', device=device)
+            val_mse = self.evaluate(val_data, batch_size=500, criterion='mse', device=device)
+            val_mae = self.evaluate(val_data, batch_size=500, criterion='mae', device=device)
+            print("\nEpoch %i: loss: %f, mse train: %f, mae train: %f mse val: %f mae val: %f" % (epoch, loss, train_mse, train_mae, val_mse, val_mae))
 
             total_loss += loss
 
         return loss/n_epochs
 
-    def train_epoch(self, data, batch_size, iteration, device):
+    def train_epoch(self, data, batch_size, iteration, device, print_every):
 
         total_loss = 0
         no_batch = 0
+        no_items = 0
 
         # generate batch iterator
         batch_iterator = torchtext.data.BucketIterator(
@@ -101,30 +180,28 @@ class DiagnosticClassifier():
 
             # run model
             hidden = self.init_hidden(inputs.size(0))
-            self.diagnostic_layer.zero_grad()
-            # print type(inputs)
-
-            # print inputs.size()
-            # print inputs.size(0)
-            # print hidden[0].size(), hidden[1].size()
-            # raw_input()
-            # hidden = self.model(inputs, hidden)
             layer_output, hidden = self.model(inputs)
-
-            # print hidden
-            # raw_input()
-            # print hidden2
-            # raw_input()
 
             output = self.diagnostic_layer(layer_output)
 
+            # create mask to select non-padding values
+            non_padding = targets.ne(-1)
+
+            masked_targets = torch.masked_select(targets, non_padding)
+            masked_outputs = torch.masked_select(output.squeeze(), non_padding)
+
             # compute loss and do backward pass
-            loss = self.criterion(output, targets)
-            loss.backward()
+            loss = self.criterion(masked_outputs, masked_targets)
             total_loss += loss.data
+            loss.backward()
+            self.optimizer.step()
+            self.diagnostic_layer.zero_grad()
 
             iteration+=1
             no_batch+=1
+
+            if iteration % print_every == 0:
+                print("Batch loss after iteration %i: %f" % (iteration, total_loss/no_batch))
 
         return total_loss/no_batch, iteration
 
