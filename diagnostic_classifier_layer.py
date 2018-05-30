@@ -5,28 +5,25 @@ from torch.autograd import Variable
 import torchtext
 from torchtext.vocab import Vocab
 import matplotlib.pyplot as plt
-import lstm
 import numpy
 
 # import os
 import math
 
-class DiagnoseLM():
+class DiagnosticClassifier():
     """
     Allows to 'diagnose' a sequential model by training additional
     classifiers to predict information from the hidden state
     space.
     """
     def __init__(self, model, n_layer):
-        # set model and overwrite forward to save intermediate steps
-        self.model = model
-        self.nlayers = self.model.nlayers
-        self.nhid = self.model.nhid
-        self.rnn_type = self.model.rnn_type
-
-        model.rnn.forward = lambda input, hidden: lstm.forward(model.rnn, input, hidden)
         self.model = self.set_model(model, n_layer)
-        
+        self.model_original = model
+        self.rnn_type = model.rnn_type
+        self.nhid = model.nhid
+        self.nlayers = model.nlayers
+        self.diagnostic_layer = None
+
     def set_model(self, model, n_layer):
         """
         Crop model to given layer and set as attribute
@@ -51,7 +48,7 @@ class DiagnoseLM():
         return model
 
     def init_hidden(self, batch_size):
-        weight = next(self.model.parameters()).data
+        weight = next(self.model_original.parameters()).data
         if self.rnn_type == 'LSTM':
             return (Variable(weight.new(self.nlayers, batch_size, self.nhid).zero_()),
                     Variable(weight.new(self.nlayers, batch_size, self.nhid).zero_()))
@@ -96,11 +93,11 @@ class DiagnoseLM():
         for batch in batch_iterator:
             # get batch data
             inputs, input_lengths = getattr(batch, 'sentences')
-            targets, _ = getattr(batch, 'targets')
+            targets, _ = getattr(batch, 'targets')      # TODO no idea what this second var is supposed to contain...
 
             # run model
-            hidden = self.init_hidden(inputs.size(0))
-            layer_output, hidden = self.model(inputs, hidden)
+            
+            layer_output, hidden = self.model(inputs)
 
             output = self.diagnostic_layer(layer_output)
 
@@ -190,8 +187,7 @@ class DiagnoseLM():
 
             # run model
             hidden = self.init_hidden(inputs.size(0))
-            # layer_output, hidden = self.model(inputs, hidden)
-            layer_output, hidden = self.model(inputs, hidden)
+            layer_output, hidden = self.model(inputs)
 
             output = self.diagnostic_layer(layer_output)
 
