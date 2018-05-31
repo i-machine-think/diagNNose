@@ -17,28 +17,38 @@ def LSTMCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None):
 
     return (hy, cy), {'in': ingate, 'forget': forgetgate, 'out': outgate, 'c_tilde': cy_tilde}
 
-def forward(parent, input, hidden):
+def forward(self, input, hidden):
 
-    parent.last_gates = []
-    parent.last_hidden =[]
-    parent.all_outputs = []
+    self.store = {}
+
+    for i in xrange(self.num_layers):
+        self.store[i] = {}
+
+    for key in ['h', 'c', 'in', 'out', 'forget', 'c_tilde']:
+        for layer in self.store:
+            self.store[layer][key] = []
 
     output = []
-    steps = range(input.size(0) - 1, -1, -1) if reverse else range(input.size(0))
+    steps = range(input.size(0))
     for i in steps:
-        hidden = forward_step(parent, input[i], hidden)
-        # hack to handle LSTM
-        output.append(hidden[0] if isinstance(hidden, tuple) else hidden)
+        next_input, hidden = forward_step(self, input[i], hidden)
+        # output.append(hidden[0] if isinstance(hidden, tuple) else hidden)
+        output.append(next_input)
 
-    output = torch.cat(output, 0).view(input.size(0), *output[0].size())
+    output = torch.cat(output, 0)
+    # .view(input.size(0), *output[0].size())
 
-    return hidden, output
+    for layer in self.store:
+        for key in self.store[layer]:
+            self.store[layer][key] = torch.cat(self.store[layer][key])
+
+    return output, hidden
 
 
-def forward_step(parent, input, hidden):
-    num_layers = parent.num_layers
-    weight = parent.all_weights
-    dropout = parent.dropout
+def forward_step(self, input, hidden):
+    num_layers = self.num_layers
+    weight = self.all_weights
+    dropout = self.dropout
     # saves the gate values into the rnn object
 
     next_hidden = []
@@ -46,10 +56,18 @@ def forward_step(parent, input, hidden):
     hidden = list(zip(*hidden))
 
     for l in range(num_layers):
+
         # we assume there is just one token in the input
         hy, gates = LSTMCell(input[0], hidden[l], *weight[l])
-        parent.last_gates.append(gates)
-        parent.last_hidden.append(hy)
+
+        # store h and c
+        self.store[l]['h'].append(hy[0].unsqueeze(0))
+        self.store[l]['c'].append(hy[1].unsqueeze(0))
+
+        # store gates
+        for gate in ['in', 'out', 'forget', 'c_tilde']:
+            self.store[l][gate].append(gates[gate].unsqueeze(0))
+
         next_hidden.append(hy)
 
         input = hy[0]

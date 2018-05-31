@@ -3,7 +3,6 @@
 import argparse
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 # import os
 import math
 
@@ -59,15 +58,15 @@ def batchify(data, bsz):
 
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
-    if type(h) == Variable:
-        return Variable(h.data)
-    else:
+    if type(h) == tuple:
         return tuple(repackage_hidden(v) for v in h)
+    else:
+        return h.item()
 
 def get_batch(source, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    data = Variable(source[i:i+seq_len], volatile=evaluation)
-    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    data = source[i:i+seq_len]
+    target = source[i+1:i+1+seq_len].view(-1)
     return data, target
 
 def evaluate(model, dictionary, data_source, criterion, eval_batch_size):
@@ -101,9 +100,6 @@ if __name__ == '__main__':
 
     with open(args.model, 'rb') as f:
         model = torch.load(f, map_location=lambda storage, loc: storage)
-
-    print(model)
-    exit()
 
     criterion = nn.CrossEntropyLoss()
 

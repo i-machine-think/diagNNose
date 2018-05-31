@@ -26,13 +26,15 @@ class DiagnoseLM():
 
         model.rnn.forward = lambda input, hidden: lstm.forward(model.rnn, input, hidden)
         self.model = self.set_model(model, n_layer)
+
+        print model
         
     def set_model(self, model, n_layer):
         """
         Crop model to given layer and set as attribute
         to DiagnosticClassifier.
         """
-        layers = list(model.children())
+        # layers = list(model.children())
 
         # add padding to embedding
         emb_weights = model.state_dict()['encoder.weight']
@@ -41,8 +43,10 @@ class DiagnoseLM():
         new_embs = nn.Embedding(emb_weights.size(0)+1, emb_weights.size(1))
         new_embs.weight.data.copy_(new_emb_weights)
 
-        all_layers = layers[:0]+[new_embs]+layers[2:n_layer]
-        model = nn.Sequential(*all_layers)
+        # all_layers = layers[:0]+[new_embs]+layers[2:n_layer]
+        # model = nn.Sequential(*all_layers)
+
+        model.encoder = new_embs
 
         # freeze model weights
         for param in model.parameters():
@@ -69,8 +73,8 @@ class DiagnoseLM():
             l = open(layer, 'rb')
             self.diagnostic_layer = torch.load(l)
         else:
-            # TODO check here
-            self.diagnostic_layer = nn.Linear(self.model[-1].hidden_size, 1)
+            # TODO RM hardcoding!
+            self.diagnostic_layer = nn.Linear(650, 1)
 
         self.criterion = torch.nn.MSELoss()
 
@@ -79,11 +83,9 @@ class DiagnoseLM():
         Evaluate model.
         """
         total_loss = 0
-        total_loss2 = 0
         batch_no = 0
         no_items = 0
 
-        criterion2=self.get_criterion(criterion, average=True)
         criterion=self.get_criterion(criterion, average=False)
 
         # generate batch iterator
@@ -99,33 +101,38 @@ class DiagnoseLM():
             targets, _ = getattr(batch, 'targets')
 
             # run model
-            hidden = self.init_hidden(inputs.size(0))
+            hidden = self.init_hidden(inputs.size(1))
             layer_output, hidden = self.model(inputs, hidden)
 
-            output = self.diagnostic_layer(layer_output)
+            to_diagnose = self.model.rnn.store[1]['h']
+
+            output = self.diagnostic_layer(to_diagnose)
 
             # create mask to select non-padding values
             non_padding = targets.ne(-1)
+
+            # print("outputs size", output.squeeze().size())
+            # print("targets size", targets.size())
+            # raw_input()
 
             masked_targets = torch.masked_select(targets, non_padding)
             masked_outputs = torch.masked_select(output.squeeze(), non_padding)
             batch_items = masked_outputs.size(0)
 
-            # print masked_targets.size(0), non_padding.long().sum().data[0]
+            # print("masked outputs size", masked_outputs.size())
+            # print("masked targets size", masked_targets.size())
+            # raw_input()
 
             # compute loss
             loss = criterion(masked_outputs, masked_targets)
-            loss2 = criterion2(masked_outputs, masked_targets)
             total_loss += loss.data
-            total_loss2 += loss2.data
 
             no_items+=batch_items
             batch_no+=1
 
-        # print "loss size average", (total_loss2/batch_no)[0]
-        # print "total loss not size average", (total_loss/no_items)[0]
+            loss = (total_loss/no_items)[0]
 
-        return total_loss/no_items
+        return loss
 
     def get_criterion(self, criterion, average):
         """
@@ -142,7 +149,7 @@ class DiagnoseLM():
         return criterion
 
 
-    def diagnose(self, train_data, val_data, n_epochs, batch_size, print_every=50):
+    def diagnose(self, train_data, val_data, n_epochs, batch_size, key=None, print_every=50):
 
         if not self.diagnostic_layer:
             raise ValueError("Diagnostic layer not set")
@@ -155,7 +162,10 @@ class DiagnoseLM():
 
         for epoch in range(n_epochs):
 
+            # train
             loss, iteration = self.train_epoch(train_data, batch_size, iteration, device, print_every)
+
+            # evaluate
             train_mse = self.evaluate(train_data, batch_size=500, criterion='mse', device=device)
             train_mae = self.evaluate(train_data, batch_size=500, criterion='mae', device=device)
             train_mae = self.evaluate(train_data, batch_size=500, criterion='mae', device=device)
@@ -165,7 +175,7 @@ class DiagnoseLM():
 
             total_loss += loss
 
-        return loss/n_epochs
+        return loss
 
     def train_epoch(self, data, batch_size, iteration, device, print_every):
 
@@ -189,17 +199,28 @@ class DiagnoseLM():
             # inputs = nn.utils.rnn.pack_padded_sequence(inputs, input_lengths)
 
             # run model
-            hidden = self.init_hidden(inputs.size(0))
+            hidden = self.init_hidden(inputs.size(1))
             # layer_output, hidden = self.model(inputs, hidden)
             layer_output, hidden = self.model(inputs, hidden)
+            
+            to_diagnose = self.model.rnn.store[1]['h']
 
-            output = self.diagnostic_layer(layer_output)
+            output = self.diagnostic_layer(to_diagnose)
 
             # create mask to select non-padding values
             non_padding = targets.ne(-1)
 
+            # print("non padding", non_padding)
+            # print("outputs size", output.squeeze().size())
+            # print("targets size", targets.size())
+            # raw_input()
+
             masked_targets = torch.masked_select(targets, non_padding)
             masked_outputs = torch.masked_select(output.squeeze(), non_padding)
+
+            # print("masked outputs size", masked_outputs.size())
+            # print("masked targets size", masked_targets.size())
+            # raw_input()
 
             # compute loss and do backward pass
             loss = self.criterion(masked_outputs, masked_targets)
@@ -214,7 +235,7 @@ class DiagnoseLM():
             if iteration % print_every == 0:
                 print("Batch loss after iteration %i: %f" % (iteration, total_loss/no_batch))
 
-        return total_loss/no_batch, iteration
+        return (total_loss/no_batch)[0], iteration
 
     def plot_predictions(self, data):
 

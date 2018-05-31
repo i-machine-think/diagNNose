@@ -6,13 +6,15 @@ from torch.autograd import Variable
 from collections import Counter
 import torchtext
 from torchtext.vocab import Vocab
-from diagnostic_classifier import DiagnosticClassifier
+from diagnostic_classifier import DiagnoseLM as DiagnosticClassifier
+from lstm import forward
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train', type=str, help='location of the training data')
 parser.add_argument('--test', type=str, help='location of the test data')
 parser.add_argument('--model', type=str, help='path to load the model')
 parser.add_argument('--vocab', type=str, help='path to load the model dict')
+parser.add_argument('--save', type=str, help='path to save the model', default='dc.pt')
 parser.add_argument('--bptt', type=int, default=60, help='max sequence length')
 parser.add_argument('--batch_size', type=int, default=24, help='batch size for training')
 parser.add_argument('--eval_batch_size', type=int, default=64, help='eval batch size')
@@ -99,7 +101,9 @@ if __name__ == '__main__':
     dc.add_linear()
     
     print("Run training")
-    loss = dc.diagnose(train_data, test_data, n_epochs=100, batch_size=10)
+    loss = dc.diagnose(train_data, test_data, n_epochs=30, batch_size=args.batch_size, print_every=600)
+
+    dc.save(args.save)
 
     print(loss)
 
