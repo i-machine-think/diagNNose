@@ -2,6 +2,7 @@
 
 import argparse
 import torch
+import torchtext
 import torch.nn as nn
 # import os
 import math
@@ -16,10 +17,11 @@ parser.add_argument('--bptt', type=int, default=60, help='sequence length')
 parser.add_argument('--eval_batch_size', type=int, default=64, help='eval batch size')
 parser.add_argument('--cuda', action='store_true')
 
+
 def get_dict(vocab_file):
     # create list of words in file
-    words =  open(vocab_file, 'rb').read().splitlines()
-    vocab = dict(zip(words, xrange(len(words))))
+    words =  open(vocab_file, 'r').read().splitlines()
+    vocab = dict(zip(words, range(len(words))))
     return vocab
 
 def preprocess(data, dictionary):

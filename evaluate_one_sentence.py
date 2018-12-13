@@ -15,6 +15,7 @@ parser.add_argument('--vocab', type=str, help='path to load the model dict')
 parser.add_argument('--bptt', type=int, default=60, help='sequence length')
 args = parser.parse_args()
 
+
 def tokenise(sentence, dictionary):
     words = sentence.split(' ')
     l = len(words)
@@ -26,42 +27,47 @@ def tokenise(sentence, dictionary):
         try:
             ids[token] = dictionary[word]
         except KeyError:
-            print "%s unknown, replace by <unk>" % word
+            print("%s unknown, replace by <unk>" % word)
             ids[token] = dictionary['<unk>']
         token += 1
     return ids
 
+
 # softmax function
 softmax = nn.LogSoftmax()
 
+
 def evaluate(model, dictionary, sentence, check_words):
+    sentence = sentence.strip()
+
     # Turn on evaluation mode which disables dropout.
     model.eval()
     ntokens = len(dictionary)
     hidden = model.init_hidden(1)
 
-    test_data = tokenise(test_sentence, dictionary)
+    test_data = tokenise(sentence, dictionary)
     input_data = Variable(test_data, volatile=False)
 
-    output, hidden = model(input_data, hidden)
+    output, hidden = model(input_data.view(-1,1), hidden)
     output_flat = output.view(-1, ntokens)
     logit = output[-1, :]
     sm = softmax(logit).view(ntokens)
-    
+
     def get_prob(word):
         return sm[dictionary[word]].data[0]
 
-    print '\n'.join(
+    print('\n'.join(
             ['%s: %f' % (word, get_prob(word)) for word in check_words]
-            )
+            ))
 
     return
 
+
 if __name__ == '__main__':
     # test sentence and words to check
-    test_sentence = 'An agreeable insight executed in fifty'
-    check_words = ['represent', 'represents']
-    print test_sentence, '\n'
+    test_sentence = 'he does like'
+    check_words = ['anybody', 'somebody']
+    print('\n', test_sentence, '\n')
 
     # create dictionary with word_ids
     dictionary = get_dict(args.vocab)
