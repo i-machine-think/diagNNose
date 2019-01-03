@@ -1,97 +1,89 @@
-# TODO: REFACTOR!!
-
 import torch
 import pickle
-import numpy as np
 from time import time
+from contextlib import ExitStack
 
 
-def extract(model, data_config, cutoff=50000, bsz=50000):
-    with open(data_config['parsed_data'], 'rb') as f:
-        parsed_data = pickle.load(f)
-    print('data loaded')
+class Extractor:
+    def __init__(self, model, corpus_path, extraction_names, init_embs_path=None):
+        self.model = model
+        self.hidden_size = model.hidden_size
+        self.extraction_names = extraction_names
 
-    # TODO: Add zero init option
-    with open(data_config['init_embs'], 'rb') as f:
-        hidden_avgs = pickle.load(f)
+        with open(corpus_path, 'rb') as f:
+            self.corpus = pickle.load(f)
 
-    activation_names = ['hx', 'cx']
-    hx_l0_list, cx_l0_list = np.zeros((bsz, 650)), np.zeros((bsz, 650))
-    hx_l1_list, cx_l1_list = np.zeros((bsz, 650)), np.zeros((bsz, 650))
+        self.init_embs = self.create_init_embs(init_embs_path)
 
-    l0_lists = [hx_l0_list, cx_l0_list]
+    def create_init_embs(self, init_embs_path):
+        if init_embs_path is not None:
+            with open(init_embs_path, 'rb') as f:
+                init_embs = pickle.load(f)
 
-    l1_lists = [hx_l1_list, cx_l1_list]
+            assert len(init_embs) == self.model.num_layers, \
+                'Number of initial layers not correct'
+            assert all('hx' in a.keys() and 'cx' in a.keys() for a in init_embs.values()), \
+                'Initial layer names not correct, should be \'hx\' and \'cx\''
+            assert len(init_embs[0]['hx']) == self.hidden_size, \
+                'Initial activation size is incorrect'
 
-    labels = []
+            return init_embs
 
-    t0 = time()
-    n = 0
-    tot_n = 0
-    n_sens = 0
-    stop = False
-    for i, data in parsed_data.items():
-        h0_l0 = torch.Tensor(hidden_avgs['hx_l0'])
-        c0_l0 = torch.Tensor(hidden_avgs['cx_l0'])
-        h0_l1 = torch.Tensor(hidden_avgs['hx_l1'])
-        c0_l1 = torch.Tensor(hidden_avgs['cx_l1'])
-        if n_sens % 10 == 0:
-            print(n_sens, n, time() - t0)
+        return {
+            l: {
+                'hx': torch.zeros(self.hidden_size),
+                'cx': torch.zeros(self.hidden_size)
+            } for l in range(self.model.num_layers)
+        }
 
-        for t, (word_t, label) in enumerate(zip(data.sen, data.labels)):
-            if n % bsz == 0 and n > 0:
-                for idx, l in enumerate(l0_lists):
-                    filename = '{}/{}-{}_l0.pickle'.format(output_path_prefix, activation_names[idx], n)
+    def extract(self, output_path, cutoff=32, print_every=10):
+        start_time = time()
 
-                    with open(filename, 'wb') as f_out:
-                        pickle.dump(np.array(l), f_out)
+        with ExitStack() as stack:
+            files = {
+                (l, name): stack.enter_context(open(f'{output_path}/{name}_l{l}.pickle', 'wb'))
+                for (l, name) in self.extraction_names
+            }
+            files['labels'] = stack.enter_context(open(f'{output_path}/labels.pickle', 'wb'))
 
-                for idx, l in enumerate(l1_lists):
-                    filename = '{}/{}-{}_l1.pickle'.format(output_path_prefix, activation_names[idx], n)
+            tot_n = self.extract_corpus(files, start_time, cutoff, print_every)
 
-                    with open(filename, 'wb') as f_out:
-                        pickle.dump(np.array(l), f_out)
+        n_sens = len(self.corpus) if cutoff == -1 else cutoff
+        print(f'\nExtraction finished.')
+        print(f'{n_sens} sentences have been extracted, yielding {tot_n} data points.')
+        print(f'Total time took {time() - start_time:.2f}s')
 
-                with open('{}/{}-labels.pickle'.format(output_path_prefix, n), 'wb') as f_out:
-                    pickle.dump(np.array(labels), f_out)
-                l0_lists = [np.zeros((bsz, 650)), np.zeros((bsz, 650))]
-                l1_lists = [np.zeros((bsz, 650)), np.zeros((bsz, 650))]
+    def extract_corpus(self, files, start_time, cutoff, print_every):
+        tot_n = 0
 
-            # TODO: make more generic
-            out, layer0, layer1 = model(word_t, h0_l0, c0_l0, h0_l1, c0_l1)
+        for n, sentence in enumerate(self.corpus.values()):
+            if n % print_every == 0:
+                print(f'{n}\t{time() - start_time:.2f}s')
 
-            for idx, l in enumerate(l0_lists):
-                l[n%bsz] = (layer0[idx].detach().numpy())
+            self.extract_sentence(sentence, files)
 
-            for idx, l in enumerate(l1_lists):
-                l[n%bsz] = (layer1[idx].detach().numpy())
+            tot_n += len(sentence.sen)
 
-            h0_l0, c0_l0 = layer0[:2]
-            h0_l1, c0_l1 = layer1[:2]
-
-            labels.append(label)
-            n += 1
-            tot_n += 1
-            if tot_n == cutoff:
-                stop = True
+            if cutoff == n:
                 break
-        if stop:
-            break
-        n_sens += 1
 
-    for idx, l in enumerate(l0_lists):
-        filename = '{}/{}-{}_l0.pickle'.format(output_path_prefix, activation_names[idx], n)
+        return tot_n
 
-        with open(filename, 'wb') as f_out:
-            pickle.dump(np.array(l), f_out)
+    def extract_sentence(self, sentence, files):
+        sen_activations = {
+            (l, name): torch.zeros(len(sentence.sen), self.hidden_size)
+            for (l, name) in self.extraction_names
+        }
 
-    for idx, l in enumerate(l1_lists):
-        filename = '{}/{}-{}_l1.pickle'.format(output_path_prefix, activation_names[idx], n)
+        activations = self.init_embs
 
-        with open(filename, 'wb') as f_out:
-            pickle.dump(np.array(l), f_out)
+        for i, token in enumerate(sentence.sen):
+            out, activations = self.model(token, activations)
 
-    with open('{}/{}-labels.pickle'.format(output_path_prefix, n), 'wb') as f_out:
-        pickle.dump(np.array(labels), f_out)
+            for l, name in self.extraction_names:
+                sen_activations[(l, name)][i] = activations[l][name]
 
-    print(time() - t0)
+        for l, name in self.extraction_names:
+            pickle.dump(sen_activations[(l, name)], files[(l, name)])
+
+        pickle.dump(sentence.labels, files['labels'])
