@@ -1,124 +1,90 @@
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 
-class Forward_LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, embed_size, output_size, w2i_dict_path, model_path):
-        super(Forward_LSTM, self).__init__()
+class ForwardLSTM(nn.Module):
+    def __init__(self, model_path, vocab_path, device=torch.device('cpu')):
+        super(ForwardLSTM, self).__init__()
 
-        self.hidden_size = hidden_size
-
-        with open(w2i_dict_path, 'r') as f:
+        with open(vocab_path, 'r') as f:
             vocab_lines = f.readlines()
 
-
-        self.w2i = {}
-        for i, line in enumerate(vocab_lines):
-            self.w2i[line.strip()] = i
+        self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
 
         self.unk_idx = self.w2i['<unk>']
 
         # Load the pretrained model
         with open(model_path, 'rb') as f:
-            model = torch.load(f, map_location='cpu')
+            model = torch.load(f, map_location=device)
 
-        params = {}
-        for name, param in model.named_parameters():
-            params[name] = param
+        params = {name: param for name, param in model.named_parameters()}
 
-        NHID = hidden_size  # only for convenience
+        self.hidden_size = model.rnn.hidden_size
+        self.num_layers = model.rnn.num_layers
+        self.weight, self.bias = {}, {}
 
-        # First layer
-        # current timestep
-        self.w_ii_l0 = params['rnn.weight_ih_l0'][0:NHID]
-        self.w_if_l0 = params['rnn.weight_ih_l0'][NHID:2*NHID]
-        self.w_ig_l0 = params['rnn.weight_ih_l0'][2*NHID:3*NHID]
-        self.w_io_l0 = params['rnn.weight_ih_l0'][3*NHID:4*NHID]
+        NHID = self.hidden_size
 
-        self.b_ii_l0 = params['rnn.bias_ih_l0'][0:NHID]
-        self.b_if_l0 = params['rnn.bias_ih_l0'][NHID:2*NHID]
-        self.b_ig_l0 = params['rnn.bias_ih_l0'][2*NHID:3*NHID]
-        self.b_io_l0 = params['rnn.bias_ih_l0'][3*NHID:4*NHID]
+        # LSTM weights
+        for l in range(self.num_layers):
+            self.weight[l] = {
+                'ii': params[f'rnn.weight_ih_l{l}'][0:NHID],
+                'if': params[f'rnn.weight_ih_l{l}'][NHID:2*NHID],
+                'ig': params[f'rnn.weight_ih_l{l}'][2*NHID:3*NHID],
+                'io': params[f'rnn.weight_ih_l{l}'][3*NHID:4*NHID],
+                'hi': params[f'rnn.weight_hh_l{l}'][0:NHID],
+                'hf': params[f'rnn.weight_hh_l{l}'][NHID:2*NHID],
+                'hg': params[f'rnn.weight_hh_l{l}'][2*NHID:3*NHID],
+                'ho': params[f'rnn.weight_hh_l{l}'][3*NHID:4*NHID],
+            }
+            self.bias[l] = {
+                'ii': params[f'rnn.bias_ih_l{l}'][0:NHID],
+                'if': params[f'rnn.bias_ih_l{l}'][NHID:2*NHID],
+                'ig': params[f'rnn.bias_ih_l{l}'][2*NHID:3*NHID],
+                'io': params[f'rnn.bias_ih_l{l}'][3*NHID:4*NHID],
+                'hi': params[f'rnn.bias_hh_l{l}'][0:NHID],
+                'hf': params[f'rnn.bias_hh_l{l}'][NHID:2*NHID],
+                'hg': params[f'rnn.bias_hh_l{l}'][2*NHID:3*NHID],
+                'ho': params[f'rnn.bias_hh_l{l}'][3*NHID:4*NHID],
+            }
 
-        # recursion
-        self.b_hi_l0 = params['rnn.bias_hh_l0'][0:NHID]
-        self.b_hf_l0 = params['rnn.bias_hh_l0'][NHID:2*NHID]
-        self.b_hg_l0 = params['rnn.bias_hh_l0'][2*NHID:3*NHID]
-        self.b_ho_l0 = params['rnn.bias_hh_l0'][3*NHID:4*NHID]
-
-        self.w_hi_l0 = params['rnn.weight_hh_l0'][0:NHID]
-        self.w_hf_l0 = params['rnn.weight_hh_l0'][NHID:2*NHID]
-        self.w_hg_l0 = params['rnn.weight_hh_l0'][2*NHID:3*NHID]
-        self.w_ho_l0 = params['rnn.weight_hh_l0'][3*NHID:4*NHID]
-
-
-        # Second layer
-        # current timestep
-        self.w_ii_l1 = params['rnn.weight_ih_l1'][0:NHID]
-        self.w_if_l1 = params['rnn.weight_ih_l1'][NHID:2*NHID]
-        self.w_ig_l1 = params['rnn.weight_ih_l1'][2*NHID:3*NHID]
-        self.w_io_l1 = params['rnn.weight_ih_l1'][3*NHID:4*NHID]
-
-        self.b_ii_l1 = params['rnn.bias_ih_l1'][0:NHID]
-        self.b_if_l1 = params['rnn.bias_ih_l1'][NHID:2*NHID]
-        self.b_ig_l1 = params['rnn.bias_ih_l1'][2*NHID:3*NHID]
-        self.b_io_l1 = params['rnn.bias_ih_l1'][3*NHID:4*NHID]
-
-        # recursion
-        self.w_hi_l1 = params['rnn.weight_hh_l1'][0:NHID]
-        self.w_hf_l1 = params['rnn.weight_hh_l1'][NHID:2*NHID]
-        self.w_hg_l1 = params['rnn.weight_hh_l1'][2*NHID:3*NHID]
-        self.w_ho_l1 = params['rnn.weight_hh_l1'][3*NHID:4*NHID]
-
-        self.b_hi_l1 = params['rnn.bias_hh_l1'][0:NHID]
-        self.b_hf_l1 = params['rnn.bias_hh_l1'][NHID:2*NHID]
-        self.b_hg_l1 = params['rnn.bias_hh_l1'][2*NHID:3*NHID]
-        self.b_ho_l1 = params['rnn.bias_hh_l1'][3*NHID:4*NHID]
-
-        # Encoder and decoder
+        # Encoder and decoder weights
         self.encoder = params['encoder.weight']
         self.w_decoder = params['decoder.weight']
         self.b_decoder = params['decoder.bias']
 
+    def forward_step(self, l, inp, prev_hx, prev_cx):
+        # forget gate
+        f_g = torch.sigmoid(
+            (self.weight[l]['if'] @ inp + self.bias[l]['if']) + (self.weight[l]['hf'] @ prev_hx + self.bias[l]['hf']))
+        # input gate
+        i_g = torch.sigmoid(
+            (self.weight[l]['ii'] @ inp + self.bias[l]['ii']) + (self.weight[l]['hi'] @ prev_hx + self.bias[l]['hi']))
+        # output gate
+        o_g = torch.sigmoid(
+            (self.weight[l]['io'] @ inp + self.bias[l]['io']) + (self.weight[l]['ho'] @ prev_hx + self.bias[l]['ho']))
+        # intermediate cell state
+        c_tilde_g = torch.tanh(
+            (self.weight[l]['ig'] @ inp + self.bias[l]['ig']) + (self.weight[l]['hg'] @ prev_hx + self.bias[l]['hg']))
+        # current cell state
+        cx = f_g * prev_cx + i_g * c_tilde_g
+        # hidden state
+        hx = o_g * torch.tanh(cx)
 
-    def forward(self, inp, h0_l0, c0_l0, h0_l1, c0_l1):
+        return {'hx': hx, 'cx': cx, 'f_g': f_g, 'i_g': i_g, 'o_g': o_g, 'c_tilde_g': c_tilde_g}
 
+    def forward(self, inp, prev_activations):
         # Look up the embeddings of the input words
         if inp in self.w2i:
             inp = self.encoder[self.w2i[inp]]
         else:
             inp = self.encoder[self.unk_idx]
 
-        # LAYER 0
-        # forget gate
-        f_g_l0 = F.sigmoid((self.w_if_l0 @ inp + self.b_if_l0) + (self.w_hf_l0 @ h0_l0 + self.b_hf_l0))
-        # input gate
-        i_g_l0 = F.sigmoid((self.w_ii_l0 @ inp + self.b_ii_l0) + (self.w_hi_l0 @ h0_l0 + self.b_hi_l0))
-        # output gate
-        o_g_l0 = F.sigmoid((self.w_io_l0 @ inp + self.b_io_l0) + (self.w_ho_l0 @ h0_l0 + self.b_ho_l0))
-        # intermediate cell state
-        c_tilde_l0 = F.tanh((self.w_ig_l0 @ inp + self.b_ig_l0) + (self.w_hg_l0 @ h0_l0 + self.b_hg_l0))
-        # current cell state
-        cx_l0 = f_g_l0 * c0_l0 + i_g_l0 * c_tilde_l0
-        # hidden state
-        hx_l0 = o_g_l0 * F.tanh(cx_l0)
+        activations = {}
+        for l in range(self.num_layers):
+            activations[l] = self.forward_step(l, inp, prev_activations[l]['hx'], prev_activations[l]['cx'])
+            inp = activations[l]['hx']
 
+        out = self.w_decoder @ inp + self.b_decoder
 
-        # LAYER 1
-        # forget gate
-        f_g_l1 = F.sigmoid((self.w_if_l1 @ hx_l0 + self.b_if_l1) + (self.w_hf_l1 @ h0_l1 + self.b_hf_l1))
-        # input gate
-        i_g_l1 = F.sigmoid((self.w_ii_l1 @ hx_l0 + self.b_ii_l1) + (self.w_hi_l1 @ h0_l1 + self.b_hi_l1))
-        # output gate
-        o_g_l1 = F.sigmoid((self.w_io_l1 @ hx_l0  + self.b_io_l1) + (self.w_ho_l1 @ h0_l1 + self.b_ho_l1))
-        # intermediate cell state
-        c_tilde_l1 = F.tanh((self.w_ig_l1 @ hx_l0 + self.b_ig_l1) + (self.w_hg_l1 @ h0_l1 + self.b_hg_l1))
-        # current cell state
-        cx_l1 = f_g_l1 * c0_l1 + i_g_l1 * c_tilde_l1
-        # hidden state
-        hx_l1 = o_g_l1 * F.tanh(cx_l1)
-
-        out = self.w_decoder @ hx_l1 + self.b_decoder
-
-        return out, [hx_l0, cx_l0, f_g_l0, i_g_l0, o_g_l0, c_tilde_l0], [hx_l1, cx_l1, f_g_l1, i_g_l1, o_g_l1, c_tilde_l1]
+        return out, activations
