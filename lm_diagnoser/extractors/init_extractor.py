@@ -2,6 +2,7 @@ import torch
 import pickle
 from time import time
 from contextlib import ExitStack
+from pathlib import Path
 
 
 class Extractor:
@@ -17,6 +18,8 @@ class Extractor:
 
     def create_init_embs(self, init_embs_path):
         if init_embs_path is not None:
+            assert Path(init_embs_path).is_file(), 'File does not exist'
+
             with open(init_embs_path, 'rb') as f:
                 init_embs = pickle.load(f)
 
