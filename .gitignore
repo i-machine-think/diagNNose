@@ -1,3 +1,9 @@
 data/*
 *.pyc
 *.swp
+npi_old
+.idea
+lm_diagnoser/models/gulordava
+lm_diagnoser/data/extracted_embs
+lm_diagnoser/.ipynb_checkpoints
+lm_diagnoser/data/raw
