@@ -17,3 +17,5 @@ Package dependencies:
 - scikit-learn=0.20.2
 - scipy=1.1.0
 - torch=1.0.0
+- overrides=1.9
+- mypy=0.650
