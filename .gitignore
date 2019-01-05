@@ -7,3 +7,4 @@ lm_diagnoser/models/gulordava
 lm_diagnoser/data/extracted_embs
 lm_diagnoser/.ipynb_checkpoints
 lm_diagnoser/data/raw
+lm_diagnoser/.mypy_cache
