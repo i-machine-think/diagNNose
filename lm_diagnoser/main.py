@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-from models.lstm import ForwardLSTM
+from models.forward_lstm import ForwardLSTM
 from extractors.init_extractor import Extractor
 # from classifiers.logreg import run_experiments
 
