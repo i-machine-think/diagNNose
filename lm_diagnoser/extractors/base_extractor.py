@@ -9,6 +9,7 @@ from corpus.import_corpus import convert_to_labeled_corpus
 from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
 from customtypes.models import ActivationFiles, ActivationName, PartialActivationDict
 from embeddings.initial import InitEmbs
+from models.import_model import import_model_from_json
 from models.language_model import LanguageModel
 
 
@@ -20,8 +21,8 @@ class Extractor:
 
     Parameters
     ----------
-    model : LanguageModel
-        Language model that inherits from LanguageModel.
+    model_config : LanguageModel
+        Location of configuration of the language model.
     corpus_path : str
         Location of labeled corpus.
     activation_names : List[ActivationName]
@@ -35,6 +36,8 @@ class Extractor:
     ----------
     model : LanguageModel
         Language model that inherits from LanguageModel.
+    corpus : LabeledCorpus
+        corpus containing the labels for each sentence.
     hidden_size : int
         Number of hidden units in model.
     activation_names : List[ActivationName]
@@ -43,26 +46,25 @@ class Extractor:
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
         File to which sentence labels will be written.
-    corpus : LabeledCorpus
-        corpus containing the labels for each sentence.
     init_embs : FullActivationDict
         initial embeddings that are loaded from file or set to zero.
     """
     def __init__(self,
-                 model: LanguageModel,
+                 model_config: str,
                  corpus_path: str,
                  activation_names: List[ActivationName],
                  init_embs_path: str = '') -> None:
 
-        self.model = model
-        self.hidden_size = model.hidden_size
+        self.model = import_model_from_json(model_config)
+        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus_path)
+
+        self.hidden_size = self.model.hidden_size
         self.activation_names = activation_names
+
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
 
-        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus_path)
-
-        self.init_embs = InitEmbs(init_embs_path, model).activations
+        self.init_embs = InitEmbs(init_embs_path, self.model).activations
 
     # TODO: Allow batch input
     def extract(self,
