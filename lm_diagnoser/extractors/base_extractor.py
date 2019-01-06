@@ -1,16 +1,15 @@
-from typing import BinaryIO, Dict, List, Optional, Tuple
+from typing import BinaryIO, List, Optional
+from customtypes.models import ActivationName, ActivationFiles, PartialActivationDict
+from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
+
+from corpus.import_corpus import convert_to_labeled_corpus
+from embeddings.initial import InitEmbs
+from models.language_model import LanguageModel
 
 import torch
 import pickle
 from time import time
 from contextlib import ExitStack
-from models.language_model import LanguageModel
-from corpus.labeled import LabeledCorpus, LabeledSentence
-from embeddings.initial import InitEmbs
-
-
-ActivationName = Tuple[int, str]
-ActivationFiles = Dict[ActivationName, BinaryIO]
 
 
 class Extractor:
@@ -46,8 +45,8 @@ class Extractor:
         File to which sentence labels will be written.
     corpus : LabeledCorpus
         corpus containing the labels for each sentence.
-    num_extracted : int
-        Total number of extracted activations (1 per token)
+    init_embs : FullActivationDict
+        initial embeddings that are loaded from file or set to zero.
     """
     def __init__(self,
                  model: LanguageModel,
@@ -60,10 +59,8 @@ class Extractor:
         self.activation_names = activation_names
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
-        self.num_extracted: int = 0
 
-        with open(corpus_path, 'rb') as f:
-            self.corpus: LabeledCorpus = pickle.load(f)
+        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus_path)
 
         self.init_embs = InitEmbs(init_embs_path, model).activations
 
@@ -74,7 +71,8 @@ class Extractor:
                 print_every: int = 100) -> None:
         """ Extracts embeddings from a labeled corpus.
 
-        Uses an ExitStack to write to multiple files at once.
+        Uses contextlib.ExitStack to write to multiple files at once.
+        File writing is done directly per sentence, to lessen RAM usage.
 
         Parameters
         ----------
@@ -89,25 +87,29 @@ class Extractor:
         start_time: float = time()
 
         with ExitStack() as stack:
-            self.create_output_files(output_path, stack)
+            self._create_output_files(output_path, stack)
 
-            for n, labeled_sentence in enumerate(self.corpus):
-                if n % print_every == 0:
-                    print(f'{n}\t{time() - start_time:.2f}s')
+            n_sens = 0
+            num_extracted = 0
 
-                self.extract_sentence(labeled_sentence)
+            for labeled_sentence in self.corpus:
+                if n_sens % print_every == 0 and n_sens > 0:
+                    print(f'{n_sens}\t{time() - start_time:.2f}s')
 
-                self.num_extracted += len(labeled_sentence.sen)
+                self._extract_sentence(labeled_sentence)
 
-                if cutoff == n:
+                num_extracted += len(labeled_sentence.sen)
+                n_sens += 1
+
+                if cutoff == n_sens:
                     break
 
-        n_sens = len(self.corpus) if cutoff == -1 else cutoff
         print(f'\nExtraction finished.')
-        print(f'{n_sens} sentences have been extracted, yielding {self.num_extracted} data points.')
+        print(f'{n_sens} sentences have been extracted, yielding {num_extracted} data points.')
         print(f'Total time took {time() - start_time:.2f}s')
 
-    def create_output_files(self, output_path: str, stack: ExitStack) -> None:
+    def _create_output_files(self, output_path: str, stack: ExitStack) -> None:
+        """ Opens a file for each to-be-extracted activation. """
         self.activation_files = {
             (l, name):
                 stack.enter_context(
@@ -119,13 +121,10 @@ class Extractor:
             open(f'{output_path}/labels.pickle', 'wb')
         )
 
-    def extract_sentence(self, labeled_sentence: LabeledSentence) -> None:
+    def _extract_sentence(self, labeled_sentence: LabeledSentence) -> None:
         labeled_sentence.validate()
 
-        sen_activations = {
-            (l, name): torch.zeros(len(labeled_sentence), self.hidden_size)
-            for (l, name) in self.activation_names
-        }
+        sen_activations = self._init_sen_activations(len(labeled_sentence))
 
         activations = self.init_embs
 
@@ -135,7 +134,19 @@ class Extractor:
             for l, name in self.activation_names:
                 sen_activations[(l, name)][i] = activations[l][name]
 
-        for l, name in self.activation_names:
-            pickle.dump(sen_activations[(l, name)], self.activation_files[(l, name)])
+        self._dump_activations(sen_activations, labeled_sentence.labels)
 
-        pickle.dump(sentence.labels, self.label_file)
+    def _dump_activations(self,
+                          activations: PartialActivationDict,
+                          labels: Labels) -> None:
+        for l, name in self.activation_names:
+            pickle.dump(activations[(l, name)], self.activation_files[(l, name)])
+
+        assert self.label_file is not None
+        pickle.dump(labels, self.label_file)
+
+    def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
+        return {
+            (l, name): torch.zeros(sen_len, self.hidden_size)
+            for (l, name) in self.activation_names
+        }
