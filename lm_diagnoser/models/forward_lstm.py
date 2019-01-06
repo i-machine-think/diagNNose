@@ -19,6 +19,8 @@ class ForwardLSTM(LanguageModel):
         super(ForwardLSTM, self).__init__()
 
         print('Loading pretrained model...')
+        if module_path[-1] != '/':
+            module_path += '/'
         with open(module_path+vocab_file, 'r') as vf:
             vocab_lines = vf.readlines()
 
