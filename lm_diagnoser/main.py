@@ -5,12 +5,12 @@ from extractors.init_extractor import Extractor
 # from classifiers.logreg import run_experiments
 
 MODEL_DIR = './models'
-OUTPUT_EMBS_DIR = './data/extracted_embs'
-PRETRAINED_EMBS_DIR = './data/pretrained_embs'
-PARSED_DATA_DIR = './data/parsed'
+OUTPUT_EMBS_DIR = './embeddings/extracted'
+PRETRAINED_EMBS_DIR = './embeddings/init'
+PARSED_DATA_DIR = './embeddings/parsed'
 
 GapSentence = namedtuple('GapSentence', ['sen', 'raw', 'labels', 'filler', 'gap_start', 'gap_end', 'dep_len'])
-LM = namedtuple('LM', ['model_type', 'model_path', 'vocab_path', 'init_embs', 'vocab_size', 'hidden_size'])
+LM = namedtuple('LM', ['model_type', 'model_path', 'vocab_path', 'init', 'vocab_size', 'hidden_size'])
 
 models = {
     'gulordava': ForwardLSTM(
