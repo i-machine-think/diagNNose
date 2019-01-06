@@ -17,6 +17,7 @@ def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
         labels = item['labels']
         misc_info = {k: v for k, v in item.items() if k not in ['sen', 'labels']}
         labeled_sentence = LabeledSentence(sen, labels, misc_info)
+        labeled_sentence.validate()
         labeled_corpus.append(labeled_sentence)
 
     return labeled_corpus

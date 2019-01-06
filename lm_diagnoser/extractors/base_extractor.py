@@ -122,8 +122,6 @@ class Extractor:
         )
 
     def _extract_sentence(self, labeled_sentence: LabeledSentence) -> None:
-        labeled_sentence.validate()
-
         sen_activations = self._init_sen_activations(len(labeled_sentence))
 
         activations = self.init_embs
