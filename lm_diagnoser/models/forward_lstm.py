@@ -1,21 +1,25 @@
 from typing import Tuple
+from customtypes.models import FullActivationDict, ActivationLayer, ParameterDict
+from overrides import overrides
 
+from models.language_model import LanguageModel
+
+import sys
 import torch
 from torch import Tensor
-from overrides import overrides
-from models.language_model import \
-    ActivationDict, ActivationLayer, ParameterDict, LanguageModel
 
 
 class ForwardLSTM(LanguageModel):
     def __init__(self,
-                 model_path: str,
-                 vocab_path: str,
+                 model_file: str,
+                 vocab_file: str,
+                 module_path: str,
                  device_name: str = 'cpu') -> None:
 
         super(ForwardLSTM, self).__init__()
 
-        with open(vocab_path, 'r') as vf:
+        print('Loading pretrained model...')
+        with open(module_path+vocab_file, 'r') as vf:
             vocab_lines = vf.readlines()
 
         self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
@@ -23,8 +27,9 @@ class ForwardLSTM(LanguageModel):
         self.unk_idx = self.w2i['<unk>']
 
         # Load the pretrained model
+        sys.path.append(module_path)
         device = torch.device(device_name)
-        with open(model_path, 'rb') as mf:
+        with open(module_path+model_file, 'rb') as mf:
             model = torch.load(mf, map_location=device)
 
         params = {name: param for name, param in model.named_parameters()}
@@ -64,6 +69,8 @@ class ForwardLSTM(LanguageModel):
         self.w_decoder = params['decoder.weight']
         self.b_decoder = params['decoder.bias']
 
+        print('Model initialisation finished.')
+
     # TODO: Do LSTM projections in one step?
     def forward_step(self,
                      l: int,
@@ -100,7 +107,7 @@ class ForwardLSTM(LanguageModel):
     @overrides
     def forward(self,
                 inp: str,
-                prev_activations: ActivationDict) -> Tuple[Tensor, ActivationDict]:
+                prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
         if inp in self.w2i:
@@ -109,7 +116,7 @@ class ForwardLSTM(LanguageModel):
             inp = self.encoder[self.unk_idx]
 
         # Iteratively compute and store intermediate rnn activations
-        activations: ActivationDict = {}
+        activations: FullActivationDict = {}
         for l in range(self.num_layers):
             prev_hx = prev_activations[l]['hx']
             prev_cx = prev_activations[l]['cx']
