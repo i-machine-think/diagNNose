@@ -7,7 +7,8 @@ import torch
 
 from corpus.import_corpus import convert_to_labeled_corpus
 from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
-from customtypes.models import ActivationFiles, ActivationName, PartialActivationDict
+from customtypes.models import (
+    ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
 from embeddings.initial import InitEmbs
 from models.import_model import import_model_from_json
 from models.language_model import LanguageModel
@@ -55,16 +56,16 @@ class Extractor:
                  activation_names: List[ActivationName],
                  init_embs_path: str = '') -> None:
 
-        self.model = import_model_from_json(model_config)
+        self.model: LanguageModel = import_model_from_json(model_config)
         self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus_path)
 
-        self.hidden_size = self.model.hidden_size
-        self.activation_names = activation_names
+        self.hidden_size: int = self.model.hidden_size
+        self.activation_names: List[ActivationName] = activation_names
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
 
-        self.init_embs = InitEmbs(init_embs_path, self.model).activations
+        self.init_embs: FullActivationDict = InitEmbs(init_embs_path, self.model).activations
 
     # TODO: Allow batch input
     def extract(self,
