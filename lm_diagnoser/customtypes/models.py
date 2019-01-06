@@ -1,6 +1,6 @@
 from typing import BinaryIO, Dict, Tuple
-from torch import Tensor
 
+from torch import Tensor
 
 ActivationName = Tuple[int, str]
 ActivationFiles = Dict[ActivationName, BinaryIO]

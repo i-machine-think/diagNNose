@@ -1,7 +1,7 @@
+import pickle
 from typing import Any, Dict, List
 
 from customtypes.corpus import LabeledCorpus, LabeledSentence
-import pickle
 
 
 def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:

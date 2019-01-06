@@ -1,15 +1,15 @@
+import pickle
+from contextlib import ExitStack
+from time import time
 from typing import BinaryIO, List, Optional
-from customtypes.models import ActivationName, ActivationFiles, PartialActivationDict
-from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
-
-from corpus.import_corpus import convert_to_labeled_corpus
-from embeddings.initial import InitEmbs
-from models.language_model import LanguageModel
 
 import torch
-import pickle
-from time import time
-from contextlib import ExitStack
+
+from corpus.import_corpus import convert_to_labeled_corpus
+from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
+from customtypes.models import ActivationFiles, ActivationName, PartialActivationDict
+from embeddings.initial import InitEmbs
+from models.language_model import LanguageModel
 
 
 class Extractor:

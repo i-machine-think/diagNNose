@@ -1,14 +1,14 @@
-import numpy as np
-from time import time
 import pickle
-from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegressionCV as LogReg
-from sklearn.metrics import accuracy_score
-from sklearn.externals import joblib
+import subprocess
 from collections import Counter
 from datetime import datetime
-import subprocess
+from time import time
 
+import numpy as np
+from sklearn.externals import joblib
+from sklearn.linear_model import LogisticRegressionCV as LogReg
+from sklearn.metrics import accuracy_score
+from sklearn.svm import SVC
 
 output_path = './embeddings/output/trained/'
 TRAIN_SPLIT = 0.9

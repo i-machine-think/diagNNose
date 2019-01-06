@@ -1,6 +1,5 @@
-from typing import Any, List
 from dataclasses import dataclass
-
+from typing import Any, List
 
 Labels = List[int]
 Sentence = List[str]

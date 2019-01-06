@@ -1,19 +1,9 @@
-from models.forward_lstm import ForwardLSTM
+import argparse
+
 from extractors.base_extractor import Extractor
 
-
-MODEL_DIR = './models'
 OUTPUT_EMBS_DIR = './embeddings/data/extracted'
-PRETRAINED_EMBS_DIR = './embeddings/data/init'
 LABELED_DATA_DIR = './corpus/data/labeled'
-
-models = {
-    'gulordava': ForwardLSTM(
-        'model.pt',
-        'vocab.txt',
-        MODEL_DIR + '/gulordava/'
-    ),
-}
 
 corpora = {
     'gapsens': LABELED_DATA_DIR + '/gapsens.pickle'
