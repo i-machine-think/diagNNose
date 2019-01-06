@@ -1,12 +1,12 @@
-from typing import Tuple
-from customtypes.models import FullActivationDict, ActivationLayer, ParameterDict
-from overrides import overrides
-
-from models.language_model import LanguageModel
-
 import sys
+from typing import Tuple
+
 import torch
+from overrides import overrides
 from torch import Tensor
+
+from customtypes.models import ActivationLayer, FullActivationDict, ParameterDict
+from models.language_model import LanguageModel
 
 
 class ForwardLSTM(LanguageModel):
