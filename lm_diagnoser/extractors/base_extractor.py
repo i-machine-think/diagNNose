@@ -124,6 +124,13 @@ class Extractor:
         )
 
     def _extract_sentence(self, labeled_sentence: LabeledSentence) -> None:
+        """ Generates the embeddings of a sentence and writes to file.
+
+        Parameters
+        ----------
+        labeled_sentence : LabeledSentence
+            The to-be-extracted item containing a sentence and labels.
+        """
         sen_activations = self._init_sen_activations(len(labeled_sentence))
 
         activations = self.init_embs
@@ -139,6 +146,16 @@ class Extractor:
     def _dump_activations(self,
                           activations: PartialActivationDict,
                           labels: Labels) -> None:
+        """ Dumps the generated activations to a list of opened files
+
+        Parameters
+        ----------
+        activations : PartialActivationDict
+            The Tensors of each activation that was specifed by
+            self.activation_names at initialization.
+        labels : Labels
+            List of labels that were already part of the labeled item.
+        """
         for l, name in self.activation_names:
             pickle.dump(activations[(l, name)], self.activation_files[(l, name)])
 
@@ -146,7 +163,8 @@ class Extractor:
         pickle.dump(labels, self.label_file)
 
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
+        """ Initialize dict of Tensors that will be written to file. """
         return {
-            (l, name): torch.zeros(sen_len, self.hidden_size)
+            (l, name): torch.empty(sen_len, self.hidden_size)
             for (l, name) in self.activation_names
         }
