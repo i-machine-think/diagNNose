@@ -10,7 +10,7 @@ from datetime import datetime
 import subprocess
 
 
-output_path = './data/output/trained_classifiers/'
+output_path = './embeddings/output/trained/'
 TRAIN_SPLIT = 0.9
 
 
