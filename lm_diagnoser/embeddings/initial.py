@@ -1,4 +1,6 @@
-from models.language_model import ActivationDict, LanguageModel
+from customtypes.models import FullActivationDict
+
+from models.language_model import LanguageModel
 
 from pathlib import Path
 import pickle
@@ -15,6 +17,8 @@ class InitEmbs:
         Number of layers of the language model
     model : LanguageModel
         LanguageModel containing number of layers and hidden units used.
+    activations : FullActivationDict
+        Dictionary mapping each activation name to an initial embedding.
     """
     def __init__(self,
                  init_embs_path: str,
@@ -23,7 +27,7 @@ class InitEmbs:
         self.hidden_size = model.hidden_size
         self.activations = self.create_init_embs(init_embs_path)
 
-    def create_init_embs(self, init_embs_path: str) -> ActivationDict:
+    def create_init_embs(self, init_embs_path: str) -> FullActivationDict:
         """ Set up the initial LM embeddings.
 
         If no path is provided 0-initialized embeddings will be used.
@@ -37,8 +41,8 @@ class InitEmbs:
 
         Returns
         -------
-        init : ActivationDict
-            ActivationDict containing init embeddings for each layer.
+        init : FullActivationDict
+            FullActivationDict containing init embeddings for each layer.
         """
         if init_embs_path:
             assert Path(init_embs_path).is_file(), 'File does not exist'
@@ -52,12 +56,12 @@ class InitEmbs:
 
         return self.create_zero_init_embs()
 
-    def validate_init_embs(self, init_embs: ActivationDict) -> None:
+    def validate_init_embs(self, init_embs: FullActivationDict) -> None:
         """ Performs a simple validation of the new embeddings.
 
         Parameters
         ----------
-        init_embs: ActivationDict
+        init_embs: FullActivationDict
             Opened initial embeddings that should have a structure that
             complies with the dimensions of the language model.
         """
@@ -70,7 +74,7 @@ class InitEmbs:
         assert len(init_embs[0]['hx']) == self.hidden_size, \
             'Initial activation size is incorrect'
 
-    def create_zero_init_embs(self) -> ActivationDict:
+    def create_zero_init_embs(self) -> FullActivationDict:
         """Zero-initialized embeddings if no init embedding has been provided"""
         return {
             l: {
