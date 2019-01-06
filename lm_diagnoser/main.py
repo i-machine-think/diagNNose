@@ -1,7 +1,5 @@
 from models.forward_lstm import ForwardLSTM
 from extractors.base_extractor import Extractor
-# from classifiers.logreg import run_experiments
-from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
 
 
 MODEL_DIR = './models'
