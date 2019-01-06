@@ -1,12 +1,8 @@
-from typing import Dict, Tuple
+from typing import Tuple
+from customtypes.models import FullActivationDict
 from overrides import overrides
 
 from torch import nn, Tensor
-
-
-ActivationLayer = Dict[str, Tensor]
-ActivationDict = Dict[int, ActivationLayer]
-ParameterDict = ActivationDict
 
 
 class LanguageModel(nn.Module):
@@ -17,7 +13,7 @@ class LanguageModel(nn.Module):
     @overrides
     def forward(self,
                 inp: str,
-                prev_activations: ActivationDict) -> Tuple[Tensor, ActivationDict]:
+                prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
         """
 
         Args:

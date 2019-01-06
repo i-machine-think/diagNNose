@@ -11,7 +11,7 @@ class LabeledSentence:
     """Class that contains a sentence and a list of labels."""
     sen: Sentence
     labels: Labels
-    senInfo: Any = None
+    misc_info: Any = None
 
     def __len__(self) -> int:
         return len(self.sen)
