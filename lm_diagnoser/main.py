@@ -1,28 +1,31 @@
-from collections import namedtuple
-
 from models.forward_lstm import ForwardLSTM
-from extractors.init_extractor import Extractor
+from extractors.base_extractor import Extractor
 # from classifiers.logreg import run_experiments
+from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
+
 
 MODEL_DIR = './models'
-OUTPUT_EMBS_DIR = './embeddings/extracted'
-PRETRAINED_EMBS_DIR = './embeddings/init'
-PARSED_DATA_DIR = './embeddings/parsed'
-
-GapSentence = namedtuple('GapSentence', ['sen', 'raw', 'labels', 'filler', 'gap_start', 'gap_end', 'dep_len'])
-LM = namedtuple('LM', ['model_type', 'model_path', 'vocab_path', 'init', 'vocab_size', 'hidden_size'])
+OUTPUT_EMBS_DIR = './embeddings/data/extracted'
+PRETRAINED_EMBS_DIR = './embeddings/data/init'
+LABELED_DATA_DIR = './corpus/data/labeled'
 
 models = {
     'gulordava': ForwardLSTM(
-        MODEL_DIR + '/gulordava/model.pt',
-        MODEL_DIR + '/gulordava/vocab.txt',
+        'model.pt',
+        'vocab.txt',
+        MODEL_DIR + '/gulordava/'
     ),
 }
+
+corpora = {
+    'gapsens': LABELED_DATA_DIR + '/gapsens.pickle'
+}
+
 
 if __name__ == '__main__':
     extractor = Extractor(
         models['gulordava'],
-        PARSED_DATA_DIR + '/gapsens.pickle',
+        corpora['gapsens'],
         [(1, 'hx'), (1, 'cx')]
     )
-    extractor.extract(OUTPUT_EMBS_DIR)
+    extractor.extract(OUTPUT_EMBS_DIR, print_every=5)
