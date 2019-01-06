@@ -64,6 +64,7 @@ class ForwardLSTM(LanguageModel):
         self.w_decoder = params['decoder.weight']
         self.b_decoder = params['decoder.bias']
 
+    # TODO: Do LSTM projections in one step?
     def forward_step(self,
                      l: int,
                      inp: Tensor,
