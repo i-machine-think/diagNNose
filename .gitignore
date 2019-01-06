@@ -4,7 +4,7 @@ data/*
 npi_old
 .idea
 lm_diagnoser/models/gulordava
-lm_diagnoser/data/extracted_embs
+lm_diagnoser/embeddings/data/extracted
 lm_diagnoser/.ipynb_checkpoints
-lm_diagnoser/data/raw
+lm_diagnoser/corpus/data/raw
 lm_diagnoser/.mypy_cache
