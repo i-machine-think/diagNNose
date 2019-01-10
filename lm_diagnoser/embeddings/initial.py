@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from customtypes.models import FullActivationDict
+from typedefs.models import FullActivationDict
 from models.language_model import LanguageModel
 
 
