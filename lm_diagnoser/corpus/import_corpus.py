@@ -1,16 +1,16 @@
 import pickle
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from customtypes.corpus import LabeledCorpus, LabeledSentence
+from typedefs.corpus import LabeledCorpus, LabeledSentence
 
 
 def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
-    labeled_corpus = []
+    labeled_corpus = {}
 
     with open(corpus_path, 'rb') as f:
-        corpus: List[Dict[str, Any]] = pickle.load(f)
+        corpus: Dict[int, Dict[str, Any]] = pickle.load(f)
 
-    for item in corpus:
+    for key, item in corpus.items():
         assert 'sen' in item.keys() and 'labels' in item.keys(), 'Corpus item has wrong format.'
 
         sen = item['sen']
@@ -18,6 +18,6 @@ def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
         misc_info = {k: v for k, v in item.items() if k not in ['sen', 'labels']}
         labeled_sentence = LabeledSentence(sen, labels, misc_info)
         labeled_sentence.validate()
-        labeled_corpus.append(labeled_sentence)
+        labeled_corpus[key] = labeled_sentence
 
     return labeled_corpus
