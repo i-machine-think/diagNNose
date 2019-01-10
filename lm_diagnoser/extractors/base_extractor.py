@@ -1,17 +1,22 @@
 import pickle
 from contextlib import ExitStack
 from time import time
-from typing import BinaryIO, List, Optional
+from typing import Any, BinaryIO, Dict, List, Optional
+import json
 
 import torch
 
+import numpy as np
+
 from corpus.import_corpus import convert_to_labeled_corpus
-from customtypes.corpus import LabeledCorpus, LabeledSentence, Labels
-from customtypes.models import (
-    ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
 from embeddings.initial import InitEmbs
 from models.import_model import import_model_from_json
 from models.language_model import LanguageModel
+from typedefs.corpus import LabeledCorpus, Labels, Sentence
+from typedefs.models import (
+    ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
+
+OUTPUT_EMBS_DIR = './embeddings/data/extracted'
 
 
 class Extractor:
@@ -22,16 +27,11 @@ class Extractor:
 
     Parameters
     ----------
-    model_config : LanguageModel
-        Location of configuration of the language model.
-    corpus_path : str
-        Location of labeled corpus.
-    activation_names : List[ActivationName]
-        List of activations to be stored of the form [(l, n)] with
-            l (int): the layer number.
-            n (str): activation name as defined in model.
-    init_embs_path : str, optional (default = '')
-        Location of initial embeddings.
+    config_location : str
+        Location to a json dictionary containing the configurations
+        needed for activation extraction. It provides a path to the
+        model configuration and corpus location, as well as (optionally)
+        the location of the initial embeddings.
 
     Attributes
     ----------
@@ -50,56 +50,54 @@ class Extractor:
     init_embs : FullActivationDict
         initial embeddings that are loaded from file or set to zero.
     """
-    def __init__(self,
-                 model_config: str,
-                 corpus_path: str,
-                 activation_names: List[ActivationName],
-                 init_embs_path: str = '') -> None:
+    def __init__(self, config: Dict[str, Any]) -> None:
+        self.config = config
+        # with open(config_location) as f:
+        #     self.config: Dict[str, Any] = json.load(f)
+        self._validate_config(self.config)
 
-        self.model: LanguageModel = import_model_from_json(model_config)
-        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus_path)
+        self.model: LanguageModel = import_model_from_json(self.config['model'])
+        self.corpus: LabeledCorpus = convert_to_labeled_corpus(self.config['corpus'])
 
         self.hidden_size: int = self.model.hidden_size
-        self.activation_names: List[ActivationName] = activation_names
+        self.activation_names: List[ActivationName] = self.config['activations']
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
+        self.keys_file: Optional[BinaryIO] = None
 
-        self.init_embs: FullActivationDict = InitEmbs(init_embs_path, self.model).activations
+        self.init_embs: InitEmbs = InitEmbs(config['init_embs'], self.model)
+
+    def _validate_config(self, config: Dict[str, Any]) -> None:
+        pass
 
     # TODO: Allow batch input
-    def extract(self,
-                output_path: str,
-                cutoff: int = -1,
-                print_every: int = 100) -> None:
+    def extract(self) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
         File writing is done directly per sentence, to lessen RAM usage.
 
-        Parameters
-        ----------
-        output_path : str
-            Directory to which extractions will be saved.
-        cutoff : int, optional (default = -1)
-            Number of sentences to be extracted. Set to -1 to extract
-            entire corpus.
-        print_every : int, optional (default = 100)
-            Print progress info every n steps.
+        Extraction configurations come from `self.config`.
+        Setting `cutoff` to -1 will extract the entire corpus, otherwise
+        extraction is halted after extracting n sentences.
         """
         start_time: float = time()
 
+        print_every = self.config.get('print_every', 10)
+        cutoff = self.config.get('cutoff', -1)
+
         with ExitStack() as stack:
-            self._create_output_files(output_path, stack)
+            self._create_output_files(stack)
 
             n_sens = 0
             num_extracted = 0
 
-            for labeled_sentence in self.corpus:
+            for labeled_sentence in self.corpus.values():
                 if n_sens % print_every == 0 and n_sens > 0:
                     print(f'{n_sens}\t{time() - start_time:.2f}s')
 
-                self._extract_sentence(labeled_sentence)
+                self._extract_sentence(labeled_sentence.sen)
 
                 num_extracted += len(labeled_sentence.sen)
                 n_sens += 1
@@ -107,12 +105,16 @@ class Extractor:
                 if cutoff == n_sens:
                     break
 
+            self._dump_static_info(n_sens, num_extracted)
+
         print(f'\nExtraction finished.')
         print(f'{n_sens} sentences have been extracted, yielding {num_extracted} data points.')
         print(f'Total time took {time() - start_time:.2f}s')
 
-    def _create_output_files(self, output_path: str, stack: ExitStack) -> None:
+    def _create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
+        output_path = self.config.get('output_dir', OUTPUT_EMBS_DIR)
+
         self.activation_files = {
             (l, name):
                 stack.enter_context(
@@ -120,33 +122,34 @@ class Extractor:
                 )
             for (l, name) in self.activation_names
         }
+        self.keys_file = stack.enter_context(
+            open(f'{output_path}/keys.pickle', 'wb')
+        )
         self.label_file = stack.enter_context(
             open(f'{output_path}/labels.pickle', 'wb')
         )
 
-    def _extract_sentence(self, labeled_sentence: LabeledSentence) -> None:
+    def _extract_sentence(self, sentence: Sentence) -> None:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
-        labeled_sentence : LabeledSentence
-            The to-be-extracted item containing a sentence and labels.
+        sentence : Sentence
+            The to-be-extracted sentence, represented as a list of strings.
         """
-        sen_activations = self._init_sen_activations(len(labeled_sentence))
+        sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
 
-        activations = self.init_embs
+        activations: FullActivationDict = self.init_embs.activations
 
-        for i, token in enumerate(labeled_sentence.sen):
+        for i, token in enumerate(sentence):
             out, activations = self.model(token, activations)
 
             for l, name in self.activation_names:
-                sen_activations[(l, name)][i] = activations[l][name]
+                sen_activations[(l, name)][i] = activations[l][name].detach().numpy()
 
-        self._dump_activations(sen_activations, labeled_sentence.labels)
+        self._dump_activations(sen_activations)
 
-    def _dump_activations(self,
-                          activations: PartialActivationDict,
-                          labels: Labels) -> None:
+    def _dump_activations(self, activations: PartialActivationDict) -> None:
         """ Dumps the generated activations to a list of opened files
 
         Parameters
@@ -154,18 +157,26 @@ class Extractor:
         activations : PartialActivationDict
             The Tensors of each activation that was specifed by
             self.activation_names at initialization.
-        labels : Labels
-            List of labels that were already part of the labeled item.
         """
         for l, name in self.activation_names:
             pickle.dump(activations[(l, name)], self.activation_files[(l, name)])
 
+    def _dump_static_info(self, n_sens: int, num_extracted: int) -> None:
+        assert self.keys_file is not None
         assert self.label_file is not None
+
+        keys: List[int] = list(self.corpus.keys())[:n_sens]
+        labels: Labels = np.array([label
+                                   for sen in self.corpus.values()
+                                   for label in sen.labels
+                                   ][:num_extracted])
+
+        pickle.dump(keys, self.keys_file)
         pickle.dump(labels, self.label_file)
 
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
         """ Initialize dict of Tensors that will be written to file. """
         return {
-            (l, name): torch.empty(sen_len, self.hidden_size)
+            (l, name): np.empty((sen_len, self.hidden_size))
             for (l, name) in self.activation_names
         }
