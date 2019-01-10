@@ -9,3 +9,4 @@ lm_diagnoser/.ipynb_checkpoints
 lm_diagnoser/corpus/data/raw
 lm_diagnoser/.mypy_cache
 lm_diagnoser/test_notebook.ipynb
+lm_diagnoser/classifiers/trained
