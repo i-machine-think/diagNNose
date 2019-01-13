@@ -33,14 +33,14 @@ if __name__ == '__main__':
     print(config)
 
     # TODO: HOTFIX
-    config['activations'] = [tuple(x) for x in config['activations']]
+    config['activations'] = [tuple(x) for x in config['activations'] if x[1][0] in 'io']
 
-    extractor = Extractor(config)
-    extractor.extract()
+    # extractor = Extractor(config)
+    # extractor.extract()
 
-    # classifier = DiagnosticClassifier(
-    #     config['output_dir'],
-    #     config['activations'],
-    #     650
-    # )
-    # classifier.classify()
+    classifier = DiagnosticClassifier(
+        config['output_dir'],
+        config['activations'],
+        650
+    )
+    classifier.classify(-1)

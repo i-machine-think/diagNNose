@@ -112,6 +112,7 @@ class ForwardLSTM(LanguageModel):
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
+        # TODO: Add these embeddings to the activations dict as well
         if inp in self.w2i:
             inp = self.encoder[self.w2i[inp]]
         else:

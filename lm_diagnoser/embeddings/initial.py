@@ -21,7 +21,7 @@ class InitEmbs:
     """
     def __init__(self,
                  init_embs_path: str,
-                 model: LanguageModel,) -> None:
+                 model: LanguageModel) -> None:
         self.num_layers = model.num_layers
         self.hidden_size = model.hidden_size
         self.activations = self.create_init_embs(init_embs_path)

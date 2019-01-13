@@ -1,6 +1,7 @@
 import pickle
+from collections import defaultdict
 from time import time
-from typing import Any, List
+from typing import Any, Dict, List
 
 import numpy as np
 from sklearn.externals import joblib
@@ -26,27 +27,43 @@ class DiagnosticClassifier:
         self.labels = self._read_labels()
         self.data_len = len(self.labels)
 
-    def classify(self) -> None:
-        for activation_name in self.activation_names:
-            l, name = activation_name
-            activations = self._read_activations(activation_name)
+    # TODO: Write json file to ouput path containing experiment information
+    # TODO: Save all n classifiers if multiple training loops are done
+    def classify(self, subset_size: int = -1) -> None:
 
-            data_dict = self._split_data(activations)
+        start_time = time()
 
-            model = LogReg()
+        results: Dict[ActivationName, List[float]] = defaultdict(list)
 
-            print(f'Starting fitting model on {activation_name}...')
-            t0 = time()
+        for i in range(2):
+            print(f'\nRun #{i+1}')
+            for activation_name in self.activation_names:
+                l, name = activation_name
+                activations = self._read_activations(activation_name)
 
-            model.fit(data_dict['train_x'], data_dict['train_y'])
+                data_dict = self._split_data(activations, subset_size=subset_size)
 
-            print('Fitting done in', time() - t0)
-            y_pred = model.predict(data_dict['test_x'])
-            print(f'{activation_name} acc.:', accuracy_score(data_dict['test_y'], y_pred))
+                model = LogReg()
 
-            with open(f'{OUTPUT_PATH}/preds-{name}_l{l}.pickle', 'wb') as file:
-                pickle.dump(y_pred, file)
-            joblib.dump(model, f'{OUTPUT_PATH}/lr-{name}_l{l}.pickle')
+                print(f'\nStarting fitting model on {activation_name}...')
+                t0 = time()
+
+                model.fit(data_dict['train_x'], data_dict['train_y'])
+
+                print(f'Fitting done in {time() - t0:.2f}s')
+                y_pred = model.predict(data_dict['test_x'])
+                acc = accuracy_score(data_dict['test_y'], y_pred)
+                print(f'{activation_name} acc.:', acc)
+                results[activation_name].append(acc)
+
+                with open(f'{OUTPUT_PATH}/preds-{name}_l{l}.pickle', 'wb') as file:
+                    pickle.dump(y_pred, file)
+                joblib.dump(model, f'{OUTPUT_PATH}/logreg{i+1}-{name}_l{l}.pickle')
+
+        print(f'Total classification time took {time() - start_time:.2f}s')
+
+        for k, v in results.items():
+            print(f'{k} {np.mean(v):.4f}+/-{np.std(v):.6f}')
 
     def _read_keys(self) -> Any:
         with open(f'{self.embedding_location}/keys.pickle', 'rb') as f:
@@ -54,8 +71,9 @@ class DiagnosticClassifier:
 
         return keys
 
+    # TODO: allow to set label name from setup.json
     def _read_labels(self) -> Any:
-        with open(f'{self.embedding_location}/labels.pickle', 'rb') as f:
+        with open(f'{self.embedding_location}/labels2.pickle', 'rb') as f:
             labels = pickle.load(f)
 
         return labels
@@ -79,20 +97,21 @@ class DiagnosticClassifier:
 
         return activations
 
-    def _split_data(self, activations: np.array, train_split: float = 0.9) -> Any:
-        n = self.data_len
-        perm_i = np.random.choice(range(n), n, replace=False)
+    def _split_data(self,
+                    activations: np.array,
+                    subset_size: int = -1,
+                    train_split: float = 0.9) -> Any:
 
-        x_data = activations[perm_i]
-        y_data = self.labels[perm_i]
+        split = int(self.data_len * train_split)
 
-        split = int(train_split * n)
+        n = split if subset_size == -1 else subset_size
+        train_indices = np.random.choice(range(n), n, replace=False)
 
         return {
-            'train_x': x_data[:split],
-            'train_y': y_data[:split],
-            'test_x': x_data[split:],
-            'test_y': y_data[split:]
+            'train_x': activations[train_indices],
+            'train_y': self.labels[train_indices],
+            'test_x': activations[split:],
+            'test_y': self.labels[split:]
         }
 
 # def _create_model(self, model_type, TRAIN_Y=None, kernel='rbf', probs=True, balance=False, balance_param=0.5, model_path='') -> None:
