@@ -5,8 +5,9 @@ in an RNNs during processing time based on some sort of intervention signal.
 
 import abc
 from functools import wraps
-from torch import Tensor
 from typing import Callable, Tuple
+
+from torch import Tensor
 
 from models.forward_lstm import ForwardLSTM
 from typedefs.models import FullActivationDict
@@ -19,7 +20,7 @@ class InterventionMechanism:
 
     Example usage:
     >> mechanism = InterventionMechanism(model, ...)
-    >> model = mechanism.decorate()
+    >> model = mechanism.apply()
     """
     def __init__(self,
                  model: ForwardLSTM,
@@ -39,7 +40,7 @@ class InterventionMechanism:
 
         return wrapped
 
-    def decorate(self) -> ForwardLSTM:
+    def apply(self) -> ForwardLSTM:
         """
         Return an instance of the model where the intervention function decorates the model's forward function.
         """
