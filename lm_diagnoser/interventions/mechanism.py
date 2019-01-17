@@ -3,17 +3,17 @@ Module to define a mechanism superclass to provide "interventions", or more spec
 in an RNNs during processing time based on some sort of intervention signal.
 """
 
-import abc
+from abc import abstractmethod, ABC
 from functools import wraps
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Dict
 
 from torch import Tensor
 
-from models.forward_lstm import ForwardLSTM
+from models import InterventionLSTM
 from typedefs.models import FullActivationDict
 
 
-class InterventionMechanism:
+class InterventionMechanism(ABC):
     """
     A callable class that is being used as an decorator function to provide an intervention functionality when
     wrapped around model's forward() function.
@@ -23,7 +23,7 @@ class InterventionMechanism:
     >> model = mechanism.apply()
     """
     def __init__(self,
-                 model: ForwardLSTM,
+                 model: InterventionLSTM,
                  trigger_func: Callable):
         self.model = model
         self.trigger_func = trigger_func
@@ -35,26 +35,33 @@ class InterventionMechanism:
         """
         @wraps(forward_func)
         def wrapped(inp: str,
-                    prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
-            return self.intervention_func(inp, prev_activations)
+                    prev_activations: FullActivationDict,
+                    **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
+
+            out, activations = forward_func(inp, prev_activations)
+
+            return self.intervention_func(inp, prev_activations, out, activations, **additional)
 
         return wrapped
 
-    def apply(self) -> ForwardLSTM:
+    def apply(self) -> InterventionLSTM:
         """
         Return an instance of the model where the intervention function decorates the model's forward function.
         """
         self.model.forward = self(self.model.forward)  # Decorate forward function
         return self.model
 
-    @abc.abstractmethod
+    @abstractmethod
     def intervention_func(self,
                           inp: str,
-                          prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
+                          prev_activations: FullActivationDict,
+                          out: Tensor,
+                          activations: FullActivationDict,
+                          **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
         """
         Define the intervention logic here.
         """
-        # Use self.trigger func on input arguments here to determine when to trigger an intervention
+        # Use self.trigger_func on input arguments here to determine when to trigger an intervention
         # Afterwards match the return signature of the original model forward() function
         ...
 

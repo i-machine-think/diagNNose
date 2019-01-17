@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict
 from typedefs.models import FullActivationDict
 from overrides import overrides
 
@@ -19,6 +19,7 @@ class LanguageModel(nn.Module):
         Args:
             inp: input token that is mapped to id
             prev_activations: {layer => {'hx'|'cx' => torch.Tensor}}
+            additional: Dictionary of additional named key-word arguments that might be relevant for processing.
 
         Returns:
             out: Torch Tensor of output distribution of vocabulary
