@@ -10,6 +10,8 @@ import torch
 from torch import Tensor
 from torch.autograd import Variable
 from torch.nn.modules.loss import _Loss
+from torch.nn import NLLLoss
+from torch.nn.functional import sigmoid
 from torch.optim import SGD
 from overrides import overrides
 
@@ -48,9 +50,11 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
 
     @abstractmethod
     def dc_trigger_func(self,
+                        prev_activations: FullActivationDict,
+                        activations: FullActivationDict,
                         out: Tensor,
-                        diagnostic_classifier: DiagnosticClassifier,
-                        label: str) -> Tensor:
+                        prediction: Tensor,
+                        label: Tensor) -> Tensor:
         """
         Use a Diagnostic Classifier to determine for which batch instances to trigger an intervention.
         Returns a binary mask with 1 corresponding to an impending intervention.
@@ -71,7 +75,9 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         return Variable(Tensor(array, dtype=torch.double).squeeze(0), requires_grad=requires_grad)
 
     @abstractmethod
-    def diagnostic_classifier_loss(self, prediction, label) -> _Loss:
+    def diagnostic_classifier_loss(self,
+                                   prediction: Tensor,
+                                   label: Tensor) -> _Loss:
         """
         Define in this function how the loss of the Diagnostic Classifier's prediction w.r.t to the loss is calculated.
         Should return a subclass of PyTorch's _Loss object like NLLLoss or CrossEntropyLoss.
@@ -88,10 +94,7 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
 
         dc = self.select_diagnostic_classifier(inp, prev_activations, **additional)
         weights, bias = self.diagnostic_classifier_to_vars(dc)
-        label = additional["label"]
-
-        # Create binary mask to determine for which activations in batch the intervention should be done
-        mask = self.dc_trigger_func(out, dc, label)
+        label = Tensor(additional["label"], dtype=float)
 
         # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
         current_activations = self._wrap_in_var(out, requires_grad=True)
@@ -99,7 +102,8 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         optimizer = SGD(params, lr=self.step_size)
         optimizer.zero_grad()
 
-        prediction = weights @ current_activations + bias
+        prediction = sigmoid(weights @ current_activations + bias)
+        mask = self.dc_trigger_func(out, prediction, label)
         loss = self.diagnostic_classifier_loss(prediction, label)
         loss.backward()
 
@@ -126,4 +130,38 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
     [2] https://arxiv.org/abs/1803.11138
     [3] https://www.jair.org/index.php/jair/article/view/11196/26408
     """
-    ...
+    @overrides
+    def select_diagnostic_classifier(self,
+                                     inp: str,
+                                     prev_activations: FullActivationDict,
+                                     **additional: Dict):
+
+        return self.diagnostic_classifiers[None]  # Just select the default classifier
+
+    @overrides
+    def dc_trigger_func(self,
+                        prev_activations: FullActivationDict,
+                        activations: FullActivationDict,
+                        out: Tensor,
+                        prediction: Tensor,
+                        label: Tensor) -> Tensor:
+        """
+        Trigger an intervention when the binary prediction for the sentence's number is incorrect.
+        """
+        wrong_predictions = torch.abs(prediction - label) >= 0.5
+
+        return wrong_predictions
+
+    @overrides
+    def diagnostic_classifier_loss(self,
+                                   prediction: Tensor,
+                                   label: Tensor) -> _Loss:
+        """
+        Calculate the negative log-likelihood loss between the diagnostic classifiers prediction and the true class
+        label by rephrasing the logistic regression into a 2-class multi-class classification problem.
+        """
+        class_predictions = torch.log(torch.cat((prediction, 1 - prediction)))
+        criterion = NLLLoss()
+        loss = criterion(class_predictions, label)
+
+        return loss
