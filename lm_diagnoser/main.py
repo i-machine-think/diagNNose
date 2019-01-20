@@ -38,9 +38,9 @@ if __name__ == '__main__':
     extractor = Extractor(config)
     extractor.extract()
 
-    # classifier = DiagnosticClassifier(
-    #     config['output_dir'],
-    #     config['activations'],
-    #     650
-    # )
-    # classifier.classify()
+    classifier = DiagnosticClassifier(
+        config['output_dir'],
+        config['activations'],
+        650
+    )
+    classifier.classify()

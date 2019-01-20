@@ -1,0 +1,5 @@
+{
+  "model_file": "hidden650_batch128_dropout0.2_lr20.0.pt",
+  "vocab_file": "vocab.txt",
+  "module_location": "models/gulordava/"
+}

@@ -106,9 +106,10 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         mask = self.dc_trigger_func(out, prediction, label)
         loss = self.diagnostic_classifier_loss(prediction, label)
         loss.backward()
+        gradient = current_activations.grad
 
-        # TODO: Do masking somewhere around here by performing optimizer step manually
-        optimizer.step()
+        # Manual (masked) update step
+        activations += self.step_size * gradient * mask
 
         # Convert back to normal tensor and return
         return Tensor(current_activations, dtype=torch.float), activations
