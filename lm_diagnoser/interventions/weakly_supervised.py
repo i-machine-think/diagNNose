@@ -5,6 +5,7 @@ provide task-relevant information.
 
 from abc import abstractmethod, ABC
 from typing import Dict, Tuple
+import re
 
 import torch
 from torch import Tensor
@@ -35,7 +36,11 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                  step_size: float):
 
         super().__init__(model, trigger_func=self.dc_trigger_func)
-        self.diagnostic_classifiers = diagnostic_classifiers
+        self.diagnostic_classifiers = {
+            re.search('(l\d+)', path).group(0): dc for path, dc in diagnostic_classifiers.items()
+        }
+        self.topmost_layer = sorted(self.diagnostic_classifiers.keys())[-1]
+        self.num_topmost_layer = len(self.diagnostic_classifiers) - 1
         self.step_size = step_size
 
     @abstractmethod
@@ -72,7 +77,7 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
 
     @staticmethod
     def _wrap_in_var(array, requires_grad):
-        return Variable(Tensor(array, dtype=torch.double).squeeze(0), requires_grad=requires_grad)
+        return Variable(torch.tensor(array, dtype=torch.float).squeeze(0), requires_grad=requires_grad)
 
     @abstractmethod
     def diagnostic_classifier_loss(self,
@@ -94,25 +99,29 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
 
         dc = self.select_diagnostic_classifier(inp, prev_activations, **additional)
         weights, bias = self.diagnostic_classifier_to_vars(dc)
-        label = Tensor(additional["label"], dtype=float)
+        label = torch.tensor([additional["label"]], dtype=torch.float)
 
         # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
-        current_activations = self._wrap_in_var(out, requires_grad=True)
+        current_activations = activations[self.num_topmost_layer]["hx"]
+        current_activations = self._wrap_in_var(current_activations, requires_grad=True)
         params = [current_activations]
         optimizer = SGD(params, lr=self.step_size)
         optimizer.zero_grad()
 
-        prediction = sigmoid(weights @ current_activations + bias)
-        mask = self.dc_trigger_func(out, prediction, label)
+        prediction = sigmoid(weights @ current_activations + bias).unsqueeze(0)
+        mask = self.dc_trigger_func(prev_activations, activations, out, prediction, label)
         loss = self.diagnostic_classifier_loss(prediction, label)
         loss.backward()
         gradient = current_activations.grad
 
         # Manual (masked) update step
-        activations += self.step_size * gradient * mask
+        new_activations = current_activations + self.step_size * gradient * mask
+
+        # Repeat decoding step with adjusted activations
+        out: Tensor = self.model.w_decoder @ new_activations + self.model.b_decoder
 
         # Convert back to normal tensor and return
-        return Tensor(current_activations, dtype=torch.float), activations
+        return out, activations
 
 
 class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
@@ -137,7 +146,8 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
                                      prev_activations: FullActivationDict,
                                      **additional: Dict):
 
-        return self.diagnostic_classifiers[None]  # Just select the default classifier
+        # Choose the classifier trained on topmost layer activations
+        return self.diagnostic_classifiers[self.topmost_layer]
 
     @overrides
     def dc_trigger_func(self,
@@ -150,6 +160,7 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
         Trigger an intervention when the binary prediction for the sentence's number is incorrect.
         """
         wrong_predictions = torch.abs(prediction - label) >= 0.5
+        wrong_predictions = wrong_predictions.float()
 
         return wrong_predictions
 
@@ -161,8 +172,8 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
         Calculate the negative log-likelihood loss between the diagnostic classifiers prediction and the true class
         label by rephrasing the logistic regression into a 2-class multi-class classification problem.
         """
-        class_predictions = torch.log(torch.cat((prediction, 1 - prediction)))
+        class_predictions = torch.log(torch.cat((prediction, 1 - prediction))).unsqueeze(0)
         criterion = NLLLoss()
-        loss = criterion(class_predictions, label)
+        loss = criterion(class_predictions, label.long())
 
         return loss
