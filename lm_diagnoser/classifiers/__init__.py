@@ -1,1 +1,1 @@
-from classifiers.diagnostic_classifier import DiagnosticClassifier
+from classifiers.diagnostic_classifier import *

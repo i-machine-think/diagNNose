@@ -26,6 +26,10 @@ class DiagnosticClassifier:
         self.labels = self._read_labels()
         self.data_len = len(self.labels)
 
+    @staticmethod
+    def load(path):
+        return joblib.load(path)
+
     def classify(self) -> None:
         for activation_name in self.activation_names:
             l, name = activation_name
