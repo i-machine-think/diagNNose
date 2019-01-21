@@ -1,5 +1,5 @@
-from typing import Tuple, Dict
-from typedefs.models import FullActivationDict
+from typing import Tuple
+from typedefs import FullActivationDict
 from overrides import overrides
 
 from torch import nn, Tensor

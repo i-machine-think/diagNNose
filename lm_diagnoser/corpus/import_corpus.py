@@ -1,7 +1,7 @@
 import pickle
 from typing import Any, Dict
 
-from typedefs.corpus import LabeledCorpus, LabeledSentence
+from typedefs import LabeledCorpus, LabeledSentence
 
 
 def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:

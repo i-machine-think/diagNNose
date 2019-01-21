@@ -10,7 +10,7 @@ from typing import Callable, Tuple, Dict
 from torch import Tensor
 
 from models import InterventionLSTM
-from typedefs.models import FullActivationDict
+from typedefs import FullActivationDict
 
 
 class InterventionMechanism(ABC):

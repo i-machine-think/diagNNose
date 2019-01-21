@@ -7,6 +7,7 @@ from abc import abstractmethod, ABC
 from typing import Dict, Tuple
 import re
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.autograd import Variable
@@ -18,9 +19,8 @@ from overrides import overrides
 
 from classifiers import DiagnosticClassifier
 from interventions import InterventionMechanism
-from models.forward_lstm import ForwardLSTM
-from typedefs.interventions import DiagnosticClassifierDict
-from typedefs.models import FullActivationDict
+from models import ForwardLSTM
+from typedefs import DiagnosticClassifierDict, FullActivationDict
 
 
 class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
@@ -36,12 +36,15 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                  step_size: float):
 
         super().__init__(model, trigger_func=self.dc_trigger_func)
+        self.step_size = step_size
+
+        # Link diagnostic classifiers to layer they correspond to
         self.diagnostic_classifiers = {
             re.search('(l\d+)', path).group(0): dc for path, dc in diagnostic_classifiers.items()
         }
+        # Apply interventions only to topmost layer
         self.topmost_layer = sorted(self.diagnostic_classifiers.keys())[-1]
         self.num_topmost_layer = len(self.diagnostic_classifiers) - 1
-        self.step_size = step_size
 
     @abstractmethod
     def select_diagnostic_classifier(self,
@@ -66,7 +69,8 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         """
         ...
 
-    def diagnostic_classifier_to_vars(self, diagnostic_classifier: DiagnosticClassifier) -> Tuple[Tensor, Tensor]:
+    def diagnostic_classifier_to_vars(self,
+                                      diagnostic_classifier: DiagnosticClassifier) -> Tuple[Tensor, Tensor]:
         """
         Convert the weights and bias of a Diagnostic Classifier (trained with scikit-learn) into pytorch Variables.
         """
@@ -76,7 +80,11 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         return weights, bias
 
     @staticmethod
-    def _wrap_in_var(array, requires_grad):
+    def _wrap_in_var(array: np.array,
+                     requires_grad: bool) -> Variable:
+        """
+        Wrap a numpy array into a PyTorch Variable.
+        """
         return Variable(torch.tensor(array, dtype=torch.float).squeeze(0), requires_grad=requires_grad)
 
     @abstractmethod
@@ -120,7 +128,6 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         # Repeat decoding step with adjusted activations
         out: Tensor = self.model.w_decoder @ new_activations + self.model.b_decoder
 
-        # Convert back to normal tensor and return
         return out, activations
 
 
