@@ -25,13 +25,25 @@ class Extractor:
     Only activations that are provided in activation_names will be
     stored in a pickle file. Each activation is written to its own file.
 
-    Parameters
+    Arguments
     ----------
-    config_location : str
-        Location to a json dictionary containing the configurations
-        needed for activation extraction. It provides a path to the
-        model configuration and corpus location, as well as (optionally)
-        the location of the initial embeddings.
+    model : str
+        Path to the model to extract activations from
+    vocab: str
+        Path to the vocabulary of the model
+    corpus : str
+        Path to a pickled labeled corpus to extract 
+        activations for
+    activation_names : List[tuple[str, int]]
+        List of (activation_name, layer) tuples
+    output_dir: str, optional
+        Path to output directory to write activations to
+    init_embs: str, optional
+        Path to pickled initial embeddings
+    print_every: int, optional
+        How often to print progress
+    cutoff: int, optional
+        How many sentences of the corpus to extract activations for
 
     Attributes
     ----------
@@ -50,23 +62,31 @@ class Extractor:
     init_embs : FullActivationDict
         initial embeddings that are loaded from file or set to zero.
     """
-    def __init__(self, config: Dict[str, Any]) -> None:
-        self.config = config
+    def __init__(self, model: str, vocab: str, corpus: LabeledCorpus,
+            load_modules: str = '', 
+            activation_names: List[ActivationName] = [('hx', 1), ('cx', 1)],
+            output_dir: str = '',
+            init_embs: str = '',
+            print_every: int = 20,
+            cutoff: int = -1
+            ) -> None:
+        self.config = locals()
         # with open(config_location) as f:
         #     self.config: Dict[str, Any] = json.load(f)
         self._validate_config(self.config)
 
-        self.model: LanguageModel = import_model_from_json(self.config['model'])
-        self.corpus: LabeledCorpus = convert_to_labeled_corpus(self.config['corpus'])
+        self.model: LanguageModel = import_model_from_json(model, vocab, 
+                load_modules)
+        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus)
 
         self.hidden_size: int = self.model.hidden_size
-        self.activation_names: List[ActivationName] = self.config['activations']
+        self.activation_names: List[ActivationName] = activation_names
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
         self.keys_file: Optional[BinaryIO] = None
 
-        self.init_embs: InitEmbs = InitEmbs(config['init_embs'], self.model)
+        self.init_embs: InitEmbs = InitEmbs(init_embs, self.model)
 
     def _validate_config(self, config: Dict[str, Any]) -> None:
         pass
