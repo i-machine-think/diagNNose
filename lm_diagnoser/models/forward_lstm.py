@@ -21,7 +21,7 @@ class ForwardLSTM(LanguageModel):
         print('Loading pretrained model...')
         if module_path[-1] != '/':
             module_path += '/'
-        with open(module_path+vocab_file, 'r') as vf:
+        with open(vocab_file, 'r') as vf:
             vocab_lines = vf.readlines()
 
         self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
@@ -31,7 +31,7 @@ class ForwardLSTM(LanguageModel):
         # Load the pretrained model
         sys.path.append(module_path)
         device = torch.device(device_name)
-        with open(module_path+model_file, 'rb') as mf:
+        with open(model_file, 'rb') as mf:
             model = torch.load(mf, map_location=device)
 
         params = {name: param for name, param in model.named_parameters()}
