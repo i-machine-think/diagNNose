@@ -36,13 +36,13 @@ class Extractor:
         activations for
     activation_names : List[tuple[str, int]]
         List of (activation_name, layer) tuples
-    output_dir: Optional[str]
+    output_dir (optional): str
         Path to output directory to write activations to
-    init_embs: Optional[str]
+    init_embs (optional): str
         Path to pickled initial embeddings
-    print_every: Optional[int]
+    print_every (optional): int
         How often to print progress
-    cutoff: Optional[int]
+    cutoff (optional): int
         How many sentences of the corpus to extract activations for
 
     Attributes

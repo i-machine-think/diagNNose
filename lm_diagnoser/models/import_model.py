@@ -15,7 +15,7 @@ def import_model_from_json(model_file: str, vocab_file: str,
         location of the pickled model file
     vocab_file: str
         location of the vocabulary of the model
-    module_location: Optional[str]
+    module_location (optional): str
         location of modules that should importable
         to load model from file
 
