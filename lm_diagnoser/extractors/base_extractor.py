@@ -36,7 +36,7 @@ class Extractor:
         activations for
     activations : List[tuple[str, int]]
         List of (activation_name, layer) tuples
-    output_dir: optional[str]
+    output_dir: Optional[str]
         Path to output directory to write activations to
     init_embs: Optional[str]
         Path to pickled initial embeddings
