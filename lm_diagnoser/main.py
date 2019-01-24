@@ -33,7 +33,7 @@ if __name__ == '__main__':
     print(config)
 
     # TODO: HOTFIX
-    config['activations'] = [tuple(x) for x in config['activations'] if x[1][0] in 'io']
+    config['activation_names'] = [tuple(x) for x in config['activation_names'] if x[1][0] in 'io']
 
     extractor = Extractor(**config)
     extractor.extract()

@@ -34,7 +34,7 @@ class Extractor:
     corpus : str
         Path to a pickled labeled corpus to extract 
         activations for
-    activations : List[tuple[str, int]]
+    activation_names : List[tuple[str, int]]
         List of (activation_name, layer) tuples
     output_dir: Optional[str]
         Path to output directory to write activations to
@@ -53,7 +53,7 @@ class Extractor:
         corpus containing the labels for each sentence.
     hidden_size : int
         Number of hidden units in model.
-    activation : List[ActivationName]
+    activation_names : List[ActivationName]
         List of activations to be stored.
     activation_files : ActivationFiles
         Dict of files to which activations will be written.
@@ -64,7 +64,7 @@ class Extractor:
     """
     def __init__(self, model: str, vocab: str, corpus: LabeledCorpus,
             load_modules: str = '', 
-            activations: List[ActivationName] = [('hx', 1), ('cx', 1)],
+            activation_names: List[ActivationName] = [('hx', 1), ('cx', 1)],
             output_dir: str = '',
             init_embs: str = '',
             print_every: int = 20,
@@ -80,7 +80,7 @@ class Extractor:
         self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus)
 
         self.hidden_size: int = self.model.hidden_size
-        self.activation_names: List[ActivationName] = activations
+        self.activation_names: List[ActivationName] = activation_names
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
