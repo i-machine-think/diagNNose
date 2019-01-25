@@ -1,0 +1,7 @@
+- pass arguments also from command line for different scripts (update_argparser)
+- change names embeddings
+- implement embeddings
+- train/include toy models
+- readme for all different scripts (put readme's in individual models)
+- change how crop arg is applied
+- allow to give an unlabelled corpus to the extractor
