@@ -8,12 +8,12 @@ import torch
 
 import numpy as np
 
-from corpus.import_corpus import convert_to_labeled_corpus
-from embeddings.initial import InitEmbs
-from models.import_model import import_model_from_json
-from models.language_model import LanguageModel
-from typedefs.corpus import LabeledCorpus, Labels, Sentence
-from typedefs.models import (
+from ..corpus.import_corpus import convert_to_labeled_corpus
+from ..embeddings.initial import InitEmbs
+from ..models.import_model import import_model_from_json
+from ..models.language_model import LanguageModel
+from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
+from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
 
 OUTPUT_EMBS_DIR = './embeddings/data/extracted'

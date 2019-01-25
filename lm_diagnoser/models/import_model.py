@@ -1,7 +1,7 @@
 import json
 
-from models.forward_lstm import ForwardLSTM
-from models.language_model import LanguageModel
+from .forward_lstm import ForwardLSTM
+from .language_model import LanguageModel
 
 
 def import_model_from_json(model_file: str, vocab_file: str,

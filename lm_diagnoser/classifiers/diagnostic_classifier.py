@@ -8,7 +8,7 @@ from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogReg
 from sklearn.metrics import accuracy_score
 
-from typedefs.models import ActivationName
+from ..typedefs.models import ActivationName
 
 OUTPUT_PATH = 'classifiers/trained'
 

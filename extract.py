@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 
-from classifiers.diagnostic_classifier import DiagnosticClassifier
-from extractors.base_extractor import Extractor
+import lm_diagnoser
+from lm_diagnoser.classifiers.diagnostic_classifier import DiagnosticClassifier
+from lm_diagnoser.extractors.base_extractor import Extractor
 
 
 def init_argparser() -> ArgumentParser:
