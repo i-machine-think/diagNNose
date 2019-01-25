@@ -31,12 +31,14 @@ if __name__ == '__main__':
     with open(extraction_setup) as f:
         config = json.load(f)
     print(config)
+    cutoff = config['cutoff']
+    del config['cutoff']
 
     # TODO: HOTFIX
     config['activation_names'] = [tuple(x) for x in config['activation_names'] if x[1][0] in 'io']
 
     extractor = Extractor(**config)
-    extractor.extract()
+    extractor.extract(cutoff)
 
     # classifier = DiagnosticClassifier(
     #     config['output_dir'],

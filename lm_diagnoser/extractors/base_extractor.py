@@ -16,7 +16,7 @@ from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
 
-OUTPUT_EMBS_DIR = './embeddings/data/extracted'
+OUTPUT_EMBS_DIR = './embeddings/data/extracted' # TODO This should prob not be hard-coded?
 
 
 class Extractor:
@@ -25,7 +25,7 @@ class Extractor:
     Only activations that are provided in activation_names will be
     stored in a pickle file. Each activation is written to its own file.
 
-    Arguments
+    Parameters
     ----------
     model : str
         Path to the model to extract activations from
@@ -42,8 +42,6 @@ class Extractor:
         Path to pickled initial embeddings
     print_every: int, optional
         How often to print progress
-    cutoff: int, optional
-        How many sentences of the corpus to extract activations for
 
     Attributes
     ----------
@@ -68,7 +66,6 @@ class Extractor:
             output_dir: str = '',
             init_embs: str = '',
             print_every: int = 20,
-            cutoff: int = -1
             ) -> None:
         self.config = locals()
         # with open(config_location) as f:
@@ -92,20 +89,23 @@ class Extractor:
         pass
 
     # TODO: Allow batch input
-    def extract(self) -> None:
+    def extract(self, cutoff: int=-1) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
         File writing is done directly per sentence, to lessen RAM usage.
 
-        Extraction configurations come from `self.config`.
-        Setting `cutoff` to -1 will extract the entire corpus, otherwise
-        extraction is halted after extracting n sentences.
+        Parameters:
+        -----------
+
+        cutoff: int, optional
+            How many sentences of the corpus to extract activations for
+            Setting this parameter to -1 will extract the entire corpus, 
+            otherwise extraction is halted after extracting n sentences.
         """
         start_time: float = time()
 
         print_every = self.config.get('print_every', 10)
-        cutoff = self.config.get('cutoff', -1)
 
         with ExitStack() as stack:
             self._create_output_files(stack)
