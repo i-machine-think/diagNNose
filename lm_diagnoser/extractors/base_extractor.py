@@ -1,22 +1,17 @@
 import pickle
 from contextlib import ExitStack
 from time import time
-from typing import Any, BinaryIO, Dict, List, Optional
-import json
-
-import torch
+from typing import BinaryIO, List, Optional
 
 import numpy as np
 
-from ..corpus.import_corpus import convert_to_labeled_corpus
-from ..embeddings.initial import InitEmbs
+from ..corpora.import_corpus import convert_to_labeled_corpus
+from ..activations.initial import InitStates
 from ..models.import_model import import_model_from_json
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
-
-OUTPUT_EMBS_DIR = './embeddings/data/extracted' # TODO This should prob not be hard-coded?
 
 
 class Extractor:
@@ -31,17 +26,16 @@ class Extractor:
         Path to the model to extract activations from
     vocab: str
         Path to the vocabulary of the model
+    module_path : str
+        Path to location of model module
     corpus : str
-        Path to a pickled labeled corpus to extract 
-        activations for
-    activation_names : List[tuple[str, int]]
-        List of (activation_name, layer) tuples
+        Path to a pickled labeled corpus to extract activations for
+    activation_names : List[tuple[int, str]]
+        List of (layer, activation_name) tuples
     output_dir: str, optional
         Path to output directory to write activations to
-    init_embs: str, optional
+    init_lstm_states_path: str, optional
         Path to pickled initial embeddings
-    print_every: int, optional
-        How often to print progress
 
     Attributes
     ----------
@@ -49,47 +43,40 @@ class Extractor:
         Language model that inherits from LanguageModel.
     corpus : LabeledCorpus
         corpus containing the labels for each sentence.
-    hidden_size : int
-        Number of hidden units in model.
     activation_names : List[ActivationName]
         List of activations to be stored.
+    output_dir : str
+        Directory to which activations will be written
     activation_files : ActivationFiles
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
         File to which sentence labels will be written.
-    init_embs : FullActivationDict
+    init_lstm_states : FullActivationDict
         initial embeddings that are loaded from file or set to zero.
     """
-    def __init__(self, model: str, vocab: str, corpus: LabeledCorpus,
-            load_modules: str = '', 
-            activation_names: List[ActivationName] = [('hx', 1), ('cx', 1)],
-            output_dir: str = '',
-            init_embs: str = '',
-            print_every: int = 20,
-            ) -> None:
+    def __init__(self,
+                 model: str, vocab: str, module_path: str,
+                 corpus: LabeledCorpus,
+                 activation_names: List[ActivationName],
+                 output_dir: str,
+                 init_lstm_states_path: str = '',
+                 ) -> None:
         self.config = locals()
-        # with open(config_location) as f:
-        #     self.config: Dict[str, Any] = json.load(f)
-        self._validate_config(self.config)
 
-        self.model: LanguageModel = import_model_from_json(model, vocab, 
-                load_modules)
+        self.model: LanguageModel = import_model_from_json(model, vocab, module_path)
         self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus)
 
-        self.hidden_size: int = self.model.hidden_size
         self.activation_names: List[ActivationName] = activation_names
+        self.output_dir = output_dir
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
         self.keys_file: Optional[BinaryIO] = None
 
-        self.init_embs: InitEmbs = InitEmbs(init_embs, self.model)
-
-    def _validate_config(self, config: Dict[str, Any]) -> None:
-        pass
+        self.init_lstm_states: InitStates = InitStates(init_lstm_states_path, self.model)
 
     # TODO: Allow batch input
-    def extract(self, cutoff: int=-1) -> None:
+    def extract(self, cutoff: int = -1, print_every: int = 10) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -104,8 +91,6 @@ class Extractor:
             otherwise extraction is halted after extracting n sentences.
         """
         start_time: float = time()
-
-        print_every = self.config.get('print_every', 10)
 
         with ExitStack() as stack:
             self._create_output_files(stack)
@@ -133,20 +118,18 @@ class Extractor:
 
     def _create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
-        output_path = self.config.get('output_dir', OUTPUT_EMBS_DIR)
-
         self.activation_files = {
             (l, name):
                 stack.enter_context(
-                    open(f'{output_path}/{name}_l{l}.pickle', 'wb')
+                    open(f'{self.output_dir}/{name}_l{l}.pickle', 'wb')
                 )
             for (l, name) in self.activation_names
         }
         self.keys_file = stack.enter_context(
-            open(f'{output_path}/keys.pickle', 'wb')
+            open(f'{self.output_dir}/keys.pickle', 'wb')
         )
         self.label_file = stack.enter_context(
-            open(f'{output_path}/labels.pickle', 'wb')
+            open(f'{self.output_dir}/labels.pickle', 'wb')
         )
 
     def _extract_sentence(self, sentence: Sentence) -> None:
@@ -159,7 +142,7 @@ class Extractor:
         """
         sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
 
-        activations: FullActivationDict = self.init_embs.activations
+        activations: FullActivationDict = self.init_lstm_states.states
 
         for i, token in enumerate(sentence):
             out, activations = self.model(token, activations)
@@ -197,6 +180,6 @@ class Extractor:
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
         """ Initialize dict of Tensors that will be written to file. """
         return {
-            (l, name): np.empty((sen_len, self.hidden_size))
+            (l, name): np.empty((sen_len, self.model.hidden_size))
             for (l, name) in self.activation_names
         }
