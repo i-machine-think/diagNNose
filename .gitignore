@@ -1,11 +1,9 @@
-data/*
 *.pyc
 *.swp
-npi_old
 .idea
-lm_diagnoser/.ipynb_checkpoints
+.ipynb_checkpoints
+test_notebook.ipynb
 lm_diagnoser/.mypy_cache
-lm_diagnoser/test_notebook.ipynb
 lm_data/activations/extracted
 lm_data/classifiers/logreg
 lm_data/corpora/labeled
