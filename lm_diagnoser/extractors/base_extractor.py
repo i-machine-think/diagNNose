@@ -27,7 +27,7 @@ class Extractor:
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
     output_dir: str, optional
-        Path to output directory to write activations to
+        Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
 
