@@ -86,7 +86,7 @@ class ExtractConfig:
         return self._create_config_dict(arg_dict)
 
     @staticmethod
-    def _load_config_from_file(filename: str, arg_dict: ArgDict):
+    def _load_config_from_file(filename: str, arg_dict: ArgDict) -> None:
         print(f'Loading config setup provided in {filename}')
         with open(filename) as f:
             arg_dict.update(json.load(f))

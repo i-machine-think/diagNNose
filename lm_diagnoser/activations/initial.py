@@ -47,7 +47,7 @@ class InitStates:
             assert Path(init_lstm_states_path).is_file(), 'File does not exist'
 
             with open(init_lstm_states_path, 'rb') as f:
-                init_states = pickle.load(f)
+                init_states: FullActivationDict = pickle.load(f)
 
             self.validate_init_states(init_states)
 
