@@ -18,13 +18,13 @@ def init_argparser() -> ArgumentParser:
     from_cmd = parser.add_argument_group('From commandline', 
                                          'Specify experiment setup via commandline arguments')
     from_cmd.add_argument('--model',
-                          help='Location of json file with model setup')
+                          help='Location of model parameters')
     from_cmd.add_argument('--vocab',
                           help='Location of model vocabulary')
     from_cmd.add_argument('--corpus',
                           help='Location of labeled corpus')
-    from_cmd.add_argument('--load_modules',
-                          help='Folder containing modules that should be loaded to load the model')
+    from_cmd.add_argument('--lm_module',
+                          help='Folder containing model module')
     from_cmd.add_argument('--activation_names',
                           help='Activations to be extracted', nargs='*')
     from_cmd.add_argument('--output_dir',
@@ -42,33 +42,39 @@ def init_argparser() -> ArgumentParser:
 
 def load_config():
     parser = init_argparser()
+
     args = parser.parse_args()
-
     arg_dict = vars(args)
-    print(arg_dict)
-    # load arguments from config
-    # TODO: Allow overwriting config json
+
+    init_config = {}
+    required_args = ['model', 'vocab', 'corpus', 'lm_module', 'activation_names', 'output_dir']
+
+    # Load arguments from config
     if args.config:
-        # check if config file is the only argument given
-        assert len([arg for arg in arg_dict if arg_dict[arg] is not None]) == 1, \
-            parser.error("--config file cannot be used in combination with other command line args")
         with open(args.config) as f:
-            config = json.load(f)
+            init_config = json.load(f)
 
-    # specify arguments via commandline
-    else:
-        assert args.model,  parser.error("--model is required")
-        assert args.vocab,  parser.error("--vocab is required")
-        assert args.corpus, parser.error("--corpus is required")
-        assert args.output_dir, parser.error("--output_dir is required")
-        config = arg_dict
-        del arg_dict['config']
+    # Check if required args are provided
+    for arg in required_args:
+        arg_present = arg in init_config.keys() or arg_dict[arg] is not None
+        assert arg_present, parser.error(f'{arg} not provided in config json or as cmd arg')
 
-    config['activation_names'] = [(int(x[-1]), x[0:-1]) for x in config['activation_names']]
+    # Overwrite provided config values with commandline args, or provide all args at once
+    for arg, val in arg_dict.items():
+        if val is not None and arg != 'config':
+            init_config[arg] = val
+            if args.config:
+                print(f'Overwriting {arg} value that was provided in {args.config}')
 
-    pprint(config)
+    # Cast activation names to (layer, name) format
+    for i, name in enumerate(init_config['activation_names']):
+        init_config['activation_names'][i] = int(name[-1]), name[0:-1]
 
-    return config
+    print()
+    pprint(init_config)
+    print()
+
+    return init_config
 
 
 if __name__ == '__main__':
