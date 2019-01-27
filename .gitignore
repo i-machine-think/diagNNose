@@ -3,7 +3,7 @@
 .idea
 .ipynb_checkpoints
 test_notebook.ipynb
-lm_diagnoser/.mypy_cache
+.mypy_cache
 lm_data/activations/extracted
 lm_data/classifiers/logreg
 lm_data/corpora/labeled
