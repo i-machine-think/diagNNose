@@ -4,4 +4,6 @@
 - train/include toy models
 - readme for all different scripts (put readme's in individual models)
 - change how crop arg is applied
+
 - allow to give an unlabelled corpus to the extractor
+-> Related to this: separate saving labels from extractor: create a separate Labeler module
