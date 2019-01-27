@@ -22,8 +22,8 @@ We will shortly update this README with explanations for the different scripts p
 
 ## Requirements
 
-This library runs with Pytorch 1. We refer to the [PyTorch website](http://pytorch.org/) to install the right version for your environment.
-The preferred version of python is >3.6.
+This library runs with Pytorch 1.0. We refer to the [PyTorch website](http://pytorch.org/) to install the right version for your environment.
+The preferred version of python is >=3.7.
 
 To install additional requirements, run:
 
