@@ -1,8 +1,9 @@
 from typing import Tuple
-from ..typedefs.models import FullActivationDict
-from overrides import overrides
 
-from torch import nn, Tensor
+from overrides import overrides
+from torch import Tensor, nn
+
+from ..typedefs.models import FullActivationDict
 
 
 class LanguageModel(nn.Module):
@@ -16,12 +17,19 @@ class LanguageModel(nn.Module):
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
         """
 
-        Args:
-            inp: input token that is mapped to id
-            prev_activations: {layer => {'hx'|'cx' => torch.Tensor}}
+        Parameters
+        ----------
+        inp : str
+            input token that is mapped to id
+        prev_activations : FullActivationDict
+            Dictionary mapping each layer to 'hx' and 'cx' to a tensor:
+            {layer => {'hx'|'cx' => torch.Tensor}}
 
-        Returns:
-            out: Torch Tensor of output distribution of vocabulary
-            activations: Dict of all intermediate activations
+        Returns
+        -------
+        out : torch.Tensor
+            Torch Tensor of output distribution of vocabulary
+        activations : FullActivationDict
+            Dictionary mapping each layer to each activation name to a tensor
         """
         raise NotImplementedError
