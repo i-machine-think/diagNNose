@@ -26,7 +26,7 @@ class Extractor:
         Path to the model to extract activations from
     vocab: str
         Path to the vocabulary of the model
-    module_path : str
+    lm_module : str
         Path to location of model module
     corpus : str
         Path to a pickled labeled corpus to extract activations for
@@ -51,19 +51,19 @@ class Extractor:
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
         File to which sentence labels will be written.
+    keys_file: Optional[BinaryIO]
+        File to which sentence keys will be written.
     init_lstm_states : FullActivationDict
         initial embeddings that are loaded from file or set to zero.
     """
     def __init__(self,
-                 model: str, vocab: str, module_path: str,
+                 model: str, vocab: str, lm_module: str,
                  corpus: LabeledCorpus,
                  activation_names: List[ActivationName],
                  output_dir: str,
                  init_lstm_states_path: str = '',
                  ) -> None:
-        self.config = locals()
-
-        self.model: LanguageModel = import_model_from_json(model, vocab, module_path)
+        self.model: LanguageModel = import_model_from_json(model, vocab, lm_module)
         self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus)
 
         self.activation_names: List[ActivationName] = activation_names
@@ -91,6 +91,7 @@ class Extractor:
             otherwise extraction is halted after extracting n sentences.
         """
         start_time: float = time()
+        print('\nStarting extraction...')
 
         with ExitStack() as stack:
             self._create_output_files(stack)
