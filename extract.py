@@ -15,7 +15,7 @@ def init_argparser() -> ArgumentParser:
                              help='Location of json file containing extraction config.')
 
     # create group to provide info via commandline arguments
-    from_cmd = parser.add_argument_group('From commandline', 
+    from_cmd = parser.add_argument_group('From commandline',
                                          'Specify experiment setup via commandline arguments')
     from_cmd.add_argument('--model',
                           help='Location of model parameters')
@@ -46,44 +46,44 @@ def load_config():
     args = parser.parse_args()
     arg_dict = vars(args)
 
-    init_config = {}
+    config = {}
     required_args = ['model', 'vocab', 'corpus', 'lm_module', 'activation_names', 'output_dir']
 
     # Load arguments from config
     if args.config:
         with open(args.config) as f:
-            init_config = json.load(f)
+            config = json.load(f)
 
     # Check if required args are provided
     for arg in required_args:
-        arg_present = arg in init_config.keys() or arg_dict[arg] is not None
+        arg_present = arg in config.keys() or arg_dict[arg] is not None
         assert arg_present, parser.error(f'{arg} not provided in config json or as cmd arg')
 
     # Overwrite provided config values with commandline args, or provide all args at once
     for arg, val in arg_dict.items():
         if val is not None and arg != 'config':
-            init_config[arg] = val
+            config[arg] = val
             if args.config:
                 print(f'Overwriting {arg} value that was provided in {args.config}')
 
     # Cast activation names to (layer, name) format
-    for i, name in enumerate(init_config['activation_names']):
-        init_config['activation_names'][i] = int(name[-1]), name[0:-1]
+    for i, name in enumerate(config['activation_names']):
+        config['activation_names'][i] = int(name[-1]), name[0:-1]
 
     print()
-    pprint(init_config)
+    pprint(config)
     print()
 
-    return init_config
+    init_args = required_args
+    extract_args = ['cutoff', 'print_every']
+    init_config = {k: v for k, v in config.items() if k in init_args and v is not None}
+    extract_config = {k: v for k, v in config.items() if k in extract_args and v is not None}
+
+    return init_config, extract_config
 
 
 if __name__ == '__main__':
-    config = load_config()
+    init_config, extract_config = load_config()
 
-    cutoff = config['cutoff']
-    print_every = config['print_every']
-    del config['cutoff']
-    del config['print_every']
-
-    extractor = Extractor(**config)
-    extractor.extract(cutoff, print_every)
+    extractor = Extractor(**init_config)
+    extractor.extract(**extract_config)
