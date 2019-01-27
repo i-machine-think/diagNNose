@@ -73,7 +73,7 @@ class ExtractConfig:
         # Load arguments from config
         arg_dict: ArgDict = {}
         if json_provided:
-            arg_dict: ArgDict = self._load_config_from_file(init_arg_dict['config'])
+            self._load_config_from_file(init_arg_dict['config'], arg_dict)
 
         self._validate_config(arg_dict, init_arg_dict)
 
@@ -86,11 +86,10 @@ class ExtractConfig:
         return self._create_config_dict(arg_dict)
 
     @staticmethod
-    def _load_config_from_file(filename: str) -> ArgDict:
+    def _load_config_from_file(filename: str, arg_dict: ArgDict):
         print(f'Loading config setup provided in {filename}')
         with open(filename) as f:
-            arg_dict = json.load(f)
-        return arg_dict
+            arg_dict.update(json.load(f))
 
     def _validate_config(self, arg_dict: ArgDict, init_arg_dict: ArgDict) -> None:
         """ Check if required args are provided """
