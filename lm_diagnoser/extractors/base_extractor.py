@@ -5,8 +5,8 @@ from typing import BinaryIO, List, Optional
 
 import numpy as np
 
-from ..corpora.import_corpus import convert_to_labeled_corpus
 from ..activations.initial import InitStates
+from ..corpora.import_corpus import convert_to_labeled_corpus
 from ..models.import_model import import_model_from_json
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
@@ -58,7 +58,7 @@ class Extractor:
     """
     def __init__(self,
                  model: str, vocab: str, lm_module: str,
-                 corpus: LabeledCorpus,
+                 corpus: str,
                  activation_names: List[ActivationName],
                  output_dir: str,
                  init_lstm_states_path: str = '',
@@ -82,13 +82,14 @@ class Extractor:
         Uses contextlib.ExitStack to write to multiple files at once.
         File writing is done directly per sentence, to lessen RAM usage.
 
-        Parameters:
-        -----------
-
+        Parameters
+        ----------
         cutoff: int, optional
             How many sentences of the corpus to extract activations for
             Setting this parameter to -1 will extract the entire corpus, 
             otherwise extraction is halted after extracting n sentences.
+        print_every: int, optional
+            Print time passed every n sentences, defaults to 10.
         """
         start_time: float = time()
         print('\nStarting extraction...')
