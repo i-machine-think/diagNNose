@@ -1,26 +1,27 @@
-import json
-
 from .forward_lstm import ForwardLSTM
 from .language_model import LanguageModel
 
 
-def import_model_from_json(model_file: str, vocab_file: str,
-        module_location: str = '') -> LanguageModel:
+def import_model_from_json(model: str,
+                           vocab: str,
+                           lm_module: str,
+                           device: str = 'cpu') -> LanguageModel:
     """
     Import a model from a json file.
 
     Arguments
     ----------
-    model_file: str
-        location of the pickled model file
-    vocab_file: str
-        location of the vocabulary of the model
-    module_location: str, optional
-        location of modules that should importable
-        to load model from file
+    model : str
+        Location of the pickled model file
+    vocab : str
+        Location of the vocabulary of the model
+    lm_module : str, optional
+        Location of modules that should imported to load model from file
+    device : str
+        Name of torch device on which model will be run. Defaults to cpu
 
     Returns
     --------
-    A LanguageModel from the given files
+    A LanguageModel created from the given files
     """
-    return ForwardLSTM(model_file, vocab_file, module_location)
+    return ForwardLSTM(model, vocab, lm_module, device)

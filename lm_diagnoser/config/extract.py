@@ -25,7 +25,7 @@ class ExtractConfig:
     """
     def __init__(self) -> None:
         self.required_args: Set[str] = \
-            {'model', 'vocab', 'corpus', 'lm_module', 'activation_names', 'output_dir'}
+            {'model', 'vocab', 'lm_module', 'corpus', 'activation_names', 'output_dir'}
 
         self.parser = self._init_argparser()
         self.config_dict = self._load_config()
@@ -41,6 +41,7 @@ class ExtractConfig:
                                  help='Location of json file containing extraction config.')
 
         # create group to provide info via commandline arguments
+        # Required args are not set to be required here as they can come from --config
         from_cmd = parser.add_argument_group('From commandline',
                                              'Specify experiment setup via commandline arguments')
         from_cmd.add_argument('--model',
@@ -51,6 +52,9 @@ class ExtractConfig:
                               help='Location of labeled corpus')
         from_cmd.add_argument('--lm_module',
                               help='Folder containing model module')
+        from_cmd.add_argument('--device',
+                              help='Torch device name on which model will be run.'
+                                   'Defaults to cpu.')
         from_cmd.add_argument('--activation_names',
                               help='Activations to be extracted', nargs='*')
         from_cmd.add_argument('--output_dir',
@@ -120,13 +124,18 @@ class ExtractConfig:
         pprint(arg_dict)
         print()
 
-    def _create_config_dict(self, arg_dict: ArgDict) -> ConfigDict:
+    @staticmethod
+    def _create_config_dict(arg_dict: ArgDict) -> ConfigDict:
         provided_args = arg_dict.keys()
-        init_args = self.required_args
+        model_args = {'model', 'vocab', 'lm_module', 'device'}
+        corpus_args = {'corpus'}
+        init_extract_args = {'activation_names', 'output_dir', 'init_lstm_states_path'}
         extract_args = {'cutoff', 'print_every'}
 
         config_dict = {
-            'init': {k: arg_dict[k] for k in init_args & provided_args},
+            'model': {k: arg_dict[k] for k in model_args & provided_args},
+            'corpus': {k: arg_dict[k] for k in corpus_args & provided_args},
+            'init_extract': {k: arg_dict[k] for k in init_extract_args & provided_args},
             'extract': {k: arg_dict[k] for k, v in extract_args & provided_args},
         }
 

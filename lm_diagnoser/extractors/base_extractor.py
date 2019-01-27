@@ -6,8 +6,6 @@ from typing import BinaryIO, List, Optional
 import numpy as np
 
 from ..activations.initial import InitStates
-from ..corpora.import_corpus import convert_to_labeled_corpus
-from ..models.import_model import import_model_from_json
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
@@ -22,14 +20,10 @@ class Extractor:
 
     Parameters
     ----------
-    model : str
-        Path to the model to extract activations from
-    vocab: str
-        Path to the vocabulary of the model
-    lm_module : str
-        Path to location of model module
-    corpus : str
-        Path to a pickled labeled corpus to extract activations for
+    model : LanguageModel
+        Language model that inherits from LanguageModel.
+    corpus : LabeledCorpus
+        Corpus containing the labels for each sentence.
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
     output_dir: str, optional
@@ -42,7 +36,7 @@ class Extractor:
     model : LanguageModel
         Language model that inherits from LanguageModel.
     corpus : LabeledCorpus
-        corpus containing the labels for each sentence.
+        Corpus containing the labels for each sentence.
     activation_names : List[ActivationName]
         List of activations to be stored.
     output_dir : str
@@ -54,17 +48,17 @@ class Extractor:
     keys_file: Optional[BinaryIO]
         File to which sentence keys will be written.
     init_lstm_states : FullActivationDict
-        initial embeddings that are loaded from file or set to zero.
+        Initial embeddings that are loaded from file or set to zero.
     """
     def __init__(self,
-                 model: str, vocab: str, lm_module: str,
-                 corpus: str,
+                 model: LanguageModel,
+                 corpus: LabeledCorpus,
                  activation_names: List[ActivationName],
                  output_dir: str,
                  init_lstm_states_path: str = '',
                  ) -> None:
-        self.model: LanguageModel = import_model_from_json(model, vocab, lm_module)
-        self.corpus: LabeledCorpus = convert_to_labeled_corpus(corpus)
+        self.model = model
+        self.corpus = corpus
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = output_dir

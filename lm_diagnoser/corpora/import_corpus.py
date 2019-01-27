@@ -4,10 +4,10 @@ from typing import Any, Dict
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence
 
 
-def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
+def convert_to_labeled_corpus(corpus: str) -> LabeledCorpus:
     labeled_corpus = {}
 
-    with open(corpus_path, 'rb') as f:
+    with open(corpus, 'rb') as f:
         corpus: Dict[int, Dict[str, Any]] = pickle.load(f)
 
     for key, item in corpus.items():
