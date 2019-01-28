@@ -45,7 +45,7 @@ def main():
 
 def replicate_gulordava(model: InterventionLSTM,
                         corpora: Tuple[LabeledCorpus, LabeledCorpus],
-                        init_embs: InitEmbs) -> float:
+                        init_embs: InitEmbs) -> None:
     """
     Replicate the Language Model number prediction accuracy experiment from [1]. In this experiment, a language model
     is facing a sentence in which the main verb is presented in its singular and plural form, one of which is
@@ -54,7 +54,9 @@ def replicate_gulordava(model: InterventionLSTM,
 
     [1] https://arxiv.org/pdf/1803.11138.pdf
     """
-    def _get_number_prediction_accuracy(model, corpus, init_embs):
+    def _get_number_prediction_accuracy(model: InterventionLSTM,
+                                        corpus: LabeledCorpus,
+                                        init_embs: InitEmbs) -> float:
         correct_predictions = 0
 
         for i, (sentence_id, labelled_sentence) in enumerate(corpus.items()):
