@@ -66,6 +66,7 @@ class Extractor:
         self.label_file: Optional[BinaryIO] = None
 
         self.init_lstm_states: InitStates = InitStates(init_lstm_states_path, self.model)
+        self.cur_time = time()
         self.num_extracted = 0
         self.n_sens = 0
 
@@ -86,21 +87,19 @@ class Extractor:
             Print time passed every n sentences, defaults to 10.
         """
         start_time: float = time()
-        cur_time: float = start_time
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
             self._create_output_files(stack)
 
             for labeled_sentence in self.corpus.values():
-                if self.n_sens % print_every == 0 and self.n_sens > 0:
-                    self._print_time_info(start_time, cur_time, print_every)
-
                 self._extract_sentence(labeled_sentence.sen)
 
                 self.num_extracted += len(labeled_sentence.sen)
                 self.n_sens += 1
 
+                if self.n_sens % print_every == 0 and self.n_sens > 0:
+                    self._print_time_info(start_time, print_every)
                 if cutoff == self.n_sens:
                     break
 
@@ -125,13 +124,13 @@ class Extractor:
             open(f'{self.output_dir}/labels.pickle', 'wb')
         )
 
-    def _print_time_info(self, start_time: float, cur_time: float, print_every: int) -> None:
-        speed = (time() - cur_time) / print_every
-        cur_time = time()
-        time_passed = cur_time - start_time
+    def _print_time_info(self, start_time: float, print_every: int) -> None:
+        speed = (time() - self.cur_time) / print_every
+        self.cur_time = time()
+        duration = self.cur_time - start_time
         print(f'#sens: {self.n_sens}\t'
-              f'Time passed:{time_passed:.1f}s\t'
-              f'Speed:{speed:.1f}s/sen')
+              f'Time: {duration:.1f}s\t'
+              f'Speed: {speed:.2f}s/sen')
 
     def _extract_sentence(self, sentence: Sentence) -> None:
         """ Generates the embeddings of a sentence and writes to file.
