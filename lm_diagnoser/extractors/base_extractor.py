@@ -165,17 +165,14 @@ class Extractor:
         for l, name in self.activation_names:
             pickle.dump(activations[(l, name)], self.activation_files[(l, name)])
 
-    def _dump_static_info(self, n_sens: int, num_extracted: int) -> None:
-        assert self.keys_file is not None
+    def _dump_static_info(self) -> None:
         assert self.label_file is not None
 
-        keys: List[int] = list(self.corpus.keys())[:n_sens]
         labels: Labels = np.array([label
                                    for sen in self.corpus.values()
                                    for label in sen.labels
-                                   ][:num_extracted])
+                                   ][:self.num_extracted])
 
-        pickle.dump(keys, self.keys_file)
         pickle.dump(labels, self.label_file)
 
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
