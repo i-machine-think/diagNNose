@@ -204,8 +204,9 @@ class SubjectLanguageModelInterventionMechanism(LanguageModelInterventionMechani
         Trigger an intervention when the binary prediction for the sentence's number is incorrect.
         """
         label = additional["label"]
-        is_subject_pos = additional["is_subject_pos"]
-        wrong_predictions = torch.abs(prediction - label) >= 0.5 * (0 if not is_subject_pos else 1)
-        wrong_predictions = wrong_predictions.float()
+        is_subject_pos = additional["is_subj_pos"]
+        mask = 0 if not is_subject_pos else 1
+        wrong_predictions = torch.abs(prediction - label) >= 0.5
+        wrong_predictions = wrong_predictions.float() * mask
 
         return wrong_predictions
