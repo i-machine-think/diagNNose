@@ -1,0 +1,19 @@
+Dieuwke:
+- implement embedding analysis
+
+Jaap:
+- allow to give an unlabelled corpus to the extractor
+-> Related to this: separate saving labels from extractor: create a separate Labeler module
+- Looking into points #2,3,4 raised by Dennis
+- Keep track of various todo's shattered around in the repo
+- Add functionality for creating init states
+- Add more classifiers + allow config for classifiers
+- Add more diagnostic classifier _diagnostics_
+- Allow class balancing as data preproc step (or classifier setup)
+
+Dennis:
+- Merge his stuff into current master and provide feedback whether Jaap's makes any sense at all :)
+
+Undefined/Anyone:
+- train/include toy models
+- readme for all different scripts (put readme's in individual models)

@@ -8,6 +8,7 @@ from typing import Dict, Tuple
 import re
 
 import numpy as np
+from sklearn.linear_model import LogisticRegressionCV as LogReg
 import torch
 from torch import Tensor
 from torch.autograd import Variable
@@ -17,11 +18,10 @@ from torch.nn.functional import sigmoid
 from torch.optim import SGD
 from overrides import overrides
 
-from classifiers.diagnostic_classifier import DiagnosticClassifier
-from interventions.mechanism import InterventionMechanism
-from models.forward_lstm import ForwardLSTM
-from typedefs.interventions import DiagnosticClassifierDict
-from typedefs.models import FullActivationDict
+from ..interventions.mechanism import InterventionMechanism
+from ..models.forward_lstm import ForwardLSTM
+from ..typedefs.interventions import DiagnosticClassifierDict
+from ..typedefs.models import FullActivationDict
 
 
 class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
@@ -109,13 +109,13 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         ...
 
     def diagnostic_classifier_to_vars(self,
-                                      diagnostic_classifier: DiagnosticClassifier) -> Tuple[Tensor, Tensor]:
+                                      diagnostic_classifier: LogReg) -> Tuple[Tensor, Tensor]:
         """
         Convert the weights and bias of a Diagnostic Classifier (trained with scikit-learn) into PyTorch Variables.
 
         Parameters
         ----------
-        diagnostic_classifier: DiagnosticClassifier
+        diagnostic_classifier: LogisticRegressionCV
             Diagnostic classifier trained with scikit-learn on RNN activations.
 
         Returns
@@ -254,7 +254,7 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
 
         Returns
         -------
-        diagnostic classifier: DiagnosticClassifier
+        diagnostic classifier: LogisticRegressionCV
             Selected diagnostic classifier.
         """
         # Choose the classifier trained on topmost layer activations

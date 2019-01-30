@@ -1,5 +1,8 @@
-from typing import Dict, Tuple
+from typing import Any, Dict
 
-from torch import Tensor
+import numpy as np
 
-DataDict = Dict[str, Tuple[Tensor, Tensor]]
+from .models import ActivationName
+
+DataDict = Dict[str, np.ndarray]
+ResultsDict = Dict[ActivationName, Dict[str, Any]]

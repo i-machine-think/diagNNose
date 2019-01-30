@@ -1,8 +1,9 @@
-data/*
 *.pyc
 *.swp
-npi_old
 .idea
+.ipynb_checkpoints
+.mypy_cache
+test_notebook.ipynb
 */.DS_Store
 lm_diagnoser/models/gulordava/*.pt
 lm_diagnoser/embeddings/data/extracted/*/*.pickle

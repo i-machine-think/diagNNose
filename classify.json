@@ -1,0 +1,7 @@
+{
+    "activations_dir": "lm_data/activations/extracted/gulordava0",
+    "activation_names": ["emb0", "hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
+    "output_dir": "lm_data/classifiers/logreg",
+    "classifier_type": "logreg",
+    "train_subset_size": 100
+}
