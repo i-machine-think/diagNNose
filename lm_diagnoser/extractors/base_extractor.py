@@ -121,12 +121,17 @@ class Extractor:
                 )
             for (l, name) in self.activation_names
         }
-        self.keys_file = stack.enter_context(
-            open(f'{self.output_dir}/keys.pickle', 'wb')
-        )
         self.label_file = stack.enter_context(
             open(f'{self.output_dir}/labels.pickle', 'wb')
         )
+
+    def _print_time_info(self, start_time: float, cur_time: float, print_every: int) -> None:
+        speed = (time() - cur_time) / print_every
+        cur_time = time()
+        time_passed = cur_time - start_time
+        print(f'#sens: {self.n_sens}\t'
+              f'Time passed:{time_passed:.1f}s\t'
+              f'Speed:{speed:.1f}s/sen')
 
     def _extract_sentence(self, sentence: Sentence) -> None:
         """ Generates the embeddings of a sentence and writes to file.
