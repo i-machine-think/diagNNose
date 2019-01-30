@@ -11,8 +11,8 @@ from .language_model import LanguageModel
 
 class ForwardLSTM(LanguageModel):
     def __init__(self,
-                 model_file: str,
-                 vocab_file: str,
+                 model_path: str,
+                 vocab_path: str,
                  module_path: str,
                  device_name: str = 'cpu') -> None:
 
@@ -21,7 +21,7 @@ class ForwardLSTM(LanguageModel):
         print('Loading pretrained model...')
         if module_path[-1] != '/':
             module_path += '/'
-        with open(vocab_file, 'r') as vf:
+        with open(vocab_path, 'r') as vf:
             vocab_lines = vf.readlines()
 
         self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
@@ -31,7 +31,7 @@ class ForwardLSTM(LanguageModel):
         # Load the pretrained model
         sys.path.append(module_path)
         device = torch.device(device_name)
-        with open(model_file, 'rb') as mf:
+        with open(model_path, 'rb') as mf:
             model = torch.load(mf, map_location=device)
 
         params = {name: param for name, param in model.named_parameters()}
@@ -104,28 +104,31 @@ class ForwardLSTM(LanguageModel):
         # hidden state
         hx: Tensor = o_g * torch.tanh(cx)
 
-        return {'hx': hx, 'cx': cx, 'f_g': f_g, 'i_g': i_g, 'o_g': o_g, 'c_tilde_g': c_tilde_g}
+        return {
+            'emb': inp,
+            'hx': hx, 'cx': cx,
+            'f_g': f_g, 'i_g': i_g, 'o_g': o_g, 'c_tilde_g': c_tilde_g
+        }
 
     @overrides
     def forward(self,
-                inp: str,
+                token: str,
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
-        # TODO: Add these embeddings to the activations dict as well
-        if inp in self.w2i:
-            inp = self.encoder[self.w2i[inp]]
+        if token in self.w2i:
+            input_ = self.encoder[self.w2i[token]]
         else:
-            inp = self.encoder[self.unk_idx]
+            input_ = self.encoder[self.unk_idx]
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
         for l in range(self.num_layers):
             prev_hx = prev_activations[l]['hx']
             prev_cx = prev_activations[l]['cx']
-            activations[l] = self.forward_step(l, inp, prev_hx, prev_cx)
-            inp = activations[l]['hx']
+            activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
+            input_ = activations[l]['hx']
 
-        out: Tensor = self.w_decoder @ inp + self.b_decoder
+        out: Tensor = self.w_decoder @ input_ + self.b_decoder
 
         return out, activations
