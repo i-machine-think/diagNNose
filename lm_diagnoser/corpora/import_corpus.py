@@ -1,16 +1,15 @@
-import pickle
 from typing import Any, Dict
 
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence
+from ..utils.paths import load_pickle
 
 
-def convert_to_labeled_corpus(corpus: str) -> LabeledCorpus:
+def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
     labeled_corpus = {}
 
-    with open(corpus, 'rb') as f:
-        corpus: Dict[int, Dict[str, Any]] = pickle.load(f)
+    init_corpus: Dict[int, Dict[str, Any]] = load_pickle(corpus_path)
 
-    for key, item in corpus.items():
+    for key, item in init_corpus.items():
         assert 'sen' in item.keys() and 'labels' in item.keys(), 'Corpus item has wrong format.'
 
         sen = item['sen']

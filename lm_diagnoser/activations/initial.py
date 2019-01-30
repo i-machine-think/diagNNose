@@ -1,10 +1,8 @@
-import pickle
-from pathlib import Path
-
 import torch
 
 from ..typedefs.models import FullActivationDict
 from ..models.language_model import LanguageModel
+from ..utils.paths import load_pickle
 
 
 class InitStates:
@@ -44,10 +42,7 @@ class InitStates:
             FullActivationDict containing init embeddings for each layer.
         """
         if init_lstm_states_path:
-            assert Path(init_lstm_states_path).is_file(), 'File does not exist'
-
-            with open(init_lstm_states_path, 'rb') as f:
-                init_states: FullActivationDict = pickle.load(f)
+            init_states: FullActivationDict = load_pickle(init_lstm_states_path)
 
             self.validate_init_states(init_states)
 

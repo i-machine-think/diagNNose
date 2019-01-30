@@ -10,6 +10,7 @@ from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
+from ..utils.paths import trim
 
 
 class Extractor:
