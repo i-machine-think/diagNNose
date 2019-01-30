@@ -1,7 +1,7 @@
 import pickle
 from collections import defaultdict
 from time import time
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 from sklearn.externals import joblib
@@ -19,14 +19,13 @@ class DiagnosticClassifier:
                  activation_names: List[ActivationName],
                  output_dir: str,
                  classifier: str,
-                 labels: str = 'labels.pickle',
-                 keys: str = 'keys.pickle') -> None:
+                 label_path: Optional[str] = None) -> None:
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = output_dir
         self.classifier = classifier
 
-        self.activations_reader = ActivationsReader(activations_dir, labels, keys)
+        self.activations_reader = ActivationsReader(activations_dir, label_path)
         self.model: Any = None
         self.results: ResultsDict = defaultdict(dict)
 
@@ -95,5 +94,3 @@ class DiagnosticClassifier:
 
         with open(f'{self.output_dir}/log.pickle', 'wb') as file:
             pickle.dump(log, file)
-
-
