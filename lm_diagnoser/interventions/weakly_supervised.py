@@ -30,6 +30,22 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
 
     [1] https://www.jair.org/index.php/jair/article/view/11196/26408
     [2] https://arxiv.org/abs/1808.08079
+
+    Parameters
+    ----------
+    model: InterventionLSTM
+        Model to which the mechanism is being applied to.
+
+    Attributes
+    ----------
+    step_size: float
+        Step size of the adjustment of the activations.
+    diagnostic_classifiers: dict
+        Dictionary of path to diagnostic classifiers to their respective diagnostic classifiers objects.
+    topmost_layer: str
+        Name of the topmost RNN layer.
+    num_topmost_layer: int
+        Number of the topmost RNN layer.
     """
     def __init__(self,
                  model: ForwardLSTM,
@@ -54,6 +70,15 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                                      **additional: dict):
         """
         Select the appropriate Diagnostic Classifier based on data used in current forward pass.
+
+        Parameters
+        ----------
+        inp: str
+            Current input token.
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
         """
         ...
 
@@ -67,13 +92,38 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         """
         Use a Diagnostic Classifier to determine for which batch instances to trigger an intervention.
         Returns a binary mask with 1 corresponding to an impending intervention.
+
+        Parameters
+        ----------
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        out: Tensor
+            Output Tensor of current time step.
+        prediction: Tensor
+            Prediction of the diagnostic classifier based on the current time step's activations.
+        activations: FullActivationDict
+            Activations of current time step,
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
         """
         ...
 
     def diagnostic_classifier_to_vars(self,
                                       diagnostic_classifier: DiagnosticClassifier) -> Tuple[Tensor, Tensor]:
         """
-        Convert the weights and bias of a Diagnostic Classifier (trained with scikit-learn) into pytorch Variables.
+        Convert the weights and bias of a Diagnostic Classifier (trained with scikit-learn) into PyTorch Variables.
+
+        Parameters
+        ----------
+        diagnostic_classifier: DiagnosticClassifier
+            Diagnostic classifier trained with scikit-learn on RNN activations.
+
+        Returns
+        -------
+        weights: Variable
+            Diagnostic classifier weights as PyTorch variable.
+        bias: Variable
+            Diagnostic classifier bias. as PyTorch variable.
         """
         weights = self._wrap_in_var(diagnostic_classifier.coef_, requires_grad=False)
         bias = self._wrap_in_var(diagnostic_classifier.intercept_, requires_grad=False)
@@ -85,6 +135,13 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                      requires_grad: bool) -> Variable:
         """
         Wrap a numpy array into a PyTorch Variable.
+
+        Parameters
+        ----------
+        array: np.array
+            Numpy array to be converted to a PyTorch Variable.
+        requires_grad: bool
+            Whether the variable requires the calculation of its gradients.
         """
         return Variable(torch.tensor(array, dtype=torch.float).squeeze(0), requires_grad=requires_grad)
 
@@ -95,6 +152,13 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         """
         Define in this function how the loss of the Diagnostic Classifier's prediction w.r.t to the loss is calculated.
         Should return a subclass of PyTorch's _Loss object like NLLLoss or CrossEntropyLoss.
+
+        Parameters
+        ----------
+        prediction: Tensor
+            Prediction of the diagnostic classifier based on the current time step's activations.
+        label: Tensor
+            Actual label to compare the prediction to.
         """
         ...
 
@@ -105,6 +169,29 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                           out: Tensor,
                           activations: FullActivationDict,
                           **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
+        """
+        Conduct an intervention based on weak supervision signal.
+
+        Parameters
+        ----------
+        inp: str
+            Current input token.
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        out: Tensor
+            Output Tensor of current time step.
+        activations: FullActivationDict
+            Activations of current time step.
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
+
+        Returns
+        -------
+        out: Tensor
+            Re-decoded output Tensor of current time step.
+        activations: FullActivationDict
+            Activations of current time step after interventions.
+        """
 
         dc = self.select_diagnostic_classifier(inp, prev_activations, **additional)
         weights, bias = self.diagnostic_classifier_to_vars(dc)
@@ -153,7 +240,23 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
                                      inp: str,
                                      prev_activations: FullActivationDict,
                                      **additional: Dict):
+        """
+        Select the diagnostic classifier trained on the activations of the topmost layer.
 
+        Parameters
+        ----------
+        inp: str
+            Current input token.
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
+
+        Returns
+        -------
+        diagnostic classifier: DiagnosticClassifier
+            Selected diagnostic classifier.
+        """
         # Choose the classifier trained on topmost layer activations
         return self.diagnostic_classifiers[self.topmost_layer]
 
@@ -166,6 +269,22 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
                         **additional: dict) -> Tensor:
         """
         Trigger an intervention when the binary prediction for the sentence's number is incorrect.
+
+        Parameters
+        ----------
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        out: Tensor
+            Output Tensor of current time step.
+        activations: FullActivationDict
+            Activations of current time step.
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
+
+        Returns
+        -------
+        wrong_predictions: Tensor
+            Binary mask indicating for which batch instances an intervention should be conducted.
         """
         label = additional["label"]
         wrong_predictions = torch.abs(prediction - label) >= 0.5
@@ -180,6 +299,18 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
         """
         Calculate the negative log-likelihood loss between the diagnostic classifiers prediction and the true class
         label by rephrasing the logistic regression into a 2-class multi-class classification problem.
+
+        Parameters
+        ----------
+        prediction: Tensor
+            Prediction of the diagnostic classifier based on the current time step's activations.
+        label: Tensor
+            Actual label to compare the prediction to.
+
+        Returns
+        -------
+        loss: _Loss
+            PyTorch loss between prediction and label.
         """
         class_predictions = torch.log(torch.cat((prediction, 1 - prediction))).unsqueeze(0)
         criterion = NLLLoss()
@@ -201,7 +332,24 @@ class SubjectLanguageModelInterventionMechanism(LanguageModelInterventionMechani
                         prediction: Tensor,
                         **additional: dict) -> Tensor:
         """
-        Trigger an intervention when the binary prediction for the sentence's number is incorrect.
+        Trigger an intervention when the binary prediction for the sentence's number is incorrect, but only if it's also
+        the time step corresponding to the sentence's subject.
+
+        Parameters
+        ----------
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        out: Tensor
+            Output Tensor of current time step.
+        activations: FullActivationDict
+            Activations of current time step.
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
+
+        Returns
+        -------
+        wrong_predictions: Tensor
+            Binary mask indicating for which batch instances an intervention should be conducted.
         """
         label = additional["label"]
         is_subject_pos = additional["is_subj_pos"]

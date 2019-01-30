@@ -21,6 +21,14 @@ class InterventionMechanism(ABC):
     Example usage:
     >> mechanism = InterventionMechanism(model, ...)
     >> model = mechanism.apply()
+
+    Parameters
+    ----------
+    model: InterventionLSTM
+        Model to which the mechanism is being applied to.
+    trigger_func: Callable
+        Function that triggers an intervention, either by returning a mask or a step size.
+
     """
     def __init__(self,
                  model: InterventionLSTM,
@@ -32,6 +40,16 @@ class InterventionMechanism(ABC):
                  forward_func: Callable) -> Callable:
         """
         Wrap the intervention function about the models forward function and return the decorated function.
+
+        Parameters
+        ----------
+        forward_func: Callable
+            Forward function of the model the mechanism is applied to.
+
+        Returns
+        -------
+        wrapped: Callable:
+            Decorated forward function.
         """
         @wraps(forward_func)
         def wrapped(inp: str,
@@ -47,6 +65,11 @@ class InterventionMechanism(ABC):
     def apply(self) -> InterventionLSTM:
         """
         Return an instance of the model where the intervention function decorates the model's forward function.
+
+        Returns
+        -------
+        model : InterventionLSTM
+            Model with intervention mechanism applied to it.
         """
         self.model.forward = self(self.model.forward)  # Decorate forward function
         return self.model
@@ -60,6 +83,19 @@ class InterventionMechanism(ABC):
                           **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
         """
         Define the intervention logic here.
+
+        Parameters
+        ----------
+        inp: str
+            Current input token.
+        prev_activations: FullActivationDict
+            Activations of the previous time step.
+        out: Tensor
+            Output Tensor of current time step.
+        activations: FullActivationDict
+            Activations of current time step,
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
         """
         # Use self.trigger_func on input arguments here to determine when to trigger an intervention
         # Afterwards match the return signature of the original model forward() function

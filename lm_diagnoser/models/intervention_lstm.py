@@ -17,7 +17,24 @@ class InterventionLSTM(ForwardLSTM):
                 inp: str,
                 prev_activations: FullActivationDict,
                 **additional: Dict):
+        """
+        Parameters
+        ----------
+        inp : str
+            input token that is mapped to id
+        prev_activations : FullActivationDict
+            Dictionary mapping each layer to 'hx' and 'cx' to a tensor:
+            {layer => {'hx'|'cx' => torch.Tensor}}
+        additional: dict
+            Dictionary of additional information delivered via keyword arguments.
 
+        Returns
+        -------
+        out : torch.Tensor
+            Torch Tensor of output distribution of vocabulary
+        activations : FullActivationDict
+            Dictionary mapping each layer to each activation name to a tensor
+        """
         # **additional is not used here but can be accessed by InterventionMechanism through a function decorator.
         # See interventions.mechanism.InterventionMechanism.__call__
         return super().forward(inp, prev_activations)
