@@ -2,6 +2,8 @@ import pickle
 from contextlib import ExitStack
 from time import time
 from typing import BinaryIO, List, Optional
+import os
+import warnings
 
 import numpy as np
 
@@ -113,6 +115,8 @@ class Extractor:
 
     def _create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
+        # check if output directory is empty
+        if os.listdir(self.output_dir): warnings.warn("Output directory %s is not empty" % self.output_dir)
         self.activation_files = {
             (l, name):
                 stack.enter_context(
