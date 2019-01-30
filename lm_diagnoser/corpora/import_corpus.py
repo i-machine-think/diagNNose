@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence
 from ..utils.paths import load_pickle
