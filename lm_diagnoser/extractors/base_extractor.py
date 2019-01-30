@@ -35,21 +35,19 @@ class Extractor:
     Attributes
     ----------
     model : LanguageModel
-        Language model that inherits from LanguageModel.
     corpus : LabeledCorpus
-        Corpus containing the labels for each sentence.
-    activation_names : List[ActivationName]
-        List of activations to be stored.
-    output_dir : str
-        Directory to which activations will be written
+    activation_names : List[tuple[int, str]]
+    output_dir: str, optional
     activation_files : ActivationFiles
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
         File to which sentence labels will be written.
-    keys_file: Optional[BinaryIO]
-        File to which sentence keys will be written.
     init_lstm_states : FullActivationDict
         Initial embeddings that are loaded from file or set to zero.
+    num_extracted : int
+        Current amount of extracted activations, incremented once per w.
+    n_sens : int
+        Current amount of extracted sentences.
     """
     def __init__(self,
                  model: LanguageModel,
@@ -62,13 +60,14 @@ class Extractor:
         self.corpus = corpus
 
         self.activation_names: List[ActivationName] = activation_names
-        self.output_dir = output_dir
+        self.output_dir = trim(output_dir)
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
-        self.keys_file: Optional[BinaryIO] = None
 
         self.init_lstm_states: InitStates = InitStates(init_lstm_states_path, self.model)
+        self.num_extracted = 0
+        self.n_sens = 0
 
     # TODO: Allow batch input
     def extract(self, cutoff: int = -1, print_every: int = 10) -> None:
@@ -87,30 +86,30 @@ class Extractor:
             Print time passed every n sentences, defaults to 10.
         """
         start_time: float = time()
+        cur_time: float = start_time
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
             self._create_output_files(stack)
 
-            n_sens = 0
-            num_extracted = 0
-
             for labeled_sentence in self.corpus.values():
-                if n_sens % print_every == 0 and n_sens > 0:
-                    print(f'{n_sens}\t{time() - start_time:.2f}s')
+                if self.n_sens % print_every == 0 and self.n_sens > 0:
+                    self._print_time_info(start_time, cur_time, print_every)
 
                 self._extract_sentence(labeled_sentence.sen)
 
-                num_extracted += len(labeled_sentence.sen)
-                n_sens += 1
+                self.num_extracted += len(labeled_sentence.sen)
+                self.n_sens += 1
 
-                if cutoff == n_sens:
+                if cutoff == self.n_sens:
                     break
 
-            self._dump_static_info(n_sens, num_extracted)
+            # TODO: Move this to separate Labeler class
+            self._dump_static_info()
 
         print(f'\nExtraction finished.')
-        print(f'{n_sens} sentences have been extracted, yielding {num_extracted} data points.')
+        print(f'{self.n_sens} sentences have been extracted, '
+              f'yielding {self.num_extracted} data points.')
         print(f'Total time took {time() - start_time:.2f}s')
 
     def _create_output_files(self, stack: ExitStack) -> None:
