@@ -5,7 +5,7 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from typedefs import ActivationLayer, FullActivationDict, ParameterDict
+from typedefs.models import ActivationLayer, FullActivationDict, ParameterDict
 from models.language_model import LanguageModel
 
 

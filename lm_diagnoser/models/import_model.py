@@ -1,6 +1,6 @@
 import json
 
-from models import ForwardLSTM, LanguageModel
+from models.forward_lstm import ForwardLSTM, LanguageModel
 
 
 def import_model_from_json(model_dir: str, model_class: ForwardLSTM=ForwardLSTM) -> LanguageModel:

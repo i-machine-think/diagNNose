@@ -17,10 +17,11 @@ from torch.nn.functional import sigmoid
 from torch.optim import SGD
 from overrides import overrides
 
-from classifiers import DiagnosticClassifier
-from interventions import InterventionMechanism
-from models import ForwardLSTM
-from typedefs import DiagnosticClassifierDict, FullActivationDict
+from classifiers.diagnostic_classifier import DiagnosticClassifier
+from interventions.mechanism import InterventionMechanism
+from models.forward_lstm import ForwardLSTM
+from typedefs.interventions import DiagnosticClassifierDict
+from typedefs.models import FullActivationDict
 
 
 class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
@@ -50,7 +51,7 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
     def select_diagnostic_classifier(self,
                                      inp: str,
                                      prev_activations: FullActivationDict,
-                                     **additional: Dict):
+                                     **additional: dict):
         """
         Select the appropriate Diagnostic Classifier based on data used in current forward pass.
         """
@@ -62,7 +63,7 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
                         activations: FullActivationDict,
                         out: Tensor,
                         prediction: Tensor,
-                        label: Tensor) -> Tensor:
+                        **additional: dict) -> Tensor:
         """
         Use a Diagnostic Classifier to determine for which batch instances to trigger an intervention.
         Returns a binary mask with 1 corresponding to an impending intervention.
@@ -117,7 +118,7 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         optimizer.zero_grad()
 
         prediction = sigmoid(weights @ current_activations + bias).unsqueeze(0)
-        mask = self.dc_trigger_func(prev_activations, activations, out, prediction, label)
+        mask = self.dc_trigger_func(prev_activations, activations, out, prediction, **additional)
         loss = self.diagnostic_classifier_loss(prediction, label)
         loss.backward()
         gradient = current_activations.grad
@@ -162,10 +163,11 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
                         activations: FullActivationDict,
                         out: Tensor,
                         prediction: Tensor,
-                        label: Tensor) -> Tensor:
+                        **additional: dict) -> Tensor:
         """
         Trigger an intervention when the binary prediction for the sentence's number is incorrect.
         """
+        label = additional["label"]
         wrong_predictions = torch.abs(prediction - label) >= 0.5
         wrong_predictions = wrong_predictions.float()
 
@@ -184,3 +186,26 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
         loss = criterion(class_predictions, label.long())
 
         return loss
+
+
+class SubjectLanguageModelInterventionMechanism(LanguageModelInterventionMechanism):
+    """
+    Like the Language Model Intervention Mechanism, except interventions are only possible at the subject's position.
+    """
+
+    @overrides
+    def dc_trigger_func(self,
+                        prev_activations: FullActivationDict,
+                        activations: FullActivationDict,
+                        out: Tensor,
+                        prediction: Tensor,
+                        **additional: dict) -> Tensor:
+        """
+        Trigger an intervention when the binary prediction for the sentence's number is incorrect.
+        """
+        label = additional["label"]
+        is_subject_pos = additional["is_subject_pos"]
+        wrong_predictions = torch.abs(prediction - label) >= 0.5 * (0 if not is_subject_pos else 1)
+        wrong_predictions = wrong_predictions.float()
+
+        return wrong_predictions
