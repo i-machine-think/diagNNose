@@ -20,8 +20,8 @@ class InitEmbs:
         Dictionary mapping each activation name to an initial embedding.
     """
     def __init__(self,
-                 init_embs_path: str,
-                 model: LanguageModel,) -> None:
+                 model: LanguageModel,
+                 init_embs_path: str=None) -> None:
         self.num_layers = model.num_layers
         self.hidden_size = model.hidden_size
         self.activations = self.create_init_embs(init_embs_path)
@@ -43,7 +43,7 @@ class InitEmbs:
         init : FullActivationDict
             FullActivationDict containing init embeddings for each layer.
         """
-        if init_embs_path:
+        if init_embs_path is not None:
             assert Path(init_embs_path).is_file(), 'File does not exist'
 
             with open(init_embs_path, 'rb') as f:

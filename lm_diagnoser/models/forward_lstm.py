@@ -1,3 +1,4 @@
+from collections import defaultdict
 import sys
 from typing import Tuple
 
@@ -25,8 +26,8 @@ class ForwardLSTM(LanguageModel):
             vocab_lines = vf.readlines()
 
         self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
-
         self.unk_idx = self.w2i['<unk>']
+        self.w2i = defaultdict(lambda: self.unk_idx, self.w2i)
 
         # Load the pretrained model
         sys.path.append(module_path)
