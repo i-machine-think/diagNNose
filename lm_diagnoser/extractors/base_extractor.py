@@ -62,7 +62,7 @@ class Extractor:
         self.corpus = corpus
 
         self.activation_names: List[ActivationName] = activation_names
-        self.output_dir = trim(output_dir)
+        self.output_dir = os.path.expanduser(trim(output_dir))
 
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None

@@ -4,6 +4,7 @@ from typing import Tuple
 import torch
 from overrides import overrides
 from torch import Tensor
+import os
 
 from ..typedefs.models import ActivationLayer, FullActivationDict, ParameterDict
 from .language_model import LanguageModel
@@ -18,10 +19,12 @@ class ForwardLSTM(LanguageModel):
 
         super(ForwardLSTM, self).__init__()
 
+        sys.path.append(os.path.expanduser(module_path))
+
         print('Loading pretrained model...')
         if module_path[-1] != '/':
             module_path += '/'
-        with open(vocab_path, 'r') as vf:
+        with open(os.path.expanduser(vocab_path), 'r') as vf:
             vocab_lines = vf.readlines()
 
         self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
@@ -29,9 +32,8 @@ class ForwardLSTM(LanguageModel):
         self.unk_idx = self.w2i['<unk>']
 
         # Load the pretrained model
-        sys.path.append(module_path)
         device = torch.device(device_name)
-        with open(model_path, 'rb') as mf:
+        with open(os.path.expanduser(model_path), 'rb') as mf:
             model = torch.load(mf, map_location=device)
 
         params = {name: param for name, param in model.named_parameters()}
