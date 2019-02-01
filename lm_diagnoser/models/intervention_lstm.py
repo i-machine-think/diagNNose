@@ -2,8 +2,8 @@ from typing import Dict
 
 from overrides import overrides
 
-from models.forward_lstm import ForwardLSTM
-from typedefs.models import FullActivationDict
+from ..models.forward_lstm import ForwardLSTM
+from ..typedefs.models import FullActivationDict
 
 
 class InterventionLSTM(ForwardLSTM):
