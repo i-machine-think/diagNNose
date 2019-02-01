@@ -114,6 +114,10 @@ class DCTrainer:
         dump_pickle(pred_y, preds_path)
         joblib.dump(self.classifier, model_path)
 
+    @staticmethod
+    def load_classifier(path):
+        return joblib.load(path)
+
     def log_results(self, start_t: float) -> None:
         total_time = time() - start_t
         print(f'Total classification time took {total_time:.2f}s')
