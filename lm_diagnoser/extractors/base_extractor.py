@@ -115,11 +115,12 @@ class Extractor:
 
         # Dump average eos states
         dump_pickle(self.avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
+        minutes, seconds = divmod(time() - start_time, 60)
 
         print(f'\nExtraction finished.')
         print(f'{self.n_sens} sentences have been extracted, '
               f'yielding {self.num_extracted} data points.')
-        print(f'Total time took {time() - start_time:.2f}s')
+        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
 
     def _create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
@@ -140,8 +141,10 @@ class Extractor:
         speed = (time() - self.cur_time) / print_every
         self.cur_time = time()
         duration = self.cur_time - start_time
-        print(f'#sens: {self.n_sens}\t'
-              f'Time: {duration:.1f}s\t'
+        minutes, seconds = divmod(duration, 60)
+
+        print(f'#sens: {self.n_sens:>4}\t\t'
+              f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
     def _extract_sentence(self, sentence: Sentence) -> None:
