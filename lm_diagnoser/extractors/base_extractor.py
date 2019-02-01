@@ -70,7 +70,7 @@ class Extractor:
 
         self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
         self.avg_eos_states = {
-            l: {'hx': torch.zeros(1, model.hidden_size), 'cx': torch.zeros(model.hidden_size)}
+            l: {'hx': torch.zeros(model.hidden_size), 'cx': torch.zeros(model.hidden_size)}
             for l in range(model.num_layers)
         }
         self.cur_time = time()
