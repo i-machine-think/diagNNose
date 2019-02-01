@@ -10,8 +10,8 @@ from torch import Tensor
 from torch.nn import NLLLoss
 from torch.nn.modules.loss import _Loss
 
-from interventions.weakly_supervised import WeaklySupervisedInterventionMechanism
-from typedefs.models import FullActivationDict
+from ..interventions.weakly_supervised import WeaklySupervisedInterventionMechanism
+from ..typedefs.models import FullActivationDict
 
 
 class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
