@@ -1,6 +1,6 @@
 from collections import defaultdict
 from time import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import numpy as np
 from sklearn.externals import joblib

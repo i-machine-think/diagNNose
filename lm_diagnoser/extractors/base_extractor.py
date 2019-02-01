@@ -6,13 +6,14 @@ import os
 import warnings
 
 import numpy as np
+import torch
 
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
-from ..utils.paths import trim
+from ..utils.paths import trim, dump_pickle
 
 
 class Extractor:
@@ -68,6 +69,10 @@ class Extractor:
         self.label_file: Optional[BinaryIO] = None
 
         self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
+        self.avg_eos_states = {
+            l: {'hx': torch.zeros(1, model.hidden_size), 'cx': torch.zeros(model.hidden_size)}
+            for l in range(model.num_layers)
+        }
         self.cur_time = time()
         self.num_extracted = 0
         self.n_sens = 0
@@ -108,6 +113,9 @@ class Extractor:
             # TODO: Move this to separate Labeler class
             self._dump_static_info()
 
+        # Dump average eos states
+        dump_pickle(self.avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
+
         print(f'\nExtraction finished.')
         print(f'{self.n_sens} sentences have been extracted, '
               f'yielding {self.num_extracted} data points.')
@@ -144,6 +152,10 @@ class Extractor:
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
         """
+        def _incremental_avg(old_avg, new_value):
+            # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
+            return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
+
         sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
 
         activations: FullActivationDict = self.init_lstm_states.states
@@ -153,6 +165,15 @@ class Extractor:
 
             for l, name in self.activation_names:
                 sen_activations[(l, name)][i] = activations[l][name].detach().numpy()
+
+        # Update average eos states
+        self.avg_eos_states = {
+            l: {
+                'hx': _incremental_avg(self.avg_eos_states[l]['hx'], activations[l]['hx']),
+                'cx': _incremental_avg(self.avg_eos_states[l]['cx'], activations[l]['cx'])
+            }
+            for l in self.avg_eos_states
+        }
 
         self._dump_activations(sen_activations)
 

@@ -5,10 +5,7 @@
 .mypy_cache
 test_notebook.ipynb
 */.DS_Store
-lm_diagnoser/models/gulordava/*.pt
-lm_diagnoser/embeddings/data/extracted/*/*.pickle
-lm_diagnoser/.ipynb_checkpoints
-lm_diagnoser/corpus/data/raw
-lm_diagnoser/.mypy_cache
-lm_diagnoser/test_notebook.ipynb
-lm_diagnoser/classifiers/trained/*.pickle
+lm_data/classifiers/logreg
+lm_data/corpora/labeled
+lm_data/corpora/raw
+lm_data/models/gulordava
