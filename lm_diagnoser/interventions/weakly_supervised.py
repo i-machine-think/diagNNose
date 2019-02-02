@@ -4,7 +4,7 @@ provide information that is helpful to solve the task or enrich the model in any
 """
 
 from abc import abstractmethod, ABC
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Callable
 import re
 
 import numpy as np
@@ -48,9 +48,10 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     def __init__(self,
                  model: ForwardLSTM,
                  diagnostic_classifiers: DiagnosticClassifierDict,
-                 step_size: float):
+                 step_size: float,
+                 trigger_func: Callable=None):
 
-        super().__init__(model, trigger_func=self.dc_trigger_func)
+        super().__init__(model, trigger_func=self.dc_trigger_func if trigger_func is None else trigger_func)
         self.step_size = step_size
 
         # Link diagnostic classifiers to layer they correspond to
