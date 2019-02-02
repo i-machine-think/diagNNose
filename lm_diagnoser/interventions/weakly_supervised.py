@@ -55,11 +55,16 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         self.step_size = step_size
 
         # Link diagnostic classifiers to layer they correspond to
-        self.diagnostic_classifiers = {
-            re.search('(l\d+)', path).group(0): dc for path, dc in diagnostic_classifiers.items()
-        }
+        self.diagnostic_classifiers = {}
+
+        for path, dc in diagnostic_classifiers.items():
+            matches = re.search('(\wx)_(l\d+)', path)
+            activation_type, layer = matches.groups()
+            self.diagnostic_classifiers[layer][activation_type] = dc
+
         self.intervention_points = intervention_points
         self.topmost_layer = sorted(self.diagnostic_classifiers.keys())[-1]
+        self.topmost_layer_num = int(self.topmost_layer[1:])
 
     @abstractmethod
     def select_diagnostic_classifier(self,
@@ -197,13 +202,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
             Activations of current time step after interventions.
         """
         for intervention_point in self.intervention_points:
-            layer, activation_type = intervention_point.split("_")
+            activation_type, layer = intervention_point.split("_")
+            layer_num = int(layer[1:])
             dc = self.select_diagnostic_classifier(inp, prev_activations, layer, activation_type, **additional)
             weights, bias = self.diagnostic_classifier_to_vars(dc)
             label = torch.tensor([additional["label"]], dtype=torch.float)
 
             # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
-            current_activations = activations[layer][activation_type]
+            current_activations = activations[layer_num][activation_type]
             current_activations = self._wrap_in_var(current_activations, requires_grad=True)
             params = [current_activations]
             optimizer = SGD(params, lr=self.step_size)
@@ -217,10 +223,10 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
 
             # Manual (masked) update step
             new_activations = current_activations - self.step_size * gradient * mask
-            activations[layer][activation_type] = new_activations
+            activations[layer_num][activation_type] = new_activations
 
         # Repeat decoding step with adjusted activations
-        topmost_activations = activations[self.topmost_layer]["hx"]
+        topmost_activations = activations[self.topmost_layer_num]["hx"]
         out: Tensor = self.model.w_decoder @ topmost_activations + self.model.b_decoder
 
         return out, activations
