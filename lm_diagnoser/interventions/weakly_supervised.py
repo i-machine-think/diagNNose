@@ -4,7 +4,7 @@ provide information that is helpful to solve the task or enrich the model in any
 """
 
 from abc import abstractmethod, ABC
-from typing import Dict, Tuple, Callable
+from typing import Dict, Tuple, Callable, List
 import re
 
 import numpy as np
@@ -40,14 +40,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         Step size of the adjustment of the activations.
     diagnostic_classifiers: dict
         Dictionary of path to diagnostic classifiers to their respective diagnostic classifiers objects.
-    topmost_layer: str
-        Name of the topmost RNN layer.
-    num_topmost_layer: int
-        Number of the topmost RNN layer.
+    intervention_points: list
+        List of strings specifying on which layer for which activations interventions should be conducted, i.e.
+        ['hx_l0', 'cx_l1']
     """
     def __init__(self,
                  model: ForwardLSTM,
                  diagnostic_classifiers: DiagnosticClassifierDict,
+                 intervention_points: List[str],
                  step_size: float,
                  trigger_func: Callable=None):
 
@@ -58,14 +58,15 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         self.diagnostic_classifiers = {
             re.search('(l\d+)', path).group(0): dc for path, dc in diagnostic_classifiers.items()
         }
-        # Apply interventions only to topmost layer
+        self.intervention_points = intervention_points
         self.topmost_layer = sorted(self.diagnostic_classifiers.keys())[-1]
-        self.num_topmost_layer = len(self.diagnostic_classifiers) - 1
 
     @abstractmethod
     def select_diagnostic_classifier(self,
                                      inp: str,
                                      prev_activations: FullActivationDict,
+                                     layer: str,
+                                     activation_type: str,
                                      **additional: dict):
         """
         Select the appropriate Diagnostic Classifier based on data used in current forward pass.
@@ -76,6 +77,10 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
             Current input token.
         prev_activations: FullActivationDict
             Activations of the previous time step.
+        layer: str
+            Identifier for current layer the intervention is being conducted on.
+        activation_type: str
+            Identifier for type of intervention the intervention is being conducted on.
         additional: dict
             Dictionary of additional information delivered via keyword arguments.
         """
@@ -191,28 +196,31 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         activations: FullActivationDict
             Activations of current time step after interventions.
         """
+        for intervention_point in self.intervention_points:
+            layer, activation_type = intervention_point.split("_")
+            dc = self.select_diagnostic_classifier(inp, prev_activations, layer, activation_type, **additional)
+            weights, bias = self.diagnostic_classifier_to_vars(dc)
+            label = torch.tensor([additional["label"]], dtype=torch.float)
 
-        dc = self.select_diagnostic_classifier(inp, prev_activations, **additional)
-        weights, bias = self.diagnostic_classifier_to_vars(dc)
-        label = torch.tensor([additional["label"]], dtype=torch.float)
+            # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
+            current_activations = activations[layer][activation_type]
+            current_activations = self._wrap_in_var(current_activations, requires_grad=True)
+            params = [current_activations]
+            optimizer = SGD(params, lr=self.step_size)
+            optimizer.zero_grad()
 
-        # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
-        current_activations = activations[self.num_topmost_layer]["hx"]
-        current_activations = self._wrap_in_var(current_activations, requires_grad=True)
-        params = [current_activations]
-        optimizer = SGD(params, lr=self.step_size)
-        optimizer.zero_grad()
+            prediction = torch.sigmoid(weights @ current_activations + bias).unsqueeze(0)
+            mask = self.dc_trigger_func(prev_activations, activations, out, prediction, **additional)
+            loss = self.diagnostic_classifier_loss(prediction, label)
+            loss.backward()
+            gradient = current_activations.grad
 
-        prediction = torch.sigmoid(weights @ current_activations + bias).unsqueeze(0)
-        mask = self.dc_trigger_func(prev_activations, activations, out, prediction, **additional)
-        loss = self.diagnostic_classifier_loss(prediction, label)
-        loss.backward()
-        gradient = current_activations.grad
-
-        # Manual (masked) update step
-        new_activations = current_activations - self.step_size * gradient * mask
+            # Manual (masked) update step
+            new_activations = current_activations - self.step_size * gradient * mask
+            activations[layer][activation_type] = new_activations
 
         # Repeat decoding step with adjusted activations
-        out: Tensor = self.model.w_decoder @ new_activations + self.model.b_decoder
+        topmost_activations = activations[self.topmost_layer]["hx"]
+        out: Tensor = self.model.w_decoder @ topmost_activations + self.model.b_decoder
 
         return out, activations
