@@ -1,6 +1,6 @@
 """
 Implementing a version of the intervention mechanism which relies on weak supervision, i.e. additional labels which
-provide task-relevant information.
+provide information that is helpful to solve the task or enrich the model in any other way.
 """
 
 from abc import abstractmethod, ABC
@@ -22,12 +22,12 @@ from ..typedefs.interventions import DiagnosticClassifierDict
 from ..typedefs.models import FullActivationDict
 
 
-class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
+class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     """
     Mechanism that triggers an intervention based on additional labels and Diagnostic classifiers [1][2].
 
     [1] https://www.jair.org/index.php/jair/article/view/11196/26408
-    [2] https://arxiv.org/abs/1808.08079
+    [2] http://aclweb.org/anthology/W18-5426
 
     Parameters
     ----------

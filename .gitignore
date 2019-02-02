@@ -3,7 +3,6 @@
 .idea
 .ipynb_checkpoints
 .mypy_cache
-test_notebook.ipynb
 */.DS_Store
 lm_data/classifiers/logreg
 lm_data/corpora/labeled
