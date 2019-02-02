@@ -13,7 +13,6 @@ import torch
 from torch import Tensor
 from torch.autograd import Variable
 from torch.nn.modules.loss import _Loss
-from torch.nn.functional import sigmoid
 from torch.optim import SGD
 from overrides import overrides
 
@@ -203,14 +202,14 @@ class WeaklySupervisedInterventionMechanism(InterventionMechanism, ABC):
         optimizer = SGD(params, lr=self.step_size)
         optimizer.zero_grad()
 
-        prediction = sigmoid(weights @ current_activations + bias).unsqueeze(0)
+        prediction = torch.sigmoid(weights @ current_activations + bias).unsqueeze(0)
         mask = self.dc_trigger_func(prev_activations, activations, out, prediction, **additional)
         loss = self.diagnostic_classifier_loss(prediction, label)
         loss.backward()
         gradient = current_activations.grad
 
         # Manual (masked) update step
-        new_activations = current_activations + self.step_size * gradient * mask
+        new_activations = current_activations - self.step_size * gradient * mask
 
         # Repeat decoding step with adjusted activations
         out: Tensor = self.model.w_decoder @ new_activations + self.model.b_decoder

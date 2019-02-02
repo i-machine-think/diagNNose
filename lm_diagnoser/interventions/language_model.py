@@ -107,7 +107,7 @@ class LanguageModelInterventionMechanism(WeaklySupervisedInterventionMechanism):
         loss: _Loss
             PyTorch loss between prediction and label.
         """
-        class_predictions = torch.log(torch.cat((prediction, 1 - prediction))).unsqueeze(0)
+        class_predictions = torch.log(torch.cat((1 - prediction, prediction))).unsqueeze(0)
         criterion = NLLLoss()
         loss = criterion(class_predictions, label.long())
 
@@ -136,6 +136,8 @@ class SubjectLanguageModelInterventionMechanism(LanguageModelInterventionMechani
             Activations of the previous time step.
         out: Tensor
             Output Tensor of current time step.
+        prediction: Tensor
+            Prediction of the diagnostic classifier based on the current time step's activations.
         activations: FullActivationDict
             Activations of current time step.
         additional: dict
