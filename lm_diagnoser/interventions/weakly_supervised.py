@@ -4,6 +4,7 @@ provide information that is helpful to solve the task or enrich the model in any
 """
 
 from abc import abstractmethod, ABC
+from collections import defaultdict
 from typing import Dict, Tuple, Callable, List
 import re
 
@@ -55,7 +56,7 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         self.step_size = step_size
 
         # Link diagnostic classifiers to layer they correspond to
-        self.diagnostic_classifiers = {}
+        self.diagnostic_classifiers = defaultdict(dict)
 
         for path, dc in diagnostic_classifiers.items():
             matches = re.search('(\wx)_(l\d+)', path)
