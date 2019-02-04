@@ -10,7 +10,7 @@ import torch
 
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
-from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
+from ..typedefs.corpus import LabeledCorpus, Labels, LabeledSentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
 from ..utils.paths import trim, dump_pickle
@@ -100,7 +100,7 @@ class Extractor:
 
             for labeled_sentence in self.corpus.values():
 
-                self._extract_sentence(labeled_sentence.sen)
+                self._extract_sentence(labeled_sentence)
 
                 self.num_extracted += len(labeled_sentence.sen)
                 self.n_sens += 1
@@ -145,7 +145,7 @@ class Extractor:
               f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: Sentence) -> None:
+    def _extract_sentence(self, sentence: LabeledSentence) -> None:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -158,7 +158,7 @@ class Extractor:
 
         activations: FullActivationDict = self.init_lstm_states.states
 
-        for i, token in enumerate(sentence):
+        for i, token in enumerate(sentence.sen):
             out, activations = self.model(token, activations)
 
             # Check whether current activations match criterion defined in selection_func
