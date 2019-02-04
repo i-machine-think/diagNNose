@@ -100,9 +100,9 @@ class Extractor:
 
             for labeled_sentence in self.corpus.values():
 
-                self._extract_sentence(labeled_sentence)
+                current_num_extracted = self._extract_sentence(labeled_sentence)
 
-                self.num_extracted += len(labeled_sentence.sen)
+                self.num_extracted += current_num_extracted
                 self.n_sens += 1
 
                 if self.n_sens % print_every == 0 and self.n_sens > 0:
@@ -145,13 +145,18 @@ class Extractor:
               f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: LabeledSentence) -> None:
+    def _extract_sentence(self, sentence: LabeledSentence) -> int:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
+
+        Returns
+        -------
+        num_extracted: int
+            Number of extracted activations for this sentence.
         """
 
         sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
@@ -165,10 +170,13 @@ class Extractor:
             if self.selection_func(i, token, sentence):
                 for l, name in self.activation_names:
                     sen_activations[(l, name)] = np.append(
-                        sen_activations[(l, name)], activations[l][name].detach().numpy()
+                        sen_activations[(l, name)], activations[l][name].detach().numpy()[np.newaxis, ...], axis=0
                     )
 
+        num_extracted = sen_activations.shape[0]
         self._dump_activations(sen_activations)
+
+        return num_extracted
 
     def extract_average_eos_activations(self):
         """ Extract average end of sentence activations and dump them to a file. """
