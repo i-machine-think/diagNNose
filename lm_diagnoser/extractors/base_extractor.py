@@ -173,7 +173,7 @@ class Extractor:
                         sen_activations[(l, name)], activations[l][name].detach().numpy()[np.newaxis, ...], axis=0
                     )
 
-        num_extracted = sen_activations.shape[0]
+        num_extracted = list(sen_activations.values())[0].shape[0]
         self._dump_activations(sen_activations)
 
         return num_extracted
