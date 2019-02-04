@@ -18,8 +18,8 @@ class InitStates:
         Dictionary mapping each activation name to an initial state.
     """
     def __init__(self,
-                 init_lstm_states_path: str,
-                 model: LanguageModel) -> None:
+                 model: LanguageModel,
+                 init_lstm_states_path: str = None) -> None:
         self.num_layers = model.num_layers
         self.hidden_size = model.hidden_size
         self.states = self.create_init_states(init_lstm_states_path)

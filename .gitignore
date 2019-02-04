@@ -2,9 +2,8 @@
 *.swp
 .idea
 .ipynb_checkpoints
-test_notebook.ipynb
 .mypy_cache
-lm_data/activations/extracted
+*/.DS_Store
 lm_data/classifiers/logreg
 lm_data/corpora/labeled
 lm_data/corpora/raw

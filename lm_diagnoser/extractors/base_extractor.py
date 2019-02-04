@@ -6,13 +6,14 @@ import os
 import warnings
 
 import numpy as np
+import torch
 
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, Labels, Sentence
 from ..typedefs.models import (
     ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
-from ..utils.paths import trim
+from ..utils.paths import trim, dump_pickle
 
 
 class Extractor:
@@ -67,7 +68,11 @@ class Extractor:
         self.activation_files: ActivationFiles = {}
         self.label_file: Optional[BinaryIO] = None
 
-        self.init_lstm_states: InitStates = InitStates(init_lstm_states_path, self.model)
+        self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
+        self.avg_eos_states = {
+            l: {'hx': torch.zeros(model.hidden_size), 'cx': torch.zeros(model.hidden_size)}
+            for l in range(model.num_layers)
+        }
         self.cur_time = time()
         self.num_extracted = 0
         self.n_sens = 0
@@ -83,7 +88,7 @@ class Extractor:
         ----------
         cutoff: int, optional
             How many sentences of the corpus to extract activations for
-            Setting this parameter to -1 will extract the entire corpus, 
+            Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
         print_every: int, optional
             Print time passed every n sentences, defaults to 10.
@@ -108,10 +113,14 @@ class Extractor:
             # TODO: Move this to separate Labeler class
             self._dump_static_info()
 
+        # Dump average eos states
+        dump_pickle(self.avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
+        minutes, seconds = divmod(time() - start_time, 60)
+
         print(f'\nExtraction finished.')
         print(f'{self.n_sens} sentences have been extracted, '
               f'yielding {self.num_extracted} data points.')
-        print(f'Total time took {time() - start_time:.2f}s')
+        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
 
     def _create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
@@ -132,8 +141,10 @@ class Extractor:
         speed = (time() - self.cur_time) / print_every
         self.cur_time = time()
         duration = self.cur_time - start_time
-        print(f'#sens: {self.n_sens}\t'
-              f'Time: {duration:.1f}s\t'
+        minutes, seconds = divmod(duration, 60)
+
+        print(f'#sens: {self.n_sens:>4}\t\t'
+              f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
     def _extract_sentence(self, sentence: Sentence) -> None:
@@ -144,6 +155,10 @@ class Extractor:
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
         """
+        def _incremental_avg(old_avg, new_value):
+            # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
+            return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
+
         sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
 
         activations: FullActivationDict = self.init_lstm_states.states
@@ -153,6 +168,15 @@ class Extractor:
 
             for l, name in self.activation_names:
                 sen_activations[(l, name)][i] = activations[l][name].detach().numpy()
+
+        # Update average eos states
+        self.avg_eos_states = {
+            l: {
+                'hx': _incremental_avg(self.avg_eos_states[l]['hx'], activations[l]['hx']),
+                'cx': _incremental_avg(self.avg_eos_states[l]['cx'], activations[l]['cx'])
+            }
+            for l in self.avg_eos_states
+        }
 
         self._dump_activations(sen_activations)
 

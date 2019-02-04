@@ -1,6 +1,6 @@
 from collections import defaultdict
 from time import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import numpy as np
 from sklearn.externals import joblib
@@ -113,6 +113,10 @@ class DCTrainer:
 
         dump_pickle(pred_y, preds_path)
         joblib.dump(self.classifier, model_path)
+
+    @staticmethod
+    def load_classifier(path):
+        return joblib.load(path)
 
     def log_results(self, start_t: float) -> None:
         total_time = time() - start_t
