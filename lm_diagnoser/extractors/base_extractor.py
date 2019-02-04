@@ -189,7 +189,7 @@ class Extractor:
 
             activations: FullActivationDict = self.init_lstm_states.states
 
-            for i, token in enumerate(sentence):
+            for i, token in enumerate(sentence.sen):
                 if self.selection_func(i, token, sentence):
                     _, activations = self.model(token, activations)
 
