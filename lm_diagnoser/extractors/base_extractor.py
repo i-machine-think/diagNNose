@@ -1,7 +1,7 @@
 import pickle
 from contextlib import ExitStack
 from time import time
-from typing import BinaryIO, List, Optional
+from typing import BinaryIO, List, Optional, Callable
 import os
 import warnings
 
@@ -34,6 +34,8 @@ class Extractor:
         Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
+    selection_func: Callable
+        Function which determines if activations for a token should be extracted or not.
 
     Attributes
     ----------
@@ -58,9 +60,10 @@ class Extractor:
                  activation_names: List[ActivationName],
                  output_dir: str,
                  init_lstm_states_path: str = '',
-                 ) -> None:
+                 selection_func: Callable = None) -> None:
         self.model = model
         self.corpus = corpus
+        self.selection_func = lambda pos, token, labeled_sentence: True if selection_func is None else selection_func
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = os.path.expanduser(trim(output_dir))
@@ -69,10 +72,6 @@ class Extractor:
         self.label_file: Optional[BinaryIO] = None
 
         self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
-        self.avg_eos_states = {
-            l: {'hx': torch.zeros(model.hidden_size), 'cx': torch.zeros(model.hidden_size)}
-            for l in range(model.num_layers)
-        }
         self.cur_time = time()
         self.num_extracted = 0
         self.n_sens = 0
@@ -100,6 +99,7 @@ class Extractor:
             self._create_output_files(stack)
 
             for labeled_sentence in self.corpus.values():
+
                 self._extract_sentence(labeled_sentence.sen)
 
                 self.num_extracted += len(labeled_sentence.sen)
@@ -113,8 +113,6 @@ class Extractor:
             # TODO: Move this to separate Labeler class
             self._dump_static_info()
 
-        # Dump average eos states
-        dump_pickle(self.avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
         minutes, seconds = divmod(time() - start_time, 60)
 
         print(f'\nExtraction finished.')
@@ -155,9 +153,6 @@ class Extractor:
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
         """
-        def _incremental_avg(old_avg, new_value):
-            # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
-            return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
 
         sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
 
@@ -166,19 +161,52 @@ class Extractor:
         for i, token in enumerate(sentence):
             out, activations = self.model(token, activations)
 
-            for l, name in self.activation_names:
-                sen_activations[(l, name)][i] = activations[l][name].detach().numpy()
-
-        # Update average eos states
-        self.avg_eos_states = {
-            l: {
-                'hx': _incremental_avg(self.avg_eos_states[l]['hx'], activations[l]['hx']),
-                'cx': _incremental_avg(self.avg_eos_states[l]['cx'], activations[l]['cx'])
-            }
-            for l in self.avg_eos_states
-        }
+            # Check whether current activations match criterion defined in selection_func
+            if self.selection_func(i, token, sentence):
+                for l, name in self.activation_names:
+                    sen_activations[(l, name)] = np.append(
+                        sen_activations[(l, name)], activations[l][name].detach().numpy()
+                    )
 
         self._dump_activations(sen_activations)
+
+    def extract_average_eos_activations(self):
+        """ Extract average end of sentence activations and dump them to a file. """
+
+        def _incremental_avg(old_avg, new_value):
+            # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
+            return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
+
+        # Init states
+        avg_eos_states = {
+            l: {'hx': torch.zeros(self.model.hidden_size), 'cx': torch.zeros(self.model.hidden_size)}
+            for l in range(self.model.num_layers)
+        }
+
+        # Extract
+        for sentence in self.corpus.values():
+            sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
+
+            activations: FullActivationDict = self.init_lstm_states.states
+
+            for i, token in enumerate(sentence):
+                if self.selection_func(i, token, sentence):
+                    _, activations = self.model(token, activations)
+
+                    for l, name in self.activation_names:
+                        sen_activations[(l, name)] = activations[l][name].detach().numpy()
+
+            # Update average eos states if last activation was extracted
+            avg_eos_states = {
+                l: {
+                    'hx': _incremental_avg(avg_eos_states[l]['hx'], activations[l]['hx']),
+                    'cx': _incremental_avg(avg_eos_states[l]['cx'], activations[l]['cx'])
+                }
+                for l in avg_eos_states
+            }
+
+        # Dump average eos states
+        dump_pickle(avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
 
     def _dump_activations(self, activations: PartialActivationDict) -> None:
         """ Dumps the generated activations to a list of opened files
