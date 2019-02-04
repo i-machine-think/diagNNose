@@ -63,7 +63,7 @@ class Extractor:
                  selection_func: Callable = None) -> None:
         self.model = model
         self.corpus = corpus
-        self.selection_func = lambda pos, token, labeled_sentence: True if selection_func is None else selection_func
+        self.selection_func = (lambda pos, token, labeled_sentence: True) if selection_func is None else selection_func
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = os.path.expanduser(trim(output_dir))
