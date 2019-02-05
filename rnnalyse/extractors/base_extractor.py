@@ -186,7 +186,7 @@ class Extractor:
             # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
             return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
 
-        def _eos_selection_func(token, pos, sentence):
+        def _eos_selection_func(pos, token, sentence):
             return pos == len(sentence.sen) - 1
 
         # Init states
