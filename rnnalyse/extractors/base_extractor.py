@@ -202,8 +202,8 @@ class Extractor:
             # Update average eos states if last activation was extracted
             avg_eos_states = {
                 layer: {
-                    'hx': _incremental_avg(avg_eos_states[(layer, 'hx')], sen_activations[(layer, 'hx')]),
-                    'cx': _incremental_avg(avg_eos_states[(layer, 'cx')], sen_activations[(layer, 'cx')])
+                    'hx': _incremental_avg(avg_eos_states[layer]['hx'], sen_activations[(layer, 'hx')]),
+                    'cx': _incremental_avg(avg_eos_states[layer]['cx'], sen_activations[(layer, 'cx')])
                 }
                 for layer in avg_eos_states
             }
