@@ -65,7 +65,7 @@ class ActivationsReader:
         split = int(self.data_len * train_test_split)
 
         n = split if train_subset_size == -1 else train_subset_size
-        indices = shuffle(range(self.data_len))
+        indices = np.random.choice(range(self.data_len), self.data_len, replace=False)
         train_indices = indices[:n]
         test_indices = indices[n:]
 
