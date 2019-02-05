@@ -71,8 +71,8 @@ class DCTrainer:
 
             # Calculate class weights
             class_freqs = itemfreq(data_dict['train_y'])
-            Z = class_freqs[:, 1].sum()  # Norm factor
-            class_weight = {class_freqs[i, 0]: class_freqs[i, 1] / Z for i in range(class_freqs.shape[0])}  # Normalize
+            norm = class_freqs[:, 1].sum()  # Norm factor
+            class_weight = {class_freqs[i, 0]: class_freqs[i, 1] / norm for i in range(len(class_freqs))}  # Normalize
             self.classifier.class_weight = class_weight
 
             # Train
