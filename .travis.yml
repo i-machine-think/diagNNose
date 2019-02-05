@@ -28,3 +28,6 @@ before_script:
 script: 
   # Unit test
   - python -m unittest discover -v
+
+  # Integration test
+  - sh integration_test.sh 
