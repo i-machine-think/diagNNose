@@ -1,6 +1,5 @@
 import pickle
 from typing import Optional
-from random import shuffle
 
 import numpy as np
 
