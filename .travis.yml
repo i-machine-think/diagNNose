@@ -12,6 +12,7 @@ notifications:
 install:
   - pip install -U pip
   - pip -q install -r requirements.txt
+  - pip install -e .
 
   # dev dependencies
   - pip install flake8
