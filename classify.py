@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
-from lm_diagnoser.classifiers.dc_trainer import DCTrainer
-from lm_diagnoser.config.setup import ConfigSetup
+from rnnalyse.classifiers.dc_trainer import DCTrainer
+from rnnalyse.config.setup import ConfigSetup
 
 
 def init_argparser() -> ArgumentParser:
