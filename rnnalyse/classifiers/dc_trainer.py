@@ -34,6 +34,9 @@ class DCTrainer:
     label_path : str, optional
         Path to label files. If not provided, labels.pickle in
         `activations_dir` will be used.
+    use_class_weights : bool
+        Flag to indicate whether class weights calculated from the training data should be used to train the
+        classifier (defaults to True).
 
     Attributes
     ----------
@@ -49,12 +52,14 @@ class DCTrainer:
                  activation_names: List[ActivationName],
                  output_dir: str,
                  classifier_type: str,
-                 label_path: Optional[str] = None) -> None:
+                 label_path: Optional[str] = None,
+                 use_class_weights: bool = True) -> None:
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = trim(output_dir)
         self.classifier_type = classifier_type
         # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
+        self.use_class_weights = use_class_weights
 
         self.activations_reader = ActivationsReader(activations_dir, label_path)
         self._reset_classifier()
@@ -66,14 +71,14 @@ class DCTrainer:
         for a_name in self.activation_names:
             data_dict = self.activations_reader.create_data_split(a_name,
                                                                   train_subset_size,
-
                                                                   train_test_split)
 
             # Calculate class weights
-            class_freqs = itemfreq(data_dict['train_y'])
-            norm = class_freqs[:, 1].sum()  # Norm factor
-            class_weight = {class_freqs[i, 0]: class_freqs[i, 1] / norm for i in range(len(class_freqs))}  # Normalize
-            self.classifier.class_weight = class_weight
+            if self.use_class_weights:
+                class_freqs = itemfreq(data_dict['train_y'])
+                norm = class_freqs[:, 1].sum()  # Norm factor
+                class_weight = {class_freqs[i, 0]: class_freqs[i, 1] / norm for i in range(len(class_freqs))}  # Normalize
+                self.classifier.class_weight = class_weight
 
             # Train
             self.fit_data(data_dict['train_x'], data_dict['train_y'], a_name)

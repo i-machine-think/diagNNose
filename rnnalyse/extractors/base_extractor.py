@@ -34,8 +34,6 @@ class Extractor:
         Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
-    selection_func: Callable
-        Function which determines if activations for a token should be extracted or not.
 
     Attributes
     ----------
@@ -59,11 +57,9 @@ class Extractor:
                  corpus: LabeledCorpus,
                  activation_names: List[ActivationName],
                  output_dir: str,
-                 init_lstm_states_path: str = '',
-                 selection_func: Callable = None) -> None:
+                 init_lstm_states_path: str = '') -> None:
         self.model = model
         self.corpus = corpus
-        self.selection_func = (lambda pos, token, labeled_sentence: True) if selection_func is None else selection_func
 
         self.activation_names: List[ActivationName] = activation_names
         self.output_dir = os.path.expanduser(trim(output_dir))
@@ -77,7 +73,8 @@ class Extractor:
         self.n_sens = 0
 
     # TODO: Allow batch input
-    def extract(self, cutoff: int = -1, print_every: int = 10) -> None:
+    def extract(self, cutoff: int = -1, print_every: int = 10,
+                selection_func: Callable = lambda pos, token, labeled_sentence: True) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -91,6 +88,8 @@ class Extractor:
             otherwise extraction is halted after extracting n sentences.
         print_every: int, optional
             Print time passed every n sentences, defaults to 10.
+        selection_func: Callable
+            Function which determines if activations for a token should be extracted or not.
         """
         start_time: float = time()
         print('\nStarting extraction...')
@@ -100,9 +99,11 @@ class Extractor:
 
             for labeled_sentence in self.corpus.values():
 
-                current_num_extracted = self._extract_sentence(labeled_sentence)
+                sen_activations = self._extract_sentence(labeled_sentence, selection_func)
+                sen_num_extracted = list(sen_activations.values())[0].shape[0]
 
-                self.num_extracted += current_num_extracted
+                self._dump_activations(sen_activations)
+                self.num_extracted += sen_num_extracted
                 self.n_sens += 1
 
                 if self.n_sens % print_every == 0 and self.n_sens > 0:
@@ -125,11 +126,11 @@ class Extractor:
         # check if output directory is empty
         if os.listdir(self.output_dir): warnings.warn("Output directory %s is not empty" % self.output_dir)
         self.activation_files = {
-            (l, name):
+            (layer, name):
                 stack.enter_context(
-                    open(f'{self.output_dir}/{name}_l{l}.pickle', 'wb')
+                    open(f'{self.output_dir}/{name}_l{layer}.pickle', 'wb')
                 )
-            for (l, name) in self.activation_names
+            for (layer, name) in self.activation_names
         }
         self.label_file = stack.enter_context(
             open(f'{self.output_dir}/labels.pickle', 'wb')
@@ -145,13 +146,15 @@ class Extractor:
               f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: LabeledSentence) -> int:
+    def _extract_sentence(self, sentence: LabeledSentence, selection_func: Callable) -> PartialActivationDict:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
+        selection_func: Callable
+            Function which determines if activations for a token should be extracted or not.
 
         Returns
         -------
@@ -167,16 +170,14 @@ class Extractor:
             out, activations = self.model(token, activations)
 
             # Check whether current activations match criterion defined in selection_func
-            if self.selection_func(i, token, sentence):
-                for l, name in self.activation_names:
-                    sen_activations[(l, name)] = np.append(
-                        sen_activations[(l, name)], activations[l][name].detach().numpy()[np.newaxis, ...], axis=0
+            if selection_func(i, token, sentence):
+                for layer, name in self.activation_names:
+                    sen_activations[(layer, name)] = np.append(
+                        sen_activations[(layer, name)], activations[layer][name].detach().numpy()[np.newaxis, ...],
+                        axis=0
                     )
 
-        num_extracted = list(sen_activations.values())[0].shape[0]
-        self._dump_activations(sen_activations)
-
-        return num_extracted
+        return sen_activations
 
     def extract_average_eos_activations(self):
         """ Extract average end of sentence activations and dump them to a file. """
@@ -185,32 +186,26 @@ class Extractor:
             # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
             return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
 
+        def _eos_selection_func(token, pos, sentence):
+            return pos == len(sentence.sen) - 1
+
         # Init states
         avg_eos_states = {
-            l: {'hx': torch.zeros(self.model.hidden_size), 'cx': torch.zeros(self.model.hidden_size)}
-            for l in range(self.model.num_layers)
+            layer: {'hx': torch.zeros(self.model.hidden_size), 'cx': torch.zeros(self.model.hidden_size)}
+            for layer in range(self.model.num_layers)
         }
 
         # Extract
-        for sentence in self.corpus.values():
-            sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
-
-            activations: FullActivationDict = self.init_lstm_states.states
-
-            for i, token in enumerate(sentence.sen):
-                if self.selection_func(i, token, sentence):
-                    _, activations = self.model(token, activations)
-
-                    for l, name in self.activation_names:
-                        sen_activations[(l, name)] = activations[l][name].detach().numpy()
+        for labeled_sentence in self.corpus.values():
+            sen_activations = self._extract_sentence(labeled_sentence, _eos_selection_func)
 
             # Update average eos states if last activation was extracted
             avg_eos_states = {
-                l: {
-                    'hx': _incremental_avg(avg_eos_states[l]['hx'], activations[l]['hx']),
-                    'cx': _incremental_avg(avg_eos_states[l]['cx'], activations[l]['cx'])
+                layer: {
+                    'hx': _incremental_avg(avg_eos_states[(layer, 'hx')], sen_activations[(layer, 'hx')]),
+                    'cx': _incremental_avg(avg_eos_states[(layer, 'cx')], sen_activations[(layer, 'cx')])
                 }
-                for l in avg_eos_states
+                for layer in avg_eos_states
             }
 
         # Dump average eos states
@@ -225,8 +220,8 @@ class Extractor:
             The Tensors of each activation that was specifed by
             self.activation_names at initialization.
         """
-        for l, name in self.activation_names:
-            pickle.dump(activations[(l, name)], self.activation_files[(l, name)])
+        for layer, name in self.activation_names:
+            pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
 
     def _dump_static_info(self) -> None:
         assert self.label_file is not None
@@ -241,6 +236,6 @@ class Extractor:
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
         """ Initialize dict of Tensors that will be written to file. """
         return {
-            (l, name): np.empty((sen_len, self.model.hidden_size))
-            for (l, name) in self.activation_names
+            (layer, name): np.empty((sen_len, self.model.hidden_size))
+            for (layer, name) in self.activation_names
         }
