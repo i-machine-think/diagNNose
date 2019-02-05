@@ -159,7 +159,7 @@ class Extractor:
             Number of extracted activations for this sentence.
         """
 
-        sen_activations: PartialActivationDict = self._init_sen_activations(len(sentence))
+        sen_activations: PartialActivationDict = self._init_sen_activations(0)
 
         activations: FullActivationDict = self.init_lstm_states.states
 

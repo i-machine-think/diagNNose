@@ -1,5 +1,7 @@
 import pickle
 from typing import Optional
+from random import shuffle
+
 import numpy as np
 
 from ..typedefs.models import ActivationName
@@ -63,11 +65,13 @@ class ActivationsReader:
         split = int(self.data_len * train_test_split)
 
         n = split if train_subset_size == -1 else train_subset_size
-        train_indices = np.random.choice(range(n), n, replace=False)
+        indices = shuffle(range(self.data_len))
+        train_indices = indices[:n]
+        test_indices = indices[n:]
 
         return {
             'train_x': activations[train_indices],
             'train_y': self.labels[train_indices],
-            'test_x': activations[split:],
-            'test_y': self.labels[split:]
+            'test_x': activations[test_indices],
+            'test_y': self.labels[test_indices]
         }

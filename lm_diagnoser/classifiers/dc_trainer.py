@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogReg
 from sklearn.metrics import accuracy_score
+from scipy.stats import itemfreq
 
 from ..typedefs.models import ActivationName
 from ..typedefs.classifiers import ResultsDict
@@ -65,8 +66,16 @@ class DCTrainer:
         for a_name in self.activation_names:
             data_dict = self.activations_reader.create_data_split(a_name,
                                                                   train_subset_size,
+
                                                                   train_test_split)
 
+            # Calculate class weights
+            class_freqs = itemfreq(data_dict['train_y'])
+            Z = class_freqs[:, 1].sum()  # Norm factor
+            class_weight = {class_freqs[i, 0]: class_freqs[i, 1] / Z for i in range(class_freqs.shape[0])}  # Normalize
+            self.classifier.class_weight = class_weight
+
+            # Train
             self.fit_data(data_dict['train_x'], data_dict['train_y'], a_name)
             pred_y = self.eval_classifier(data_dict['test_x'], data_dict['test_y'], a_name)
 
