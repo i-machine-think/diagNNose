@@ -1,4 +1,4 @@
-# Diagnosing Language models
+# rnnalyse &middot; [![Build Status](https://travis-ci.com/dieuwkehupkes/diagnosing_lms.svg?branch=master)](https://travis-ci.com/dieuwkehupkes/diagnosing_lms)
 
 This library contains a set of modules that can be used to analyse recurrent neural networks.
 In particular, it contains functionality to:

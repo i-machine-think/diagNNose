@@ -12,6 +12,7 @@ notifications:
 install:
   - pip install -U pip
   - pip -q install -r requirements.txt
+  - pip install -e .
 
   # dev dependencies
   - pip install flake8
@@ -28,3 +29,6 @@ before_script:
 script: 
   # Unit test
   - python -m unittest discover -v
+
+  # Integration test
+  - sh integration_test.sh 
