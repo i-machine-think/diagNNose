@@ -11,7 +11,7 @@ from ..utils.paths import load_pickle, trim
 class ActivationsReader:
     def __init__(self,
                  activations_dir: str,
-                 label_path: Optional[str]) -> None:
+                 label_path: Optional[str] = None) -> None:
 
         self.activations_dir = trim(activations_dir)
 
