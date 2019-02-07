@@ -22,6 +22,9 @@ ACTIVATIONS_DIR = "test_data"
 
 
 class MockLanguageModel(LanguageModel):
+    """
+    Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
+    """
     def __init__(self, num_layers, hidden_size, all_tokens, all_activations):
         super().__init__()
         self.num_layers = num_layers
@@ -40,6 +43,7 @@ class MockLanguageModel(LanguageModel):
         return None, {0: {"hx": next_activation, "cx": next_activation}}
 
     def reset(self):
+        """ Reset the activations for next test. """
         self.all_pairs = zip(self.all_tokens, self.all_activations)
 
 
@@ -86,6 +90,8 @@ class TestExtractor(unittest.TestCase):
         self.extractor = Extractor(self.model, self.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
 
     def test_extract_sentence(self):
+        """ Test the _extract_sentence class, especially with focus on the selection function functionality. """
+
         def _merge_sentence_activations(sentences_activations):
             return np.array(list(itertools.chain(
                 *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
@@ -156,6 +162,7 @@ class TestExtractor(unittest.TestCase):
     def test_extract_average_eos_activations(self, dump_pickle_mock):
         self.extractor.model.reset()
         self.extractor.extract_average_eos_activations()
+        # Get the incrementally computed activations that were used as an arg to our mock dump_pickle function
         all_avg_eos_activations, _ = dump_pickle_mock.call_args[0]
 
         # Confirm the the correct average eos activation was calculated
