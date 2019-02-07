@@ -5,7 +5,7 @@ import unittest
 import os
 
 from rnnalyse.activations.activations_reader import ActivationsReader
-from test_utils import create_dummy_activations
+from test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
 ACTIVATIONS_DIR = "test_data"
@@ -25,7 +25,7 @@ class TestActivationsReader(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
         # Create dummy data have reader read it
-        labels = create_dummy_activations(
+        labels = create_and_dump_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES, activations_dim=10, max_tokens=5, activations_dir=ACTIVATIONS_DIR,
             activations_name=ACTIVATIONS_NAME, num_classes=2
         )

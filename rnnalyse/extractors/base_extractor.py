@@ -182,9 +182,8 @@ class Extractor:
     def extract_average_eos_activations(self):
         """ Extract average end of sentence activations and dump them to a file. """
 
-        def _incremental_avg(old_avg, new_value):
-            # n_sens only get incremented after _extract_sentence is called, therefore + 1 here
-            return old_avg + 1 / (self.n_sens + 1) * (new_value - old_avg)
+        def _incremental_avg(old_avg, new_value, n_sens):
+            return old_avg + 1 / n_sens * (new_value - old_avg)
 
         def _eos_selection_func(pos, token, sentence):
             return pos == len(sentence.sen) - 1
@@ -196,14 +195,18 @@ class Extractor:
         }
 
         # Extract
-        for labeled_sentence in self.corpus.values():
+        for i, labeled_sentence in enumerate(self.corpus.values()):
             sen_activations = self._extract_sentence(labeled_sentence, _eos_selection_func)
 
             # Update average eos states if last activation was extracted
             avg_eos_states = {
                 layer: {
-                    'hx': _incremental_avg(avg_eos_states[layer]['hx'], torch.Tensor(sen_activations[(layer, 'hx')])),
-                    'cx': _incremental_avg(avg_eos_states[layer]['cx'], torch.Tensor(sen_activations[(layer, 'cx')]))
+                    'hx': _incremental_avg(
+                        avg_eos_states[layer]['hx'], torch.Tensor(sen_activations[(layer, 'hx')]), n_sens=i+1
+                    ),
+                    'cx': _incremental_avg(
+                        avg_eos_states[layer]['cx'], torch.Tensor(sen_activations[(layer, 'cx')]), n_sens=i+1
+                    )
                 }
                 for layer in avg_eos_states
             }

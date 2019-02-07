@@ -8,8 +8,10 @@ import random
 import torch
 
 
-def create_dummy_activations(num_sentences: int, activations_dim: int, max_tokens: int, num_classes: int,
-                             activations_dir: str, activations_name: str):
+def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, max_tokens: int, num_classes: int,
+                                      activations_dir: str, activations_name: str):
+    """ Create and dump activations for a fictitious corpus. """
+
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
         num_labels = 0
         activation_identifier = 0  # Identify activations globally by adding on number on one end
@@ -17,16 +19,7 @@ def create_dummy_activations(num_sentences: int, activations_dim: int, max_token
         for i in range(num_sentences):
             num_activations = random.randint(1, max_tokens)  # Determine the number of tokens in this sentence
             num_labels += num_activations
-            activations = torch.ones(num_activations, activations_dim)
-
-            # First activation is a vector of ones, second activation a vector of twos and so on
-            # (except for an extra identifier dimension which will come in handy later)
-            for n in range(num_activations-1):
-                activations[n+1:, :] += 1
-
-            # Add identifier value for each activation
-            identifier_values = torch.arange(activation_identifier, activation_identifier + num_activations)
-            activations[:, -1] = identifier_values  # Add values on last dimension of activation
+            activations = create_sentence_dummy_activations(num_activations, activations_dim, activation_identifier)
             activation_identifier += num_activations  # Increment global activation id
 
             pickle.dump(activations, f)
@@ -38,3 +31,18 @@ def create_dummy_activations(num_sentences: int, activations_dim: int, max_token
         pickle.dump(labels, f)
 
     return labels
+
+
+def create_sentence_dummy_activations(sentence_len, activations_dim, identifier_value_start=0):
+    activations = torch.ones(sentence_len, activations_dim)
+
+    # First activation is a vector of ones, second activation a vector of twos and so on
+    # (except for an extra identifier dimension which will come in handy later)
+    for n in range(sentence_len - 1):
+        activations[n + 1:, :] += 1
+
+    # Add identifier value for each activation
+    identifier_values = torch.arange(identifier_value_start, identifier_value_start + sentence_len)
+    activations[:, -1] = identifier_values  # Add values on last dimension of activation
+
+    return activations

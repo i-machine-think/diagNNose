@@ -8,7 +8,7 @@ from unittest.mock import patch
 import os
 
 from rnnalyse.classifiers.dc_trainer import DCTrainer
-from test_utils import create_dummy_activations
+from test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
 ACTIVATIONS_DIR = "test_data"
@@ -28,7 +28,7 @@ class TestDCTrainer(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
         # Create dummy data have reader read it
-        self.labels = create_dummy_activations(
+        self.labels = create_and_dump_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES, activations_dim=10, max_tokens=7, activations_dir=ACTIVATIONS_DIR,
             activations_name=ACTIVATIONS_NAME, num_classes=5
         )
