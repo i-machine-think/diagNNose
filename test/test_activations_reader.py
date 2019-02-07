@@ -1,14 +1,11 @@
 """
 Test the code in rnnalayse.activations.activations_reader.py.
 """
-import pickle
 import unittest
 import os
-import random
-import torch
 
 from rnnalyse.activations.activations_reader import ActivationsReader
-
+from test_utils import create_dummy_activations
 
 # GLOBALS
 ACTIVATIONS_DIR = "test_data"
@@ -28,10 +25,11 @@ class TestActivationsReader(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
         # Create dummy data have reader read it
-        self.num_labels = self.create_dummy_activations(
+        labels = create_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES, activations_dim=10, max_tokens=5, activations_dir=ACTIVATIONS_DIR,
-            activations_name=ACTIVATIONS_NAME
+            activations_name=ACTIVATIONS_NAME, num_classes=2
         )
+        self.num_labels = labels.shape[0]
         self.activation_reader = ActivationsReader(activations_dir=ACTIVATIONS_DIR)
 
     def test_read_activations(self):
@@ -64,37 +62,4 @@ class TestActivationsReader(unittest.TestCase):
         assert len(train_ids & test_ids) == 0
 
         # TODO: Test additional arguments once we agree on them
-
-    @staticmethod
-    def create_dummy_activations(num_sentences: int, activations_dim: int, max_tokens: int, activations_dir: str,
-                                 activations_name: str):
-        with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
-            num_labels = 0
-            activation_identifier = 0  # Identify activations globally by adding on number on one end
-
-            for i in range(num_sentences):
-                num_activations = random.randint(1, max_tokens)  # Determine the number of tokens in this sentence
-                num_labels += num_activations
-                activations = torch.ones(num_activations, activations_dim)
-
-                # First activation is a vector of ones, second activation a vector of twos and so on
-                # (except for an extra identifier dimension which will come in handy later)
-                for n in range(num_activations-1):
-                    activations[n+1:, :] += 1
-
-                # Add identifier value for each activation
-                identifier_values = torch.arange(activation_identifier, activation_identifier + num_activations)
-                activations[:, -1] = identifier_values  # Add values on last dimension of activation
-                activation_identifier += num_activations  # Increment global activation id
-
-                pickle.dump(activations, f)
-
-        # Generate some random labels and dump them
-        with open(f"{activations_dir}/labels.pickle", "wb") as f:
-            labels = torch.rand(num_labels)
-            labels[labels > 0.5] = 1
-            labels[labels <= 0.5] = 0
-            pickle.dump(labels, f)
-
-        return num_labels
 
