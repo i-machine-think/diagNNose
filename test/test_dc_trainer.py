@@ -8,7 +8,7 @@ from unittest.mock import patch
 import os
 
 from rnnalyse.classifiers.dc_trainer import DCTrainer
-from test_utils import create_and_dump_dummy_activations
+from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
 ACTIVATIONS_DIR = "test_data"

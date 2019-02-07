@@ -5,7 +5,7 @@ import unittest
 import os
 
 from rnnalyse.activations.activations_reader import ActivationsReader
-from test_utils import create_and_dump_dummy_activations
+from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
 ACTIVATIONS_DIR = "test_data"

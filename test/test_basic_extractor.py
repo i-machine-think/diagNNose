@@ -12,7 +12,7 @@ import torch
 
 from rnnalyse.extractors.base_extractor import Extractor
 from rnnalyse.models.language_model import LanguageModel
-from test_utils import create_sentence_dummy_activations
+from .test_utils import create_sentence_dummy_activations
 
 
 # GLOBALS
