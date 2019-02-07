@@ -5,6 +5,7 @@ Test the code in rnnalayse.extractors.base_extractor.py.
 import itertools
 import unittest
 from unittest.mock import patch, MagicMock
+import os
 
 import numpy as np
 from overrides import overrides
@@ -18,7 +19,10 @@ from .test_utils import create_sentence_dummy_activations
 # GLOBALS
 ACTIVATION_DIM = 10
 ACTIVATION_NAMES = [(0, "hx"), (0, "cx")]
-ACTIVATIONS_DIR = "test_data"
+ACTIVATIONS_DIR = "test/test_data"
+
+if not os.path.exists(ACTIVATIONS_DIR):
+    os.makedirs(ACTIVATIONS_DIR)
 
 
 class MockLanguageModel(LanguageModel):

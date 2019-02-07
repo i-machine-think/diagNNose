@@ -8,10 +8,13 @@ from rnnalyse.activations.activations_reader import ActivationsReader
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
-ACTIVATIONS_DIR = "test_data"
+ACTIVATIONS_DIR = "test/test_data"
 ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
 TRAIN_TEST_SPLIT = 0.75
+
+if not os.path.exists(ACTIVATIONS_DIR):
+    os.makedirs(ACTIVATIONS_DIR)
 
 
 class TestActivationsReader(unittest.TestCase):

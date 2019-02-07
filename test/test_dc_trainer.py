@@ -11,10 +11,13 @@ from rnnalyse.classifiers.dc_trainer import DCTrainer
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
-ACTIVATIONS_DIR = "test_data"
 ACTIVATION_NAMES = [(0, "hx")]
 ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
+ACTIVATIONS_DIR = "test/test_data"
+
+if not os.path.exists(ACTIVATIONS_DIR):
+    os.makedirs(ACTIVATIONS_DIR)
 
 
 class TestDCTrainer(unittest.TestCase):
