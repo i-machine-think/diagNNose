@@ -7,7 +7,7 @@ from functools import wraps
 import io
 import pickle
 import random
-from typing import Callable, Any
+from typing import Callable, Any, Type
 
 import torch
 

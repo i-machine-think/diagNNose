@@ -6,7 +6,7 @@ import itertools
 import unittest
 from unittest.mock import patch, MagicMock
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 import numpy as np
 from overrides import overrides
@@ -207,12 +207,42 @@ class TestExtractor(unittest.TestCase):
     @suppress_print
     @patch('rnnalyse.extractors.base_extractor.Extractor._dump_activations')
     def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
-        """ Test whether functions used to dump pickle files are called with the right arguments. """
+        """
+        Test whether functions used to dump pickle files during activation extraction are called with the right
+        arguments.
+        """
 
         self.extractor.model.reset()
-        self.extractor.extract(print_every=100)
-        call_args = dump_activations_mock.call_args
-        # TODO
+        self.extractor.extract()
+        call_arg = dump_activations_mock.call_args[0][0]
+
+        # Validate function calls
+        self.assertEqual(dump_activations_mock.call_count, 3, "Function was called the wrong number of times.")
+        self.assertTrue(
+            self.is_partial_activation_dict(call_arg),
+            "Function was called with wrong type of variable, expected PartialActivationDict."
+        )
+
+    @patch('rnnalyse.extractors.base_extractor.dump_pickle')
+    def test_average_eos_dumping_args(self, dump_pickle_mock: MagicMock):
+        """
+        Test whether functions used to dump pickle files during thge calculation of the average end-of-sentence
+        activations are called with the right arguments.
+        """
+        self.extractor.model.reset()
+        self.extractor.extract_average_eos_activations()
+        first_arg, second_arg = dump_pickle_mock.call_args[0]
+
+        # Validate function call
+        dump_pickle_mock.assert_called_once()
+        self.assertTrue(
+            self.is_full_activation_dict(first_arg),
+            "First argument of dump function received a wrong type of argument, excepted FullActivationDict."
+        )
+
+        self.assertEqual(
+            second_arg, f"{ACTIVATIONS_DIR}/avg_eos.pickle", "Second argument is not a string or the wrong path."
+        )
 
     @staticmethod
     def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.array:
@@ -220,3 +250,34 @@ class TestExtractor(unittest.TestCase):
         return np.array(list(itertools.chain(
             *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
         ))
+
+    @staticmethod
+    def is_full_activation_dict(var: Any) -> bool:
+        """ Check whether a variable is of type FullActivationDict. """
+
+        # This way of checking the type is rather awkward, but there seems to be no function to compare a variable
+        # against a subscripted generic - believe me, I also hate this
+        first_outer_key = list(var.keys())[0]
+        first_value = list(var.values())[0]
+        first_inner_key = list(var[first_outer_key].keys())[0]
+
+        return all([
+            type(var) == dict,
+            type(first_outer_key) == int,
+            type(first_value) == dict,
+            type(var[first_outer_key][first_inner_key]) == Tensor
+        ])
+
+    @staticmethod
+    def is_partial_activation_dict(var: Any) -> bool:
+        """ Check whether a variable is of type PartialActivationDict. """
+        first_key = list(var.keys())[0]
+        first_value = list(var.values())[0]
+
+        return all([
+            type(var) == dict,
+            type(first_key) == tuple,
+            type(first_key[0]) == int,
+            type(first_key[1]) == str,
+            type(first_value) in (np.array, np.ndarray)
+        ])
