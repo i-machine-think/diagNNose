@@ -2,6 +2,7 @@
 Test the code in rnnalayse.activations.activations_reader.py.
 """
 import unittest
+import random
 import os
 
 from rnnalyse.activations.activations_reader import ActivationsReader
@@ -11,7 +12,6 @@ from .test_utils import create_and_dump_dummy_activations
 ACTIVATIONS_DIR = "test/test_data"
 ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
-TRAIN_TEST_SPLIT = 0.75
 
 
 class TestActivationsReader(unittest.TestCase):
@@ -39,6 +39,7 @@ class TestActivationsReader(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
     def test_read_activations(self):
+        """ Test reading activations from a pickle file. """
         activations = self.activation_reader.read_activations((0, "hx"))
         labels = self.activation_reader.labels
 
@@ -53,13 +54,32 @@ class TestActivationsReader(unittest.TestCase):
         self.assertEqual(NUM_TEST_SENTENCES, num_read_sentences, "Number of read sentences is wrong")
 
     def test_create_data_split(self):
-        data_dict = self.activation_reader.create_data_split((0, "hx"), train_test_split=TRAIN_TEST_SPLIT)
-        train_x, train_y = data_dict["train_x"], data_dict["train_y"]
-        test_x, test_y = data_dict["test_x"], data_dict["test_y"]
+        """ Test creating the data set splits for Diagnostic Classifier training. """
 
+        # Validate data splits for the full data set
+        train_test_split = random.uniform(0.1, 0.9)
+        full_data_dict = self.activation_reader.create_data_split((0, "hx"), train_test_split=train_test_split)
+        train_x, train_y = full_data_dict["train_x"], full_data_dict["train_y"]
+        test_x, test_y = full_data_dict["test_x"], full_data_dict["test_y"]
+        self._validate_data_split(train_x, train_y, test_x, test_y, size=self.num_labels, data_split=train_test_split)
+
+        # Validate data splits for a partial data set
+        cutoff = random.randrange(5, self.num_labels - 1)
+        partial_data_dict = self.activation_reader.create_data_split(
+            (0, "hx"), train_test_split=train_test_split, data_subset_size=cutoff
+        )
+        partial_train_x, partial_train_y = partial_data_dict["train_x"], partial_data_dict["train_y"]
+        partial_test_x, partial_test_y = partial_data_dict["test_x"], partial_data_dict["test_y"]
+        self._validate_data_split(
+            partial_train_x, partial_train_y, partial_test_x, partial_test_y,
+            size=cutoff, data_split=train_test_split
+        )
+
+    def _validate_data_split(self, train_x, train_y, test_x, test_y, size, data_split):
+        """ Validate size and content of an arbitrary data split. """
         # Test the data set lengths
-        right_num_train = int(self.num_labels * TRAIN_TEST_SPLIT)
-        right_num_test = self.num_labels - int(self.num_labels * TRAIN_TEST_SPLIT)
+        right_num_train = int(size * data_split)
+        right_num_test = size - int(size * data_split)
         self.assertEqual(train_x.shape[0], right_num_train, "Wrong size of training split.")
         self.assertEqual(train_y.shape[0], right_num_train, "Wrong size of training split.")
         self.assertEqual(test_x.shape[0], right_num_test, "Wrong size of test split.")
@@ -71,6 +91,4 @@ class TestActivationsReader(unittest.TestCase):
         test_ids = set(test_x[:, -1])
 
         self.assertEqual(len(train_ids & test_ids), 0, "Training and test set are not disjoint!")
-
-        # TODO: Test additional arguments once we agree on them
 
