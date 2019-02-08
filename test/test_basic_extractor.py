@@ -98,7 +98,7 @@ class TestExtractor(unittest.TestCase):
         self.extractor = Extractor(self.model, self.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
 
     def test_extract_sentence(self):
-        """ Test the _extract_sentence class, especially with focus on the selection function functionality. """
+        """ Test the _extract_sentence function for extracting the activations of whole sentences. """
 
         # Test extraction of all activations
         self.model.reset()
@@ -112,7 +112,9 @@ class TestExtractor(unittest.TestCase):
             "Selection function didn't extract all activations"
         )
 
-        # Test extraction selection by position
+    def test_activation_extraction_by_pos(self):
+        """ Test the _extract_sentence function for extracting the activations based on position. """
+
         self.extractor.model.reset()
         pos_sentences_activations = [
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
@@ -128,7 +130,9 @@ class TestExtractor(unittest.TestCase):
         # will be 3
         self.assertTrue((extracted_pos_activations[:, 0] == 3).all(), "Sentence was extracted from the wrong position")
 
-        # Test extraction selection by label
+    def test_activation_extraction_by_label(self):
+        """ Test the _extract_sentence function for extracting the activations based on label. """
+
         self.extractor.model.reset()
         label_sentence_activations = [
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
@@ -142,7 +146,9 @@ class TestExtractor(unittest.TestCase):
         # Confirm that activations are from the position of the specified label
         self.assertTrue((extracted_positions == label_positions).all(), "Wrong activations extracted based on label")
 
-        # Test extraction selection by token
+    def test_activation_extraction_by_token(self):
+        """ Test the _extract_sentence function for extracting the activations based on token. """
+
         self.extractor.model.reset()
         token_sentence_activations = [
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
@@ -153,7 +159,9 @@ class TestExtractor(unittest.TestCase):
         self.assertEqual(extracted_token_activations.shape[0], 1, "More than one activation extracted by token")
         assert extracted_token_activations[:, -1] == 6
 
-        # Test extraction selection based on misc_info
+    def test_activation_extraction_by_misc_info(self):
+        """ Test the _extract_sentence function for extracting the activations based on additional info. """
+
         self.extractor.model.reset()
         misc_sentence_activations = [
             self.extractor._extract_sentence(
