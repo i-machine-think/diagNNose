@@ -6,13 +6,16 @@ import itertools
 import unittest
 from unittest.mock import patch, MagicMock
 import os
+from typing import List, Tuple
 
 import numpy as np
 from overrides import overrides
 import torch
+from torch import Tensor
 
 from rnnalyse.extractors.base_extractor import Extractor
 from rnnalyse.models.language_model import LanguageModel
+from rnnalyse.typedefs.models import FullActivationDict
 from .test_utils import create_sentence_dummy_activations
 
 
@@ -21,6 +24,7 @@ ACTIVATION_DIM = 10
 ACTIVATION_NAMES = [(0, "hx"), (0, "cx")]
 ACTIVATIONS_DIR = "test/test_data"
 
+# Create directory if necessary
 if not os.path.exists(ACTIVATIONS_DIR):
     os.makedirs(ACTIVATIONS_DIR)
 
@@ -29,7 +33,7 @@ class MockLanguageModel(LanguageModel):
     """
     Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
     """
-    def __init__(self, num_layers, hidden_size, all_tokens, all_activations):
+    def __init__(self, num_layers: int, hidden_size: int, all_tokens: List[str], all_activations: Tensor):
         super().__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -39,14 +43,14 @@ class MockLanguageModel(LanguageModel):
         self.reset()
 
     @overrides
-    def forward(self, token, activations):
+    def forward(self, token: str, activations: FullActivationDict) -> Tuple[None, FullActivationDict]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
         assert token == next_token
 
         return None, {0: {"hx": next_activation, "cx": next_activation}}
 
-    def reset(self):
+    def reset(self) -> None:
         """ Reset the activations for next test. """
         self.all_pairs = zip(self.all_tokens, self.all_activations)
 
@@ -96,18 +100,13 @@ class TestExtractor(unittest.TestCase):
     def test_extract_sentence(self):
         """ Test the _extract_sentence class, especially with focus on the selection function functionality. """
 
-        def _merge_sentence_activations(sentences_activations):
-            return np.array(list(itertools.chain(
-                *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
-            ))
-
         # Test extraction of all activations
         self.model.reset()
         sentences_activations = [
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: True)
             for sentence in self.corpus.values()
         ]
-        extracted_activations = _merge_sentence_activations(sentences_activations)
+        extracted_activations = self._merge_sentence_activations(sentences_activations)
         self.assertTrue(
             (extracted_activations == self.all_activations.numpy()).all(),
             "Selection function didn't extract all activations"
@@ -119,7 +118,7 @@ class TestExtractor(unittest.TestCase):
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
             for sentence in self.corpus.values()
         ]
-        extracted_pos_activations = _merge_sentence_activations(pos_sentences_activations)
+        extracted_pos_activations = self._merge_sentence_activations(pos_sentences_activations)
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
             extracted_pos_activations.shape[0], 3, "More than one sentence was extracted based on position"
@@ -135,7 +134,7 @@ class TestExtractor(unittest.TestCase):
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
             for sentence in self.corpus.values()
         ]
-        extracted_label_activations = _merge_sentence_activations(label_sentence_activations)
+        extracted_label_activations = self._merge_sentence_activations(label_sentence_activations)
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(extracted_label_activations.shape[0], 3, "More than one sentence was extracted based on label")
         extracted_positions = extracted_label_activations[:, 0] - 1
@@ -149,7 +148,7 @@ class TestExtractor(unittest.TestCase):
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
             for sentence in self.corpus.values()
         ]
-        extracted_token_activations = _merge_sentence_activations(token_sentence_activations)
+        extracted_token_activations = self._merge_sentence_activations(token_sentence_activations)
         # Confirm that only one activation corresponding to "hog" was extracted
         self.assertEqual(extracted_token_activations.shape[0], 1, "More than one activation extracted by token")
         assert extracted_token_activations[:, -1] == 6
@@ -162,7 +161,7 @@ class TestExtractor(unittest.TestCase):
             )
             for sentence in self.corpus.values()
         ]
-        extracted_misc_activations = _merge_sentence_activations(misc_sentence_activations)
+        extracted_misc_activations = self._merge_sentence_activations(misc_sentence_activations)
 
         # Confirm that only the first sentence was extracted
         self.assertTrue(
@@ -173,7 +172,7 @@ class TestExtractor(unittest.TestCase):
     # dump_pickle isn't defined in base_extractor but is imported via a from ... import ...
     # statement, therefore this patch path
     @patch('rnnalyse.extractors.base_extractor.dump_pickle')
-    def test_extract_average_eos_activations(self, dump_pickle_mock):
+    def test_extract_average_eos_activations(self, dump_pickle_mock: MagicMock):
         self.extractor.model.reset()
         self.extractor.extract_average_eos_activations()
         # Get the incrementally computed activations that were used as an arg to our mock dump_pickle function
@@ -186,3 +185,10 @@ class TestExtractor(unittest.TestCase):
             (avg_eos_activation == all_avg_eos_activations[0]["hx"]).all(),
             "Average end of sentence activations have wrong value."
         )
+
+    @staticmethod
+    def _merge_sentence_activations(sentences_activations: List[FullActivationDict]) -> np.array:
+        """ Merge activations from different sentences into one single numpy array. """
+        return np.array(list(itertools.chain(
+            *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
+        ))

@@ -9,7 +9,7 @@ import torch
 
 
 def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, max_tokens: int, num_classes: int,
-                                      activations_dir: str, activations_name: str):
+                                      activations_dir: str, activations_name: str) -> torch.Tensor:
     """ Create and dump activations for a fictitious corpus. """
 
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
@@ -33,7 +33,11 @@ def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, 
     return labels
 
 
-def create_sentence_dummy_activations(sentence_len, activations_dim, identifier_value_start=0):
+def create_sentence_dummy_activations(sentence_len: int, activations_dim: int,
+                                      identifier_value_start: int = 0) -> torch.Tensor:
+    """
+    Create dummy activations for a single sentence.
+    """
     activations = torch.ones(sentence_len, activations_dim)
 
     # First activation is a vector of ones, second activation a vector of twos and so on

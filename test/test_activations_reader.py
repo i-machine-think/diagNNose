@@ -13,6 +13,7 @@ ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
 TRAIN_TEST_SPLIT = 0.75
 
+# Create directory if necessary
 if not os.path.exists(ACTIVATIONS_DIR):
     os.makedirs(ACTIVATIONS_DIR)
 

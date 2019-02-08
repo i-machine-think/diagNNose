@@ -4,7 +4,7 @@ Test the code in rnnalayse.classifiers.dc_trainer.py.
 
 from collections import Counter
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 import os
 
 from rnnalyse.classifiers.dc_trainer import DCTrainer
@@ -16,6 +16,7 @@ ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
 ACTIVATIONS_DIR = "test/test_data"
 
+# Create directory if necessary
 if not os.path.exists(ACTIVATIONS_DIR):
     os.makedirs(ACTIVATIONS_DIR)
 
@@ -57,8 +58,9 @@ class TestDCTrainer(unittest.TestCase):
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.save_classifier')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.eval_classifier')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.fit_data')
-    def test_class_weights(self, mock_fit_data, mock_eval_classifier, mock_save_classifier, mock_log_results,
-                           mock_reset_classifier, create_data_split_mock):
+    def test_class_weights(self, mock_fit_data: MagicMock, mock_eval_classifier: MagicMock,
+                           mock_save_classifier: MagicMock, mock_log_results: MagicMock,
+                           mock_reset_classifier: MagicMock, create_data_split_mock: MagicMock):
         create_data_split_mock.return_value = self.data_dict
 
         # Confirm that class weights are not used if flag is not given
