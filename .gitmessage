@@ -1,6 +1,22 @@
-:Category Emoji: Title
+:Category Emoji: Commit Title
 
 Contents:
 
 * ...
+
+
+# Common emojis for categories include the following:
+# Initial commit      :tada:
+# Version tag         :bookmark:
+# New Feature         :sparkles:
+# Bugfix              :bug:
+# Refactoring         :recycle:
+# Documentation       :books:
+# Performance         :racehorse:
+# Cosmetic            :art:
+# Tests               :rotating_light:
+# Removal             :scissors:
+# Work in Progress    :construction:
+#
+# For more, see https://github.com/dannyfritz/commit-message-emoji
 
