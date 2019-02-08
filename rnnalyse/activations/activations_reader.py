@@ -1,5 +1,6 @@
 import pickle
 from typing import Optional
+
 import numpy as np
 
 from ..typedefs.models import ActivationName
@@ -10,7 +11,7 @@ from ..utils.paths import load_pickle, trim
 class ActivationsReader:
     def __init__(self,
                  activations_dir: str,
-                 label_path: Optional[str]) -> None:
+                 label_path: Optional[str] = None) -> None:
 
         self.activations_dir = trim(activations_dir)
 
@@ -55,19 +56,25 @@ class ActivationsReader:
 
     def create_data_split(self,
                           activation_name: ActivationName,
-                          train_subset_size: int = -1,
+                          data_subset_size: int = -1,
                           train_test_split: float = 0.9) -> DataDict:
+
+        if data_subset_size != -1:
+            assert 0 < data_subset_size <= self.data_len, \
+                "Size of subset must be positive and not bigger than the whole data set."
 
         activations = self.read_activations(activation_name)
 
-        split = int(self.data_len * train_test_split)
+        data_size = self.data_len if data_subset_size == -1 else data_subset_size
+        split = int(data_size * train_test_split)
 
-        n = split if train_subset_size == -1 else train_subset_size
-        train_indices = np.random.choice(range(n), n, replace=False)
+        indices = np.random.choice(range(data_size), data_size, replace=False)
+        train_indices = indices[:split]
+        test_indices = indices[split:]
 
         return {
             'train_x': activations[train_indices],
             'train_y': self.labels[train_indices],
-            'test_x': activations[split:],
-            'test_y': self.labels[split:]
+            'test_x': activations[test_indices],
+            'test_y': self.labels[test_indices]
         }
