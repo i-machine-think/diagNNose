@@ -1,10 +1,16 @@
 :Category Emoji: Commit Title
 
-Contents:
+Description of changes:
 
 * ...
 
 
+# Please modify this template before committing in the following way:
+# 1. Pick the appropriate emojis from the list below in order to categorize the commit
+# 2. Add a descriptive title
+# 3. List the changes you made under "Description of changes". Also add a motivation
+#    for those changes if it is not obvious from the description itself.
+#
 # Common emojis for categories include the following:
 # Initial commit      :tada:
 # Version tag         :bookmark:
