@@ -108,7 +108,10 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ]
         extracted_activations = _merge_sentence_activations(sentences_activations)
-        assert (extracted_activations == self.all_activations.numpy()).all()
+        self.assertTrue(
+            (extracted_activations == self.all_activations.numpy()).all(),
+            "Selection function didn't extract all activations"
+        )
 
         # Test extraction selection by position
         self.extractor.model.reset()
@@ -117,11 +120,14 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ]
         extracted_pos_activations = _merge_sentence_activations(pos_sentences_activations)
-        assert extracted_pos_activations.shape[0] == 3  # Confirm that only one activation per sentence was extracted
+        # Confirm that only one activation per sentence was extracted
+        self.assertEqual(
+            extracted_pos_activations.shape[0], 3, "More than one sentence was extracted based on position"
+        )
         # Confirm that all extracted activations come from position 2
         # Due to the way the dummy activations are created, all their values (except for their unique id value)
         # will be 3
-        assert (extracted_pos_activations[:, 0] == 3).all()
+        self.assertTrue((extracted_pos_activations[:, 0] == 3).all(), "Sentence was extracted from the wrong position")
 
         # Test extraction selection by label
         self.extractor.model.reset()
@@ -130,11 +136,12 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ]
         extracted_label_activations = _merge_sentence_activations(label_sentence_activations)
-        assert extracted_label_activations.shape[0] == 3  # Confirm that only one activation per sentence was extracted
+        # Confirm that only one activation per sentence was extracted
+        self.assertEqual(extracted_label_activations.shape[0], 3, "More than one sentence was extracted based on label")
         extracted_positions = extracted_label_activations[:, 0] - 1
         label_positions = np.array([sentence.labels.index(1) for sentence in self.test_sentences])
         # Confirm that activations are from the position of the specified label
-        assert (extracted_positions == label_positions).all()
+        self.assertTrue((extracted_positions == label_positions).all(), "Wrong activations extracted based on label")
 
         # Test extraction selection by token
         self.extractor.model.reset()
@@ -144,7 +151,7 @@ class TestExtractor(unittest.TestCase):
         ]
         extracted_token_activations = _merge_sentence_activations(token_sentence_activations)
         # Confirm that only one activation corresponding to "hog" was extracted
-        assert extracted_token_activations.shape[0] == 1
+        self.assertEqual(extracted_token_activations.shape[0], 1, "More than one activation extracted by token")
         assert extracted_token_activations[:, -1] == 6
 
         # Test extraction selection based on misc_info
@@ -158,7 +165,10 @@ class TestExtractor(unittest.TestCase):
         extracted_misc_activations = _merge_sentence_activations(misc_sentence_activations)
 
         # Confirm that only the first sentence was extracted
-        assert (extracted_misc_activations == self.all_activations[:len(self.test_sentences[0].sen), :].numpy()).all()
+        self.assertTrue(
+            (extracted_misc_activations == self.all_activations[:len(self.test_sentences[0].sen), :].numpy()).all(),
+            "Wrong sentence extracted based on misc info."
+        )
 
     # dump_pickle isn't defined in base_extractor but is imported via a from ... import ...
     # statement, therefore this patch path
@@ -172,4 +182,7 @@ class TestExtractor(unittest.TestCase):
         # Confirm the the correct average eos activation was calculated
         eos_activations = [activations[-1, :].unsqueeze(0) for activations in self.test_sentence_activations]
         avg_eos_activation = torch.cat(eos_activations, dim=0).mean(dim=0)
-        assert (avg_eos_activation == all_avg_eos_activations[0]["hx"]).all()
+        self.assertTrue(
+            (avg_eos_activation == all_avg_eos_activations[0]["hx"]).all(),
+            "Average end of sentence activations have wrong value."
+        )

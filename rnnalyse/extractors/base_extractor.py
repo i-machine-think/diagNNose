@@ -196,16 +196,16 @@ class Extractor:
 
         # Extract
         for i, labeled_sentence in enumerate(self.corpus.values()):
-            sen_activations = self._extract_sentence(labeled_sentence, _eos_selection_func)
+            eos_activations = self._extract_sentence(labeled_sentence, _eos_selection_func)
 
             # Update average eos states if last activation was extracted
             avg_eos_states = {
                 layer: {
                     'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'], torch.Tensor(sen_activations[(layer, 'hx')]), n_sens=i+1
+                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')]), n_sens=i+1
                     ),
                     'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'], torch.Tensor(sen_activations[(layer, 'cx')]), n_sens=i+1
+                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')]), n_sens=i+1
                     )
                 }
                 for layer in avg_eos_states

@@ -64,14 +64,20 @@ class TestDCTrainer(unittest.TestCase):
         # Confirm that class weights are not used if flag is not given
         mock_eval_classifier.return_value = self.labels  # Fake predictions
         self.model.train()
-        assert self.model.classifier.class_weight is None
+        self.assertTrue(
+            self.model.classifier.class_weight is None,
+            "Class weights are given although flag is set to False"
+        )
 
         # Confirm that class weights are calculated correctly if actually used
         class_counts = Counter(self.data_dict["train_y"].numpy())
         num_labels = sum(class_counts.values())
         self.weighed_model.train()
-        assert all([
-            class_counts[class_] / num_labels == weight
-            for class_, weight in self.weighed_model.classifier.class_weight.items()
-        ])
+        self.assertTrue(
+            all([
+                class_counts[class_] / num_labels == weight
+                for class_, weight in self.weighed_model.classifier.class_weight.items()
+            ]),
+            "Class weights have wrong values."
+        )
 

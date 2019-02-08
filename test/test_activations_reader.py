@@ -40,13 +40,14 @@ class TestActivationsReader(unittest.TestCase):
         labels = self.activation_reader.labels
 
         # Check if the amount of read data is correct
-        assert self.num_labels == labels.shape[0] == activations.shape[0]
+        self.assertEqual(self.num_labels, labels.shape[0], "Number of read labels is wrong.")
+        self.assertEqual(self.num_labels, activations.shape[0], "Number of read activations is wrong.")
 
         # Check how many sentences were processed
         start_of_sentences = activations[:, 0] == 1  # The first activation of a dummy sentence is a vector of ones
         num_read_sentences = start_of_sentences.astype(int).sum()
 
-        assert NUM_TEST_SENTENCES == num_read_sentences
+        self.assertEqual(NUM_TEST_SENTENCES, num_read_sentences, "Number of read sentences is wrong")
 
     def test_create_data_split(self):
         data_dict = self.activation_reader.create_data_split((0, "hx"), train_test_split=TRAIN_TEST_SPLIT)
@@ -54,15 +55,19 @@ class TestActivationsReader(unittest.TestCase):
         test_x, test_y = data_dict["test_x"], data_dict["test_y"]
 
         # Test the data set lengths
-        assert train_x.shape[0] == train_y.shape[0] == int(self.num_labels * TRAIN_TEST_SPLIT)
-        assert test_x.shape[0] == test_y.shape[0] == self.num_labels - int(self.num_labels * TRAIN_TEST_SPLIT)
+        right_num_train = int(self.num_labels * TRAIN_TEST_SPLIT)
+        right_num_test = self.num_labels - int(self.num_labels * TRAIN_TEST_SPLIT)
+        self.assertEqual(train_x.shape[0], right_num_train, "Wrong size of training split.")
+        self.assertEqual(train_y.shape[0], right_num_train, "Wrong size of training split.")
+        self.assertEqual(test_x.shape[0], right_num_test, "Wrong size of test split.")
+        self.assertEqual(test_y.shape[0], right_num_test, "Wrong size of test split.")
 
         # Test whether training and test set are disjoint
         # Use the identifier values that sit on the last dimension of each activation
         train_ids = set(train_x[:, -1])
         test_ids = set(test_x[:, -1])
 
-        assert len(train_ids & test_ids) == 0
+        self.assertEqual(len(train_ids & test_ids), 0, "Training and test set are not disjoint!")
 
         # TODO: Test additional arguments once we agree on them
 
