@@ -66,8 +66,8 @@ class TestDCTrainer(unittest.TestCase):
         # Confirm that class weights are not used if flag is not given
         mock_eval_classifier.return_value = self.labels  # Fake predictions
         self.model.train()
-        self.assertTrue(
-            self.model.classifier.class_weight is None,
+        self.assertIsNone(
+            self.model.classifier.class_weight,
             "Class weights are given although flag is set to False"
         )
 
