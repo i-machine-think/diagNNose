@@ -13,28 +13,30 @@ ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
 TRAIN_TEST_SPLIT = 0.75
 
-# Create directory if necessary
-if not os.path.exists(ACTIVATIONS_DIR):
-    os.makedirs(ACTIVATIONS_DIR)
-
 
 class TestActivationsReader(unittest.TestCase):
     """ Test functionalities of the ActivationsReader class. """
 
     @classmethod
-    def setUpClass(self):
-        # Remove files from previous tests
-        if os.listdir(ACTIVATIONS_DIR):
-            os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+    def setUpClass(cls):
+        # Create directory if necessary
+        if not os.path.exists(ACTIVATIONS_DIR):
+            os.makedirs(ACTIVATIONS_DIR)
 
         # Create dummy data have reader read it
         labels = create_and_dump_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES, activations_dim=10, max_tokens=5, activations_dir=ACTIVATIONS_DIR,
             activations_name=ACTIVATIONS_NAME, num_classes=2
         )
-        self.num_labels = labels.shape[0]
-        self.activation_reader = ActivationsReader(activations_dir=ACTIVATIONS_DIR)
+        cls.num_labels = labels.shape[0]
+        cls.activation_reader = ActivationsReader(activations_dir=ACTIVATIONS_DIR)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Remove files from previous tests
+        if os.listdir(ACTIVATIONS_DIR):
+            os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
     def test_read_activations(self):
         activations = self.activation_reader.read_activations((0, "hx"))

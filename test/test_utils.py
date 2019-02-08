@@ -2,8 +2,12 @@
 Useful function for testing.
 """
 
+from contextlib import redirect_stdout
+from functools import wraps
+import io
 import pickle
 import random
+from typing import Callable, Any
 
 import torch
 
@@ -50,3 +54,22 @@ def create_sentence_dummy_activations(sentence_len: int, activations_dim: int,
     activations[:, -1] = identifier_values  # Add values on last dimension of activation
 
     return activations
+
+
+def suppress_print(func: Callable) -> Callable:
+    """
+    Function decorator to suppress output via print for testing purposed. Thanks to
+    https://codingdose.info/2018/03/22/supress-print-output-in-python/ for text "entrapment".
+    """
+    @wraps(func)
+    def wrapped(*args, **kwargs) -> Any:
+
+        trap = io.StringIO()
+
+        with redirect_stdout(trap):
+            result = func(*args, **kwargs)
+
+        return result
+
+    return wrapped
+

@@ -182,10 +182,10 @@ class Extractor:
     def extract_average_eos_activations(self):
         """ Extract average end of sentence activations and dump them to a file. """
 
-        def _incremental_avg(old_avg, new_value, n_sens):
+        def _incremental_avg(old_avg: torch.Tensor, new_value: torch.Tensor, n_sens: int):
             return old_avg + 1 / n_sens * (new_value - old_avg)
 
-        def _eos_selection_func(pos, token, sentence):
+        def _eos_selection_func(pos: int, token: str, sentence: LabeledSentence):
             return pos == len(sentence.sen) - 1
 
         # Init states

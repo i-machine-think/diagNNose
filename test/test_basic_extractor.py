@@ -15,18 +15,14 @@ from torch import Tensor
 
 from rnnalyse.extractors.base_extractor import Extractor
 from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.models import FullActivationDict
-from .test_utils import create_sentence_dummy_activations
+from rnnalyse.typedefs.models import FullActivationDict, PartialActivationDict
+from .test_utils import create_sentence_dummy_activations, suppress_print
 
 
 # GLOBALS
 ACTIVATION_DIM = 10
 ACTIVATION_NAMES = [(0, "hx"), (0, "cx")]
 ACTIVATIONS_DIR = "test/test_data"
-
-# Create directory if necessary
-if not os.path.exists(ACTIVATIONS_DIR):
-    os.makedirs(ACTIVATIONS_DIR)
 
 
 class MockLanguageModel(LanguageModel):
@@ -59,43 +55,55 @@ class TestExtractor(unittest.TestCase):
     """ Test functionalities of the Extractor class. """
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
+        # Create directory if necessary
+        if not os.path.exists(ACTIVATIONS_DIR):
+            os.makedirs(ACTIVATIONS_DIR)
+
         # Prepare Mock sentences
-        self.test_sentences = [MagicMock(), MagicMock(), MagicMock()]
-        self.test_sentences[0].sen = ["The", "ripe", "taste", "improves", "."]
-        self.test_sentences[0].labels = [0, 0, 1, 0, 0]
-        self.test_sentences[0].misc_info = {"quality": "delicious"}
+        cls.test_sentences = [MagicMock(), MagicMock(), MagicMock()]
+        cls.test_sentences[0].sen = ["The", "ripe", "taste", "improves", "."]
+        cls.test_sentences[0].labels = [0, 0, 1, 0, 0]
+        cls.test_sentences[0].misc_info = {"quality": "delicious"}
 
-        self.test_sentences[1].sen = ["The", "hog", "crawled", "."]
-        self.test_sentences[1].labels = [0, 1, 0, 0]
-        self.test_sentences[1].misc_info = {"quality": "hairy"}
+        cls.test_sentences[1].sen = ["The", "hog", "crawled", "."]
+        cls.test_sentences[1].labels = [0, 1, 0, 0]
+        cls.test_sentences[1].misc_info = {"quality": "hairy"}
 
-        self.test_sentences[2].sen = ["Move", "the", "vat", "."]
-        self.test_sentences[2].labels = [0, 0, 1, 0]
-        self.test_sentences[2].misc_info = {"quality": "ok"}
+        cls.test_sentences[2].sen = ["Move", "the", "vat", "."]
+        cls.test_sentences[2].labels = [0, 0, 1, 0]
+        cls.test_sentences[2].misc_info = {"quality": "ok"}
 
-        self.corpus = {i: self.test_sentences[i] for i in range(len(self.test_sentences))}
+        cls.corpus = {i: cls.test_sentences[i] for i in range(len(cls.test_sentences))}
 
         # Mock the activations the model produces
-        self.all_tokens = list(itertools.chain(*[sentence.sen for sentence in self.test_sentences]))
+        cls.all_tokens = list(itertools.chain(*[sentence.sen for sentence in cls.test_sentences]))
 
-        self.test_sentence_activations = []
+        cls.test_sentence_activations = []
         identifier_value = 0
-        for sentence in self.corpus.values():
-            self.test_sentence_activations.append(
+        for sentence in cls.corpus.values():
+            cls.test_sentence_activations.append(
                 create_sentence_dummy_activations(len(sentence.sen), ACTIVATION_DIM, identifier_value)
             )
             identifier_value += len(sentence.sen)
 
-        self.all_activations = torch.cat(self.test_sentence_activations)
+        cls.all_activations = torch.cat(cls.test_sentence_activations)
 
         # Prepare Mock Model
-        self.model = MockLanguageModel(
-            num_layers=1, hidden_size=ACTIVATION_DIM, all_tokens=self.all_tokens, all_activations=self.all_activations
+        cls.model = MockLanguageModel(
+            num_layers=1, hidden_size=ACTIVATION_DIM, all_tokens=cls.all_tokens, all_activations=cls.all_activations
         )
 
         # Init extractor
-        self.extractor = Extractor(self.model, self.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
+        cls.extractor = Extractor(cls.model, cls.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Delete activations after tests
+        if os.listdir(ACTIVATIONS_DIR):
+            os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/cx_l0.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
     def test_extract_sentence(self):
         """ Test the _extract_sentence function for extracting the activations of whole sentences. """
@@ -181,6 +189,8 @@ class TestExtractor(unittest.TestCase):
     # statement, therefore this patch path
     @patch('rnnalyse.extractors.base_extractor.dump_pickle')
     def test_extract_average_eos_activations(self, dump_pickle_mock: MagicMock):
+        """ Test whether average end-of-sentence embeddings are calculated correctly. """
+
         self.extractor.model.reset()
         self.extractor.extract_average_eos_activations()
         # Get the incrementally computed activations that were used as an arg to our mock dump_pickle function
@@ -194,8 +204,18 @@ class TestExtractor(unittest.TestCase):
             "Average end of sentence activations have wrong value."
         )
 
+    @suppress_print
+    @patch('rnnalyse.extractors.base_extractor.Extractor._dump_activations')
+    def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
+        """ Test whether functions used to dump pickle files are called with the right arguments. """
+
+        self.extractor.model.reset()
+        self.extractor.extract(print_every=100)
+        call_args = dump_activations_mock.call_args
+        # TODO
+
     @staticmethod
-    def _merge_sentence_activations(sentences_activations: List[FullActivationDict]) -> np.array:
+    def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.array:
         """ Merge activations from different sentences into one single numpy array. """
         return np.array(list(itertools.chain(
             *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
