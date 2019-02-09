@@ -78,6 +78,7 @@ class TestExtractor(unittest.TestCase):
 
         # Mock the activations the model produces
         cls.all_tokens = list(itertools.chain(*[sentence.sen for sentence in cls.test_sentences]))
+        cls.all_labels = cls._merge_labels([sentence.labels for sentence in cls.corpus.values()])
 
         cls.test_sentence_activations = []
         identifier_value = 0
@@ -110,25 +111,33 @@ class TestExtractor(unittest.TestCase):
 
         # Test extraction of all activations
         self.model.reset()
-        sentences_activations = [
+        sentences_activations, labels = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: True)
             for sentence in self.corpus.values()
-        ]
+        ])
         extracted_activations = self._merge_sentence_activations(sentences_activations)
+        extracted_labels = self._merge_labels(labels)
+
         self.assertTrue(
             (extracted_activations == self.all_activations.numpy()).all(),
             "Selection function didn't extract all activations"
+        )
+        self.assertTrue(
+            (extracted_labels == self.all_labels).all(),
+            "Selection function didn't extract all labels"
         )
 
     def test_activation_extraction_by_pos(self):
         """ Test the _extract_sentence function for extracting the activations based on position. """
 
         self.extractor.model.reset()
-        pos_sentences_activations = [
+        pos_sentences_activations, pos_labels = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
             for sentence in self.corpus.values()
-        ]
+        ])
         extracted_pos_activations = self._merge_sentence_activations(pos_sentences_activations)
+        extracted_labels = self._merge_labels(pos_labels)
+
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
             extracted_pos_activations.shape[0], 3, "More than one sentence was extracted based on position"
@@ -138,15 +147,23 @@ class TestExtractor(unittest.TestCase):
         # will be 3
         self.assertTrue((extracted_pos_activations[:, 0] == 3).all(), "Sentence was extracted from the wrong position")
 
+        # Confirm the right labels were extracted
+        self.assertTrue(
+            (extracted_labels == self.all_labels[[2, 7, 11]]).all(),
+            "Wrong labels were extracted based on position."
+        )
+
     def test_activation_extraction_by_label(self):
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
         self.extractor.model.reset()
-        label_sentence_activations = [
+        label_sentence_activations, label_labels = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
             for sentence in self.corpus.values()
-        ]
+        ])
         extracted_label_activations = self._merge_sentence_activations(label_sentence_activations)
+        extracted_labels = self._merge_labels(label_labels)
+
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(extracted_label_activations.shape[0], 3, "More than one sentence was extracted based on label")
         extracted_positions = extracted_label_activations[:, 0] - 1
@@ -154,30 +171,45 @@ class TestExtractor(unittest.TestCase):
         # Confirm that activations are from the position of the specified label
         self.assertTrue((extracted_positions == label_positions).all(), "Wrong activations extracted based on label")
 
+        # Confirm the right labels were extracted
+        self.assertTrue(
+            (extracted_labels == 1).all(),
+            "Wrong labels were extracted based on label."
+        )
+
     def test_activation_extraction_by_token(self):
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
         self.extractor.model.reset()
-        token_sentence_activations = [
+        token_sentence_activations, token_labels = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
             for sentence in self.corpus.values()
-        ]
+        ])
         extracted_token_activations = self._merge_sentence_activations(token_sentence_activations)
+        extracted_labels = self._merge_labels(token_labels)
+
         # Confirm that only one activation corresponding to "hog" was extracted
         self.assertEqual(extracted_token_activations.shape[0], 1, "More than one activation extracted by token")
         assert extracted_token_activations[:, -1] == 6
+
+        # Confirm the right labels were extracted
+        self.assertTrue(
+            (extracted_labels == self.all_labels[[6]]).all(),
+            "Wrong labels were extracted based on token."
+        )
 
     def test_activation_extraction_by_misc_info(self):
         """ Test the _extract_sentence function for extracting the activations based on additional info. """
 
         self.extractor.model.reset()
-        misc_sentence_activations = [
+        misc_sentence_activations, misc_labels = zip(*[
             self.extractor._extract_sentence(
                 sentence, lambda pos, token, sentence: sentence.misc_info["quality"] == "delicious"
             )
             for sentence in self.corpus.values()
-        ]
+        ])
         extracted_misc_activations = self._merge_sentence_activations(misc_sentence_activations)
+        extracted_labels = self._merge_labels(misc_labels)
 
         # Confirm that only the first sentence was extracted
         self.assertTrue(
@@ -185,9 +217,16 @@ class TestExtractor(unittest.TestCase):
             "Wrong sentence extracted based on misc info."
         )
 
+        # Confirm the right labels were extracted
+        self.assertTrue(
+            (extracted_labels == self.all_labels[:len(self.test_sentences[0].sen)]).all(),
+            "Wrong labels extracted based on misc info."
+        )
+
     # dump_pickle isn't defined in base_extractor but is imported via a from ... import ...
     # statement, therefore this patch path
     @patch('rnnalyse.extractors.base_extractor.dump_pickle')
+    @suppress_print
     def test_extract_average_eos_activations(self, dump_pickle_mock: MagicMock):
         """ Test whether average end-of-sentence embeddings are calculated correctly. """
 
@@ -224,6 +263,7 @@ class TestExtractor(unittest.TestCase):
         )
 
     @patch('rnnalyse.extractors.base_extractor.dump_pickle')
+    @suppress_print
     def test_average_eos_dumping_args(self, dump_pickle_mock: MagicMock):
         """
         Test whether functions used to dump pickle files during thge calculation of the average end-of-sentence
@@ -250,6 +290,11 @@ class TestExtractor(unittest.TestCase):
         return np.array(list(itertools.chain(
             *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
         ))
+
+    @staticmethod
+    def _merge_labels(sentence_labels: List[np.array]):
+        """ Merge labels from different sentences into a single numpy array. """
+        return np.array(list(itertools.chain(*sentence_labels)))
 
     @staticmethod
     def is_full_activation_dict(var: Any) -> bool:
