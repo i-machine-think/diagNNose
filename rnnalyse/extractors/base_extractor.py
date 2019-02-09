@@ -213,10 +213,10 @@ class Extractor:
             avg_eos_states = {
                 layer: {
                     'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')]), n_sens=i+1
+                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)), n_sens=i+1
                     ),
                     'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')]), n_sens=i+1
+                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)), n_sens=i+1
                     )
                 }
                 for layer in avg_eos_states

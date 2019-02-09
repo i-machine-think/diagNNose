@@ -243,6 +243,11 @@ class TestExtractor(unittest.TestCase):
             "Average end of sentence activations have wrong value."
         )
 
+        self.assertEqual(
+            len(all_avg_eos_activations[0]["hx"]), self.extractor.model.hidden_size,
+            "Average end of sentence activations have wrong dimensions."
+        )
+
     @suppress_print
     @patch('rnnalyse.extractors.base_extractor.Extractor._dump_activations')
     def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
