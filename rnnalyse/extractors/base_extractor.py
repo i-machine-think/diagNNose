@@ -1,7 +1,7 @@
 import pickle
 from contextlib import ExitStack
 from time import time
-from typing import BinaryIO, List, Optional, Callable
+from typing import BinaryIO, List, Optional, Callable, Tuple
 import os
 import warnings
 
@@ -96,23 +96,25 @@ class Extractor:
 
         with ExitStack() as stack:
             self._create_output_files(stack)
+            extracted_labels = []
 
             for labeled_sentence in self.corpus.values():
 
-                sen_activations = self._extract_sentence(labeled_sentence, selection_func)
+                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence, selection_func)
                 sen_num_extracted = list(sen_activations.values())[0].shape[0]
 
+                extracted_labels.extend(sen_extracted_labels)
                 self._dump_activations(sen_activations)
                 self.num_extracted += sen_num_extracted
                 self.n_sens += 1
 
                 if self.n_sens % print_every == 0 and self.n_sens > 0:
-                    self._print_time_info(start_time, print_every)
+                    self._print_time_info(start_time, print_every, self.n_sens)
                 if cutoff == self.n_sens:
                     break
 
             # TODO: Move this to separate Labeler class
-            self._dump_static_info()
+            self._dump_labels(extracted_labels)
 
         minutes, seconds = divmod(time() - start_time, 60)
 
@@ -136,17 +138,18 @@ class Extractor:
             open(f'{self.output_dir}/labels.pickle', 'wb')
         )
 
-    def _print_time_info(self, start_time: float, print_every: int) -> None:
+    def _print_time_info(self, start_time: float, print_every: int, n_sens: int) -> None:
         speed = (time() - self.cur_time) / print_every
         self.cur_time = time()
         duration = self.cur_time - start_time
         minutes, seconds = divmod(duration, 60)
 
-        print(f'#sens: {self.n_sens:>4}\t\t'
+        print(f'#sens: {n_sens:>4}\t\t'
               f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: LabeledSentence, selection_func: Callable) -> PartialActivationDict:
+    def _extract_sentence(self, sentence: LabeledSentence,
+                          selection_func: Callable) -> Tuple[PartialActivationDict, List]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -158,11 +161,14 @@ class Extractor:
 
         Returns
         -------
-        num_extracted: int
-            Number of extracted activations for this sentence.
+        sen_activations: PartialActivationDict
+            Extracted activations for this sentence.
+        extracted_labels: list
+            Labels corresponding to the tokens which activations were extracted.
         """
 
         sen_activations: PartialActivationDict = self._init_sen_activations(0)
+        extracted_labels = []
 
         activations: FullActivationDict = self.init_lstm_states.states
 
@@ -171,15 +177,17 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
+                extracted_labels.append(sentence.labels[i])  # Add label corresonding to extracted activations
+
                 for layer, name in self.activation_names:
                     sen_activations[(layer, name)] = np.append(
                         sen_activations[(layer, name)], activations[layer][name].detach().numpy()[np.newaxis, ...],
                         axis=0
                     )
 
-        return sen_activations
+        return sen_activations, extracted_labels
 
-    def extract_average_eos_activations(self):
+    def extract_average_eos_activations(self, print_every: int = 10):
         """ Extract average end of sentence activations and dump them to a file. """
 
         def _incremental_avg(old_avg: torch.Tensor, new_value: torch.Tensor, n_sens: int):
@@ -187,6 +195,9 @@ class Extractor:
 
         def _eos_selection_func(pos: int, token: str, sentence: LabeledSentence):
             return pos == len(sentence.sen) - 1
+
+        start_time: float = time()
+        print('\nStarting extraction for average eos activations...')
 
         # Init states
         avg_eos_states = {
@@ -196,23 +207,31 @@ class Extractor:
 
         # Extract
         for i, labeled_sentence in enumerate(self.corpus.values()):
-            eos_activations = self._extract_sentence(labeled_sentence, _eos_selection_func)
+            eos_activations, _ = self._extract_sentence(labeled_sentence, _eos_selection_func)
 
             # Update average eos states if last activation was extracted
             avg_eos_states = {
                 layer: {
                     'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')]), n_sens=i+1
+                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)), n_sens=i+1
                     ),
                     'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')]), n_sens=i+1
+                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)), n_sens=i+1
                     )
                 }
                 for layer in avg_eos_states
             }
 
+            if i % print_every == 0 and i > 0:
+                self._print_time_info(start_time, print_every, i)
+
+        minutes, seconds = divmod(time() - start_time, 60)
+
         # Dump average eos states
         dump_pickle(avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
+
+        print(f'\nExtraction finished.')
+        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
 
     def _dump_activations(self, activations: PartialActivationDict) -> None:
         """ Dumps the generated activations to a list of opened files
@@ -226,13 +245,10 @@ class Extractor:
         for layer, name in self.activation_names:
             pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
 
-    def _dump_static_info(self) -> None:
+    def _dump_labels(self, extracted_labels: list) -> None:
         assert self.label_file is not None
 
-        labels: Labels = np.array([label
-                                   for sen in self.corpus.values()
-                                   for label in sen.labels
-                                   ][:self.num_extracted])
+        labels: Labels = np.array(extracted_labels)
 
         pickle.dump(labels, self.label_file)
 
