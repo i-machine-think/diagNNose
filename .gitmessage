@@ -1,28 +1,26 @@
-:Category Emoji: Commit Title
+:Emoji: Short description of changes in imperative mode
 
-Description of changes:
+# Description of changes:
 
-* ...
-
-
-# Please modify this template before committing in the following way:
-# 1. Pick the appropriate emojis from the list below in order to categorize the commit
-# 2. Add a descriptive title
-# 3. List the changes you made under "Description of changes". Also add a motivation
+# Please format your commit message in the following way:
+# * Pick the appropriate emojis from the list below in order to categorise the commit
+# * Add a descriptive title in imperative mode
+# * List the changes you made under "Description of changes". Add a motivation
 #    for those changes if it is not obvious from the description itself.
+# 
+# As a general rule, aim restrict your commit to changes of one category.
+#
 #
 # Common emojis for categories include the following:
-# Initial commit      :tada:
-# Version tag         :bookmark:
-# New Feature         :sparkles:
+# Cosmetic/style      :art:
+# New feature         :sparkles:
 # Bugfix              :bug:
 # Refactoring         :recycle:
 # Documentation       :books:
-# Performance         :racehorse:
-# Cosmetic            :art:
 # Tests               :rotating_light:
+# Performance         :racehorse:
 # Removal             :scissors:
-# Work in Progress    :construction:
+# Version tag         :bookmark:
 #
 # For more, see https://github.com/dannyfritz/commit-message-emoji
 
