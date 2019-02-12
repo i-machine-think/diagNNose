@@ -39,6 +39,13 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     ----------
     step_size: float
         Step size of the adjustment of the activations.
+    masking: bool
+        Flag to indicate whether interventions should only be conducted when the prediction of the Diagnostic Classifier
+        is wrong (masking = True) or even when it is right (masking = False; in this case a gradient is still possible
+        to compute).
+    redecode: bool
+        Flag to indicate whether the probability distribution over the vocabulary should be recomputed after adjusting
+        activations during interventions.
     diagnostic_classifiers: dict
         Dictionary of path to diagnostic classifiers to their respective diagnostic classifiers objects.
     intervention_points: list
@@ -50,10 +57,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
                  diagnostic_classifiers: DiagnosticClassifierDict,
                  intervention_points: List[str],
                  step_size: float,
-                 trigger_func: Callable=None):
+                 trigger_func: Callable=None,
+                 masking: bool = False,
+                 redecode: bool = False):
 
         super().__init__(model, trigger_func=self.dc_trigger_func if trigger_func is None else trigger_func)
         self.step_size = step_size
+        self.masking = masking
+        self.redecode = redecode
 
         # Link diagnostic classifiers to layer they correspond to
         self.diagnostic_classifiers = defaultdict(dict)
@@ -228,8 +239,9 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
             activations[layer_num][activation_type] = new_activations
 
         # Repeat decoding step with adjusted activations
-        topmost_activations = activations[self.topmost_layer_num]["hx"]
-        out: Tensor = self.model.w_decoder @ topmost_activations + self.model.b_decoder
+        if self.redecode:
+            topmost_activations = activations[self.topmost_layer_num]["hx"]
+            out: Tensor = self.model.w_decoder @ topmost_activations + self.model.b_decoder
 
         return out, activations
 
