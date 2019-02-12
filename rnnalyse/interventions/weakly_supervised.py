@@ -221,6 +221,7 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
             loss = self.diagnostic_classifier_loss(prediction, label)
             loss.backward()
             gradient = current_activations.grad
+            gradient = self.replace_nans(gradient)  # Sometimes gradient might become nan when loss is exactly 0
 
             # Manual (masked) update step
             new_activations = current_activations - self.step_size * gradient * mask
@@ -231,3 +232,10 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         out: Tensor = self.model.w_decoder @ topmost_activations + self.model.b_decoder
 
         return out, activations
+
+    @staticmethod
+    def replace_nans(tensor: Tensor) -> Tensor:
+        """ Replace nans in a PyTorch tensor with zeros. """
+        tensor[tensor != tensor] = 0  # Exploit the fact that nan != nan
+
+        return tensor
