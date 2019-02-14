@@ -7,7 +7,7 @@ from typing import BinaryIO, Optional
 import numpy as np
 
 from ..typedefs.corpus import Labels
-from ..typedefs.models import ActivationFiles, ActivationNames, PartialActivationDict
+from ..typedefs.models import ActivationFiles, ActivationNames, PartialArrayDict
 from ..utils.paths import trim
 
 
@@ -54,7 +54,7 @@ class ActivationWriter:
             open(f'{self.output_dir}/labels.pickle', 'wb')
         )
 
-    def dump_activations(self, activations: PartialActivationDict) -> None:
+    def dump_activations(self, activations: PartialArrayDict) -> None:
         """ Dumps the generated activations to a list of opened files
 
         Parameters

@@ -95,7 +95,7 @@ class DCTrainer:
         }[self.classifier_type]
 
     def fit_data(self,
-                 train_x: np.array, train_y: np.array,
+                 train_x: np.ndarray, train_y: np.ndarray,
                  activation_name: ActivationName) -> None:
         print(f'\nStarting fitting model on {activation_name}...')
 
@@ -106,7 +106,7 @@ class DCTrainer:
 
     # TODO: Add more evaluation metrics here
     def eval_classifier(self,
-                        test_x: np.array, test_y: np.array,
+                        test_x: np.ndarray, test_y: np.ndarray,
                         activation_name: ActivationName) -> np.ndarray:
         pred_y = self.classifier.predict(test_x)
 
