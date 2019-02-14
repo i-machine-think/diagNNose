@@ -1,9 +1,11 @@
+import os
 import pickle
 from typing import Any
 
 
 def trim(path: str) -> str:
-    return path[:-1] if path[-1] == '/' else path
+    newpath = path[:-1] if path[-1] == '/' else path
+    return os.path.expanduser(newpath)
 
 
 def load_pickle(path: str) -> Any:
