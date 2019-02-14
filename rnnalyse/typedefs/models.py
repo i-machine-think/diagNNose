@@ -1,8 +1,10 @@
-from typing import BinaryIO, Dict, Tuple
+from typing import BinaryIO, Dict, List, Tuple
 
 from torch import Tensor
 
 ActivationName = Tuple[int, str]
+ActivationNames = List[ActivationName]
+
 ActivationFiles = Dict[ActivationName, BinaryIO]
 
 ActivationLayer = Dict[str, Tensor]
