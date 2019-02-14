@@ -11,7 +11,7 @@ from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
 from ..typedefs.extraction import SelectFunc
 from ..typedefs.models import ActivationNames, FullActivationDict, PartialArrayDict
-from ..utils.paths import dump_pickle
+from ..utils.paths import dump_pickle, trim
 
 
 class Extractor:
@@ -41,6 +41,8 @@ class Extractor:
     output_dir: str
     init_lstm_states : FullActivationDict
         Initial embeddings that are loaded from file or set to zero.
+    activation_writer : ActivationWriter
+        Auxiliary class that writes activations to file.
     """
     def __init__(self,
                  model: LanguageModel,
@@ -52,10 +54,10 @@ class Extractor:
         self.corpus = corpus
 
         self.activation_names: ActivationNames = activation_names
-
-        self.activations_writer = ActivationWriter(output_dir, activation_names)
-
+        self.output_dir = trim(output_dir)
         self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
+
+        self.activation_writer = ActivationWriter(output_dir, activation_names)
 
     # TODO: Allow batch input
     def extract(self,
@@ -89,7 +91,7 @@ class Extractor:
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
-            self.activations_writer.create_output_files(stack)
+            self.activation_writer.create_output_files(stack)
             extracted_labels: Labels = []
 
             for n_sens, labeled_sentence in enumerate(self.corpus.values()):
@@ -102,7 +104,7 @@ class Extractor:
                 sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
                                                                                selection_func)
                 if dynamic_dumping:
-                    self.activations_writer.dump_activations(sen_activations)
+                    self.activation_writer.dump_activations(sen_activations)
                 else:
                     for name in all_activations.keys():
                         all_activations[name].append(sen_activations[name])
@@ -110,11 +112,11 @@ class Extractor:
                 extracted_labels.extend(sen_extracted_labels)
                 num_extracted += len(sen_extracted_labels)
 
-            self.activations_writer.dump_labels(extracted_labels)
+            self.activation_writer.dump_labels(extracted_labels)
             if not dynamic_dumping:
                 for name in all_activations.keys():
                     all_activations[name] = np.concatenate(all_activations[name], axis=0)
-                self.activations_writer.dump_activations(all_activations)
+                self.activation_writer.dump_activations(all_activations)
 
         minutes, seconds = divmod(time() - start_t, 60)
 
@@ -189,7 +191,7 @@ class Extractor:
         def _eos_selection_func(pos: int, _token: str, sentence: LabeledSentence) -> bool:
             return pos == (len(sentence.sen) - 1)
 
-        start_time: float = time()
+        start_time = prev_time = time()
         print('\nStarting extraction for average eos activations...')
 
         # Init states
@@ -223,7 +225,8 @@ class Extractor:
             }
 
             if i % print_every == 0 and i > 0:
-                self._print_time_info(start_time, print_every, i)
+                self._print_time_info(prev_time, start_time, print_every, i)
+                prev_time = time()
 
         minutes, seconds = divmod(time() - start_time, 60)
 
