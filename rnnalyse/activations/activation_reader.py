@@ -63,7 +63,7 @@ class ActivationReader:
 
         n = 0
 
-        # The activations are stored as a series of pickle dumps, and
+        # The activations can be stored as a series of pickle dumps, and
         # are therefore loaded until an EOFError is raised.
         with open(f'{self.activations_dir}/{filename}', 'rb') as f:
             while True:

@@ -34,8 +34,8 @@ class DCTrainer:
         Path to label files. If not provided, labels.pickle in
         `activations_dir` will be used.
     use_class_weights : bool
-        Flag to indicate whether class weights calculated from the training data should be used to train the
-        classifier (defaults to True).
+        Flag to indicate whether class weights calculated from the
+        training data should be used for training (defaults to True).
 
     Attributes
     ----------
