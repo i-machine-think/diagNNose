@@ -61,6 +61,7 @@ class Extractor:
     def extract(self,
                 cutoff: int = -1,
                 print_every: int = 10,
+                dynamic_dumping: bool = True,
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True) -> None:
         """ Extracts embeddings from a labeled corpus.
 
@@ -73,47 +74,54 @@ class Extractor:
             How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
-        print_every: int, optional
+        print_every : int, optional
             Print time passed every n sentences, defaults to 10.
+        dynamic_dumping : bool, optional
+            Dump files dynamically, i.e. once per sentence, or dump
+            all files at the end of extraction. Defaults to True.
         selection_func: Callable
             Function which determines if activations for a token should
             be extracted or not.
         """
-        start_t = time()
-        num_extracted = 0
-        n_sens = 0
-        prev_t = time()
+        start_t = prev_t = time()
+        num_extracted = n_sens = 0
+        all_activations: PartialArrayDict = self._init_sen_activations()
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
             self.activations_writer.create_output_files(stack)
             extracted_labels: Labels = []
 
-            for labeled_sentence in self.corpus.values():
-                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
-                                                                               selection_func)
-                self.activations_writer.dump_activations(sen_activations)
-
-                extracted_labels.extend(sen_extracted_labels)
-
-                sen_num_extracted = list(sen_activations.values())[0].shape[0]
-                num_extracted += sen_num_extracted
-                n_sens += 1
-
+            for n_sens, labeled_sentence in enumerate(self.corpus.values()):
                 if n_sens % print_every == 0 and n_sens > 0:
                     self._print_time_info(prev_t, start_t, print_every, n_sens)
                     prev_t = time()
                 if cutoff == n_sens:
                     break
 
+                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
+                                                                               selection_func)
+                if dynamic_dumping:
+                    self.activations_writer.dump_activations(sen_activations)
+                else:
+                    for name in all_activations.keys():
+                        all_activations[name].append(sen_activations[name])
+
+                extracted_labels.extend(sen_extracted_labels)
+                num_extracted += len(sen_extracted_labels)
+
             self.activations_writer.dump_labels(extracted_labels)
+            if not dynamic_dumping:
+                for name in all_activations.keys():
+                    all_activations[name] = np.concatenate(all_activations[name], axis=0)
+                self.activations_writer.dump_activations(all_activations)
 
         minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')
         print(f'{n_sens} sentences have been extracted, '
               f'yielding {num_extracted} data points.')
-        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
+        print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
     @staticmethod
     def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int) -> None:
@@ -122,7 +130,7 @@ class Extractor:
         minutes, seconds = divmod(duration, 60)
 
         print(f'#sens: {n_sens:>4}\t\t'
-              f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
+              f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
     def _extract_sentence(self,
@@ -143,8 +151,8 @@ class Extractor:
         sen_activations : PartialArrayDict
             Extracted activations for this sentence. Activations are
             converted to numpy arrays.
-        extracted_labels : list
-            Labels corresponding to the extracted activations.
+        extracted_labels : Labels
+            List of labels corresponding to the extracted activations.
         """
 
         sen_activations: PartialArrayDict = self._init_sen_activations()
@@ -160,15 +168,16 @@ class Extractor:
                 extracted_labels.append(sentence.labels[i])
 
                 for layer, name in self.activation_names:
-                    sen_activations[(layer, name)] = np.append(
-                        sen_activations[(layer, name)],
-                        activations[layer][name].detach().numpy()[np.newaxis, ...],
-                        axis=0
+                    sen_activations[(layer, name)].append(
+                        activations[layer][name].detach().numpy()
                     )
+
+        for name, arr in sen_activations.items():
+            sen_activations[name] = np.array(arr)
 
         return sen_activations, extracted_labels
 
-    # TODO: refactor...
+    # TODO: refactor
     def extract_average_eos_activations(self, print_every: int = 10) -> None:
         """ Extract average end of sentence activations and dump them to a file. """
 
@@ -225,8 +234,8 @@ class Extractor:
         print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
 
     def _init_sen_activations(self, sen_len: int = 0) -> PartialArrayDict:
-        """ Initialize dict of Tensors that will be written to file. """
+        """ Initialize dict of numpy arrays that will be written to file. """
         return {
-            (layer, name): np.empty((sen_len, self.model.hidden_size))
+            (layer, name): [] if sen_len == 0 else np.empty((sen_len, self.model.hidden_size))
             for (layer, name) in self.activation_names
         }
