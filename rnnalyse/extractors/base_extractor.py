@@ -1,19 +1,17 @@
-import pickle
 from contextlib import ExitStack
 from time import time
-from typing import BinaryIO, List, Optional, Callable, Tuple
-import os
-import warnings
+from typing import List, Tuple
 
 import numpy as np
 import torch
 
+from ..activations.activation_writer import ActivationWriter
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
-from ..typedefs.corpus import LabeledCorpus, Labels, LabeledSentence
-from ..typedefs.models import (
-    ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
-from ..utils.paths import trim, dump_pickle
+from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
+from ..typedefs.extraction import SelectFunc
+from ..typedefs.models import ActivationNames, FullActivationDict, PartialActivationDict
+from ..utils.paths import dump_pickle
 
 
 class Extractor:
@@ -30,7 +28,7 @@ class Extractor:
         Corpus containing the labels for each sentence.
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
-    output_dir: str, optional
+    output_dir : str
         Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
@@ -40,11 +38,7 @@ class Extractor:
     model : LanguageModel
     corpus : LabeledCorpus
     activation_names : List[tuple[int, str]]
-    output_dir: str, optional
-    activation_files : ActivationFiles
-        Dict of files to which activations will be written.
-    label_file: Optional[BinaryIO]
-        File to which sentence labels will be written.
+    output_dir: str
     init_lstm_states : FullActivationDict
         Initial embeddings that are loaded from file or set to zero.
     num_extracted : int
@@ -55,17 +49,15 @@ class Extractor:
     def __init__(self,
                  model: LanguageModel,
                  corpus: LabeledCorpus,
-                 activation_names: List[ActivationName],
+                 activation_names: ActivationNames,
                  output_dir: str,
                  init_lstm_states_path: str = '') -> None:
         self.model = model
         self.corpus = corpus
 
-        self.activation_names: List[ActivationName] = activation_names
-        self.output_dir = os.path.expanduser(trim(output_dir))
+        self.activation_names: ActivationNames = activation_names
 
-        self.activation_files: ActivationFiles = {}
-        self.label_file: Optional[BinaryIO] = None
+        self.activations_writer = ActivationWriter(output_dir, activation_names)
 
         self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
         self.cur_time = time()
@@ -95,8 +87,8 @@ class Extractor:
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
-            self._create_output_files(stack)
-            extracted_labels = []
+            self.activations_writer.create_output_files(stack)
+            extracted_labels: Labels = []
 
             for labeled_sentence in self.corpus.values():
 
@@ -104,7 +96,7 @@ class Extractor:
                 sen_num_extracted = list(sen_activations.values())[0].shape[0]
 
                 extracted_labels.extend(sen_extracted_labels)
-                self._dump_activations(sen_activations)
+                self.activations_writer.dump_activations(sen_activations)
                 self.num_extracted += sen_num_extracted
                 self.n_sens += 1
 
@@ -114,7 +106,7 @@ class Extractor:
                     break
 
             # TODO: Move this to separate Labeler class
-            self._dump_labels(extracted_labels)
+            self.activations_writer.dump_labels(extracted_labels)
 
         minutes, seconds = divmod(time() - start_time, 60)
 
@@ -122,21 +114,6 @@ class Extractor:
         print(f'{self.n_sens} sentences have been extracted, '
               f'yielding {self.num_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
-
-    def _create_output_files(self, stack: ExitStack) -> None:
-        """ Opens a file for each to-be-extracted activation. """
-        # check if output directory is empty
-        if os.listdir(self.output_dir): warnings.warn("Output directory %s is not empty" % self.output_dir)
-        self.activation_files = {
-            (layer, name):
-                stack.enter_context(
-                    open(f'{self.output_dir}/{name}_l{layer}.pickle', 'wb')
-                )
-            for (layer, name) in self.activation_names
-        }
-        self.label_file = stack.enter_context(
-            open(f'{self.output_dir}/labels.pickle', 'wb')
-        )
 
     def _print_time_info(self, start_time: float, print_every: int, n_sens: int) -> None:
         speed = (time() - self.cur_time) / print_every
@@ -232,25 +209,6 @@ class Extractor:
 
         print(f'\nExtraction finished.')
         print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
-
-    def _dump_activations(self, activations: PartialActivationDict) -> None:
-        """ Dumps the generated activations to a list of opened files
-
-        Parameters
-        ----------
-        activations : PartialActivationDict
-            The Tensors of each activation that was specifed by
-            self.activation_names at initialization.
-        """
-        for layer, name in self.activation_names:
-            pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
-
-    def _dump_labels(self, extracted_labels: list) -> None:
-        assert self.label_file is not None
-
-        labels: Labels = np.array(extracted_labels)
-
-        pickle.dump(labels, self.label_file)
 
     def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
         """ Initialize dict of Tensors that will be written to file. """
