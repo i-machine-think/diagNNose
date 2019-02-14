@@ -65,8 +65,10 @@ class Extractor:
         self.n_sens = 0
 
     # TODO: Allow batch input
-    def extract(self, cutoff: int = -1, print_every: int = 10,
-                selection_func: Callable = lambda pos, token, labeled_sentence: True) -> None:
+    def extract(self,
+                cutoff: int = -1,
+                print_every: int = 10,
+                selection_func: SelectFunc = lambda pos, token, labeled_sentence: True) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -75,13 +77,14 @@ class Extractor:
         Parameters
         ----------
         cutoff: int, optional
-            How many sentences of the corpus to extract activations for
+            How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
         print_every: int, optional
             Print time passed every n sentences, defaults to 10.
         selection_func: Callable
-            Function which determines if activations for a token should be extracted or not.
+            Function which determines if activations for a token should
+            be extracted or not.
         """
         start_time: float = time()
         print('\nStarting extraction...')
@@ -92,7 +95,8 @@ class Extractor:
 
             for labeled_sentence in self.corpus.values():
 
-                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence, selection_func)
+                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
+                                                                               selection_func)
                 sen_num_extracted = list(sen_activations.values())[0].shape[0]
 
                 extracted_labels.extend(sen_extracted_labels)
@@ -125,15 +129,16 @@ class Extractor:
               f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: LabeledSentence,
-                          selection_func: Callable) -> Tuple[PartialActivationDict, List]:
+    def _extract_sentence(self,
+                          sentence: LabeledSentence,
+                          selection_func: SelectFunc) -> Tuple[PartialActivationDict, List]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
         sentence : Sentence
             The to-be-extracted sentence, represented as a list of strings.
-        selection_func: Callable
+        selection_func: SelectFunc
             Function which determines if activations for a token should be extracted or not.
 
         Returns
@@ -145,40 +150,46 @@ class Extractor:
         """
 
         sen_activations: PartialActivationDict = self._init_sen_activations(0)
-        extracted_labels = []
+        extracted_labels: Labels = []
 
-        activations: FullActivationDict = self.init_lstm_states.states
+        activations: FullActivationDict = self.init_lstm_states.create()
 
         for i, token in enumerate(sentence.sen):
-            out, activations = self.model(token, activations)
+            _out, activations = self.model(token, activations)
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
-                extracted_labels.append(sentence.labels[i])  # Add label corresonding to extracted activations
+                extracted_labels.append(sentence.labels[i])
 
                 for layer, name in self.activation_names:
                     sen_activations[(layer, name)] = np.append(
-                        sen_activations[(layer, name)], activations[layer][name].detach().numpy()[np.newaxis, ...],
+                        sen_activations[(layer, name)],
+                        activations[layer][name].detach().numpy()[np.newaxis, ...],
                         axis=0
                     )
 
         return sen_activations, extracted_labels
 
-    def extract_average_eos_activations(self, print_every: int = 10):
+    def extract_average_eos_activations(self, print_every: int = 10) -> None:
         """ Extract average end of sentence activations and dump them to a file. """
 
-        def _incremental_avg(old_avg: torch.Tensor, new_value: torch.Tensor, n_sens: int):
+        def _incremental_avg(old_avg: torch.Tensor,
+                             new_value: torch.Tensor,
+                             n_sens: int) -> torch.Tensor:
             return old_avg + 1 / n_sens * (new_value - old_avg)
 
-        def _eos_selection_func(pos: int, token: str, sentence: LabeledSentence):
-            return pos == len(sentence.sen) - 1
+        def _eos_selection_func(pos: int, _token: str, sentence: LabeledSentence) -> bool:
+            return pos == (len(sentence.sen) - 1)
 
         start_time: float = time()
         print('\nStarting extraction for average eos activations...')
 
         # Init states
         avg_eos_states = {
-            layer: {'hx': torch.zeros(self.model.hidden_size), 'cx': torch.zeros(self.model.hidden_size)}
+            layer: {
+                'hx': torch.zeros(self.model.hidden_size),
+                'cx': torch.zeros(self.model.hidden_size)
+            }
             for layer in range(self.model.num_layers)
         }
 
@@ -190,10 +201,14 @@ class Extractor:
             avg_eos_states = {
                 layer: {
                     'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)), n_sens=i+1
+                        avg_eos_states[layer]['hx'],
+                        torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)),
+                        n_sens=i+1
                     ),
                     'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)), n_sens=i+1
+                        avg_eos_states[layer]['cx'],
+                        torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)),
+                        n_sens=i+1
                     )
                 }
                 for layer in avg_eos_states
