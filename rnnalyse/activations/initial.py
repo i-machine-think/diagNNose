@@ -1,7 +1,9 @@
+from typing import Optional
+
 import torch
 
-from ..typedefs.models import FullActivationDict
 from ..models.language_model import LanguageModel
+from ..typedefs.models import FullActivationDict
 from ..utils.paths import load_pickle
 
 
@@ -14,43 +16,36 @@ class InitStates:
         Number of layers of the language model
     model : LanguageModel
         LanguageModel containing number of layers and hidden units used.
-    states : FullActivationDict
-        Dictionary mapping each activation name to an initial state.
     """
     def __init__(self,
                  model: LanguageModel,
-                 init_lstm_states_path: str = None) -> None:
+                 init_lstm_states_path: Optional[str] = None) -> None:
         self.num_layers = model.num_layers
         self.hidden_size = model.hidden_size
-        self.states = self.create_init_states(init_lstm_states_path)
+        self.init_lstm_states_path = init_lstm_states_path
 
-    def create_init_states(self, init_lstm_states_path: str) -> FullActivationDict:
+    def create(self) -> FullActivationDict:
         """ Set up the initial LM states.
 
         If no path is provided 0-initialized embeddings will be used.
         Note that the loaded init should provide tensors for `hx`
         and `cx` in all layers of the LM.
 
-        Parameters
-        ----------
-        init_lstm_states_path : str
-            Path to init embeddings.
-
         Returns
         -------
-        init : FullActivationDict
+        init_states : FullActivationDict
             FullActivationDict containing init embeddings for each layer.
         """
-        if init_lstm_states_path:
-            init_states: FullActivationDict = load_pickle(init_lstm_states_path)
+        if self.init_lstm_states_path is not None:
+            init_states: FullActivationDict = load_pickle(self.init_lstm_states_path)
 
-            self.validate_init_states(init_states)
+            self._validate(init_states)
 
             return init_states
 
-        return self.create_zero_init_states()
+        return self._create_zero_init_states()
 
-    def validate_init_states(self, init_states: FullActivationDict) -> None:
+    def _validate(self, init_states: FullActivationDict) -> None:
         """ Performs a simple validation of the new initial states.
 
         Parameters
@@ -68,7 +63,7 @@ class InitStates:
         assert len(init_states[0]['hx']) == self.hidden_size, \
             'Initial activation size is incorrect'
 
-    def create_zero_init_states(self) -> FullActivationDict:
+    def _create_zero_init_states(self) -> FullActivationDict:
         """Zero-initialized states if no init state has been provided"""
         return {
             l: {
