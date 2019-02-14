@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score
 
 from ..typedefs.models import ActivationName
 from ..typedefs.classifiers import ResultsDict
-from ..activations.activations_reader import ActivationsReader
+from ..activations.activation_reader import ActivationReader
 from ..utils.paths import dump_pickle, trim
 
 
@@ -39,7 +39,7 @@ class DCTrainer:
 
     Attributes
     ----------
-    activations_reader : ActivationsReader
+    activation_reader : ActivationReader
         Class that reads and preprocesses activation data.
     classifier : Classifier
         Current classifier that is being trained.
@@ -60,7 +60,7 @@ class DCTrainer:
         # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
         self.use_class_weights = use_class_weights
 
-        self.activations_reader = ActivationsReader(activations_dir, label_path)
+        self.activation_reader = ActivationReader(activations_dir, label_path)
         self._reset_classifier()
         self.results: ResultsDict = defaultdict(dict)
 
@@ -68,9 +68,9 @@ class DCTrainer:
         start_t = time()
 
         for a_name in self.activation_names:
-            data_dict = self.activations_reader.create_data_split(a_name,
-                                                                  train_subset_size,
-                                                                  train_test_split)
+            data_dict = self.activation_reader.create_data_split(a_name,
+                                                                 train_subset_size,
+                                                                 train_test_split)
 
             # Calculate class weights
             if self.use_class_weights:
