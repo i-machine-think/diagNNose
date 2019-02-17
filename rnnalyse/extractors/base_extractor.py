@@ -118,6 +118,10 @@ class Extractor:
                     all_activations[name] = np.concatenate(all_activations[name], axis=0)
                 self.activation_writer.dump_activations(all_activations)
 
+        if dynamic_dumping:
+            print('\nConcatenating sequentially dumped pickle files into 1 array...')
+            self.activation_writer.concat_pickle_dumps()
+
         minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')

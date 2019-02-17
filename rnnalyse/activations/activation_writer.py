@@ -8,7 +8,8 @@ import numpy as np
 
 from ..typedefs.corpus import Labels
 from ..typedefs.models import ActivationFiles, ActivationNames, PartialArrayDict
-from ..utils.paths import trim
+from ..utils.paths import dump_pickle, trim
+from .activation_reader import ActivationReader
 
 
 class ActivationWriter:
@@ -73,3 +74,23 @@ class ActivationWriter:
         labels: Labels = np.array(extracted_labels)
 
         pickle.dump(labels, self.label_file)
+
+    def concat_pickle_dumps(self, overwrite: bool = True) -> None:
+        """ Concatenates a sequential pickle dump and pickles to file .
+
+        Note that this overwrites the sequential pickle dump by default.
+
+        Parameters
+        ----------
+        overwrite : bool, optional
+            Set to True to overwrite the file containing the sequential
+            pickle dump, otherwise creates a new file. Defaults to True.
+        """
+        activation_reader = ActivationReader(self.output_dir)
+
+        for (layer, name) in self.activation_names:
+            activations = activation_reader.read_activations((layer, name))
+            filename = f'{self.output_dir}/{name}_l{layer}.pickle'
+            if not overwrite:
+                filename = filename.replace('.pickle', '_concat.pickle')
+            dump_pickle(activations, filename)
