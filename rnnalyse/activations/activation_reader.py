@@ -48,7 +48,7 @@ class ActivationReader:
         Parameters
         ----------
         activation_name : ActivationName
-            (layer, name) tuple indicating the to-be-read-in activations
+            (layer, name) tuple indicating the activations to be read in
         
         Returns
         -------
@@ -93,7 +93,7 @@ class ActivationReader:
         Parameters
         ----------
         activation_name : ActivationName
-            (layer, name) tuple indicating the to-be-read-in activations
+            (layer, name) tuple indicating the activations to be read in
         data_subset_size : int, optional
             Subset size of data to train on. Defaults to -1, indicating
             the entire data set.
