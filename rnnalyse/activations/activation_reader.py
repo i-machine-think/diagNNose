@@ -3,8 +3,9 @@ from typing import Optional
 
 import numpy as np
 
-from ..typedefs.models import ActivationName
 from ..typedefs.classifiers import DataDict
+from ..typedefs.extraction import ActivationRanges
+from ..typedefs.models import ActivationName
 from ..utils.paths import load_pickle, trim
 
 
@@ -39,6 +40,15 @@ class ActivationReader:
 
         self._labels: Optional[np.ndarray] = None
         self._data_len: int = -1
+        self._activations: Optional[np.ndarray] = None
+        self._activation_ranges: Optional[ActivationRanges] = None
+
+    def __getitem__(self, item: int) -> np.ndarray:
+        assert self.activations is not None, 'self.activations should be set first'
+        assert item in self.activation_ranges, 'key not present in activation ranges dict'
+
+        min_ind, max_ind = self.activation_ranges[item]
+        return self.activations[min_ind:max_ind]
 
     @property
     def labels(self) -> np.ndarray:
@@ -51,6 +61,20 @@ class ActivationReader:
         if self._data_len == -1:
             self._data_len = len(self.labels)
         return self._data_len
+
+    @property
+    def activation_ranges(self) -> ActivationRanges:
+        if self._activation_ranges is None:
+            self._activation_ranges = load_pickle(f'{self.activations_dir}/ranges.pickle')
+        return self._activation_ranges
+
+    @property
+    def activations(self) -> Optional[np.ndarray]:
+        return self._activations
+
+    @activations.setter
+    def activations(self, activation_name: ActivationName) -> None:
+        self._activations = self.read_activations(activation_name)
 
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
         """ Reads the pickled activations of activation_name

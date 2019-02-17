@@ -1,6 +1,6 @@
 from contextlib import ExitStack
 from time import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch

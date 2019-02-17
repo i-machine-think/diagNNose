@@ -57,7 +57,7 @@ class ActivationWriter:
             open(f'{self.output_dir}/labels.pickle', 'wb')
         )
         self.activation_ranges_file = stack.enter_context(
-            open(f'{self.output_dir}/activation_ranges.pickle', 'wb')
+            open(f'{self.output_dir}/ranges.pickle', 'wb')
         )
 
     def dump_activations(self, activations: PartialArrayDict) -> None:
