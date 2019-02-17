@@ -82,9 +82,10 @@ class ActivationReader:
 
                     # To make hidden size dependent of data only, the activations array
                     # is created only after observing the first batch of activations.
+                    # TODO: Take care of data_len when using unlabeled corpora!
                     if hidden_size is None:
                         hidden_size = sen_activations.shape[1]
-                        activations = np.zeros((self.data_len, hidden_size))
+                        activations = np.empty((self.data_len, hidden_size), dtype=np.float32)
 
                     i = len(sen_activations)
                     activations[n:n+i] = sen_activations
