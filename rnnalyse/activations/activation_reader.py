@@ -22,9 +22,9 @@ class ActivationReader:
     Attributes
     ----------
     activations_dir : str
-    labels : np.ndarray
+    _labels : np.ndarray
         Numpy array containing the extracted labels
-    data_len : int
+    _data_len : int
         Number of extracted activations
     """
     def __init__(self,
@@ -33,14 +33,24 @@ class ActivationReader:
 
         self.activations_dir = trim(activations_dir)
 
-        self.labels = self._read_labels(label_path)
-        self.data_len = len(self.labels)
-
-    def _read_labels(self, label_path: Optional[str]) -> np.ndarray:
         if label_path is None:
             label_path = f'{self.activations_dir}/labels.pickle'
+        self.label_path = label_path
 
-        return load_pickle(label_path)
+        self._labels: Optional[np.ndarray] = None
+        self._data_len: int = -1
+
+    @property
+    def labels(self) -> np.ndarray:
+        if self._labels is None:
+            self._labels = load_pickle(self.label_path)
+        return self._labels
+
+    @property
+    def data_len(self) -> int:
+        if self._data_len == -1:
+            self._data_len = len(self.labels)
+        return self._data_len
 
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
         """ Reads the pickled activations of activation_name
