@@ -6,7 +6,7 @@ python:
   - "3.6"
 
 notifications:
-  slack: 
+  slack:
 
 # command to install dependencies
 install:
@@ -26,11 +26,11 @@ before_script:
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
   - time flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-script: 
+script:
   # Unit test
   - python -m unittest discover -v
   - coverage run -m unittest discover
   - coverage report --skip-covered --omit '*/virtualenv/*'
 
   # Integration test
-  - sh integration_test.sh 
+  # - sh integration_test.sh 
