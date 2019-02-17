@@ -33,4 +33,4 @@ script:
   - coverage report --skip-covered --omit '*/virtualenv/*'
 
   # Integration test
-  # - sh integration_test.sh 
+  - sh integration_test.sh 
