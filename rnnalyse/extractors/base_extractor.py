@@ -1,6 +1,6 @@
 from contextlib import ExitStack
 from time import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -9,7 +9,7 @@ from ..activations.activation_writer import ActivationWriter
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
-from ..typedefs.extraction import SelectFunc
+from ..typedefs.extraction import ActivationLens, SelectFunc
 from ..typedefs.models import ActivationNames, FullActivationDict, PartialArrayDict
 from ..utils.paths import dump_pickle, trim
 
@@ -86,15 +86,16 @@ class Extractor:
             be extracted or not.
         """
         start_t = prev_t = time()
-        num_extracted = n_sens = 0
+        n_extracted = n_sens = 0
         all_activations: PartialArrayDict = self._init_sen_activations()
+        activation_lens: ActivationLens = {}
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
             self.activation_writer.create_output_files(stack)
             extracted_labels: Labels = []
 
-            for n_sens, labeled_sentence in enumerate(self.corpus.values()):
+            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items()):
                 if n_sens % print_every == 0 and n_sens > 0:
                     self._print_time_info(prev_t, start_t, print_every, n_sens)
                     prev_t = time()
@@ -110,9 +111,11 @@ class Extractor:
                         all_activations[name].append(sen_activations[name])
 
                 extracted_labels.extend(sen_extracted_labels)
-                num_extracted += len(sen_extracted_labels)
+                activation_lens[sen_id] = (n_extracted, n_extracted+len(sen_extracted_labels))
+                n_extracted += len(sen_extracted_labels)
 
             self.activation_writer.dump_labels(extracted_labels)
+            self.activation_writer.dump_activation_lens(activation_lens)
             if not dynamic_dumping:
                 for name in all_activations.keys():
                     all_activations[name] = np.concatenate(all_activations[name], axis=0)
@@ -126,7 +129,7 @@ class Extractor:
 
         print(f'\nExtraction finished.')
         print(f'{n_sens} sentences have been extracted, '
-              f'yielding {num_extracted} data points.')
+              f'yielding {n_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
     @staticmethod
