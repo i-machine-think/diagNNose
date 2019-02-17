@@ -9,7 +9,7 @@ from ..activations.activation_writer import ActivationWriter
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
-from ..typedefs.extraction import ActivationLens, SelectFunc
+from ..typedefs.extraction import ActivationRanges, SelectFunc
 from ..typedefs.models import ActivationNames, FullActivationDict, PartialArrayDict
 from ..utils.paths import dump_pickle, trim
 
@@ -88,7 +88,7 @@ class Extractor:
         start_t = prev_t = time()
         n_extracted = n_sens = 0
         all_activations: PartialArrayDict = self._init_sen_activations()
-        activation_lens: ActivationLens = {}
+        activation_ranges: ActivationRanges = {}
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
@@ -111,11 +111,11 @@ class Extractor:
                         all_activations[name].append(sen_activations[name])
 
                 extracted_labels.extend(sen_extracted_labels)
-                activation_lens[sen_id] = (n_extracted, n_extracted+len(sen_extracted_labels))
+                activation_ranges[sen_id] = (n_extracted, n_extracted+len(sen_extracted_labels))
                 n_extracted += len(sen_extracted_labels)
 
             self.activation_writer.dump_labels(extracted_labels)
-            self.activation_writer.dump_activation_lens(activation_lens)
+            self.activation_writer.dump_activation_ranges(activation_ranges)
             if not dynamic_dumping:
                 for name in all_activations.keys():
                     all_activations[name] = np.concatenate(all_activations[name], axis=0)
