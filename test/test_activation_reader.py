@@ -1,11 +1,11 @@
 """
-Test the code in rnnalayse.activations.activations_reader.py.
+Test the code in rnnalayse.activations.activation_reader.py.
 """
 import unittest
 import random
 import os
 
-from rnnalyse.activations.activations_reader import ActivationsReader
+from rnnalyse.activations.activation_reader import ActivationReader
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
@@ -14,8 +14,8 @@ ACTIVATIONS_NAME = "hx_l0"
 NUM_TEST_SENTENCES = 5
 
 
-class TestActivationsReader(unittest.TestCase):
-    """ Test functionalities of the ActivationsReader class. """
+class TestActivationReader(unittest.TestCase):
+    """ Test functionalities of the ActivationReader class. """
 
     @classmethod
     def setUpClass(cls):
@@ -29,7 +29,7 @@ class TestActivationsReader(unittest.TestCase):
             activations_name=ACTIVATIONS_NAME, num_classes=2
         )
         cls.num_labels = labels.shape[0]
-        cls.activation_reader = ActivationsReader(activations_dir=ACTIVATIONS_DIR)
+        cls.activation_reader = ActivationReader(activations_dir=ACTIVATIONS_DIR)
 
     @classmethod
     def tearDownClass(cls):

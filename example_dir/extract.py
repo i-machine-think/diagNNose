@@ -47,6 +47,9 @@ def init_argparser() -> ArgumentParser:
     from_cmd.add_argument('--cutoff', type=int,
                           help='(optional) Stop extraction after n sentences. '
                                'Defaults to -1 to extract entire corpus.')
+    from_cmd.add_argument('--dynamic_dumping', type=bool,
+                          help='(optional) Set to true to directly dump activations to file. '
+                               'This way no activations are stored in RAM. Defaults to true.')
 
     return parser
 
@@ -57,7 +60,7 @@ if __name__ == '__main__':
         'model': {'model', 'vocab', 'lm_module', 'device'},
         'corpus': {'corpus_path'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
-        'extract': {'cutoff', 'print_every'},
+        'extract': {'cutoff', 'print_every', 'dynamic_dumping'},
     }
     argparser = init_argparser()
 

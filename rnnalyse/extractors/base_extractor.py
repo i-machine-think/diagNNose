@@ -1,19 +1,17 @@
-import pickle
 from contextlib import ExitStack
 from time import time
-from typing import BinaryIO, List, Optional, Callable, Tuple
-import os
-import warnings
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
 
+from ..activations.activation_writer import ActivationWriter
 from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
-from ..typedefs.corpus import LabeledCorpus, Labels, LabeledSentence
-from ..typedefs.models import (
-    ActivationFiles, ActivationName, FullActivationDict, PartialActivationDict)
-from ..utils.paths import trim, dump_pickle
+from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
+from ..typedefs.extraction import SelectFunc
+from ..typedefs.models import ActivationNames, FullActivationDict, PartialArrayDict
+from ..utils.paths import dump_pickle, trim
 
 
 class Extractor:
@@ -30,7 +28,7 @@ class Extractor:
         Corpus containing the labels for each sentence.
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
-    output_dir: str, optional
+    output_dir : str
         Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
@@ -40,41 +38,33 @@ class Extractor:
     model : LanguageModel
     corpus : LabeledCorpus
     activation_names : List[tuple[int, str]]
-    output_dir: str, optional
-    activation_files : ActivationFiles
-        Dict of files to which activations will be written.
-    label_file: Optional[BinaryIO]
-        File to which sentence labels will be written.
+    output_dir: str
     init_lstm_states : FullActivationDict
         Initial embeddings that are loaded from file or set to zero.
-    num_extracted : int
-        Current amount of extracted activations, incremented once per w.
-    n_sens : int
-        Current amount of extracted sentences.
+    activation_writer : ActivationWriter
+        Auxiliary class that writes activations to file.
     """
     def __init__(self,
                  model: LanguageModel,
                  corpus: LabeledCorpus,
-                 activation_names: List[ActivationName],
+                 activation_names: ActivationNames,
                  output_dir: str,
-                 init_lstm_states_path: str = '') -> None:
+                 init_lstm_states_path: Optional[str] = None) -> None:
         self.model = model
         self.corpus = corpus
 
-        self.activation_names: List[ActivationName] = activation_names
-        self.output_dir = os.path.expanduser(trim(output_dir))
+        self.activation_names: ActivationNames = activation_names
+        self.output_dir = trim(output_dir)
+        self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
 
-        self.activation_files: ActivationFiles = {}
-        self.label_file: Optional[BinaryIO] = None
-
-        self.init_lstm_states: InitStates = InitStates(self.model, init_lstm_states_path)
-        self.cur_time = time()
-        self.num_extracted = 0
-        self.n_sens = 0
+        self.activation_writer = ActivationWriter(output_dir, activation_names)
 
     # TODO: Allow batch input
-    def extract(self, cutoff: int = -1, print_every: int = 10,
-                selection_func: Callable = lambda pos, token, labeled_sentence: True) -> None:
+    def extract(self,
+                cutoff: int = -1,
+                print_every: int = 10,
+                dynamic_dumping: bool = True,
+                selection_func: SelectFunc = lambda pos, token, labeled_sentence: True) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -83,125 +73,133 @@ class Extractor:
         Parameters
         ----------
         cutoff: int, optional
-            How many sentences of the corpus to extract activations for
+            How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
-        print_every: int, optional
+        print_every : int, optional
             Print time passed every n sentences, defaults to 10.
+        dynamic_dumping : bool, optional
+            Dump files dynamically, i.e. once per sentence, or dump
+            all files at the end of extraction. Defaults to True.
         selection_func: Callable
-            Function which determines if activations for a token should be extracted or not.
+            Function which determines if activations for a token should
+            be extracted or not.
         """
-        start_time: float = time()
+        start_t = prev_t = time()
+        num_extracted = n_sens = 0
+        all_activations: PartialArrayDict = self._init_sen_activations()
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
-            self._create_output_files(stack)
-            extracted_labels = []
+            self.activation_writer.create_output_files(stack)
+            extracted_labels: Labels = []
 
-            for labeled_sentence in self.corpus.values():
-
-                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence, selection_func)
-                sen_num_extracted = list(sen_activations.values())[0].shape[0]
-
-                extracted_labels.extend(sen_extracted_labels)
-                self._dump_activations(sen_activations)
-                self.num_extracted += sen_num_extracted
-                self.n_sens += 1
-
-                if self.n_sens % print_every == 0 and self.n_sens > 0:
-                    self._print_time_info(start_time, print_every, self.n_sens)
-                if cutoff == self.n_sens:
+            for n_sens, labeled_sentence in enumerate(self.corpus.values()):
+                if n_sens % print_every == 0 and n_sens > 0:
+                    self._print_time_info(prev_t, start_t, print_every, n_sens)
+                    prev_t = time()
+                if cutoff == n_sens:
                     break
 
-            # TODO: Move this to separate Labeler class
-            self._dump_labels(extracted_labels)
+                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
+                                                                               selection_func)
+                if dynamic_dumping:
+                    self.activation_writer.dump_activations(sen_activations)
+                else:
+                    for name in all_activations.keys():
+                        all_activations[name].append(sen_activations[name])
 
-        minutes, seconds = divmod(time() - start_time, 60)
+                extracted_labels.extend(sen_extracted_labels)
+                num_extracted += len(sen_extracted_labels)
+
+            self.activation_writer.dump_labels(extracted_labels)
+            if not dynamic_dumping:
+                for name in all_activations.keys():
+                    all_activations[name] = np.concatenate(all_activations[name], axis=0)
+                self.activation_writer.dump_activations(all_activations)
+
+        minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')
-        print(f'{self.n_sens} sentences have been extracted, '
-              f'yielding {self.num_extracted} data points.')
-        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
+        print(f'{n_sens} sentences have been extracted, '
+              f'yielding {num_extracted} data points.')
+        print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
-    def _create_output_files(self, stack: ExitStack) -> None:
-        """ Opens a file for each to-be-extracted activation. """
-        # check if output directory is empty
-        if os.listdir(self.output_dir): warnings.warn("Output directory %s is not empty" % self.output_dir)
-        self.activation_files = {
-            (layer, name):
-                stack.enter_context(
-                    open(f'{self.output_dir}/{name}_l{layer}.pickle', 'wb')
-                )
-            for (layer, name) in self.activation_names
-        }
-        self.label_file = stack.enter_context(
-            open(f'{self.output_dir}/labels.pickle', 'wb')
-        )
-
-    def _print_time_info(self, start_time: float, print_every: int, n_sens: int) -> None:
-        speed = (time() - self.cur_time) / print_every
-        self.cur_time = time()
-        duration = self.cur_time - start_time
+    @staticmethod
+    def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int) -> None:
+        speed = (time() - prev_t) / print_every
+        duration = time() - start_t
         minutes, seconds = divmod(duration, 60)
 
         print(f'#sens: {n_sens:>4}\t\t'
-              f'Time: {minutes:>3.0f}m {seconds:>2.2f}s\t'
+              f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
               f'Speed: {speed:.2f}s/sen')
 
-    def _extract_sentence(self, sentence: LabeledSentence,
-                          selection_func: Callable) -> Tuple[PartialActivationDict, List]:
+    def _extract_sentence(self,
+                          sentence: LabeledSentence,
+                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, List]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
         sentence : Sentence
-            The to-be-extracted sentence, represented as a list of strings.
-        selection_func: Callable
-            Function which determines if activations for a token should be extracted or not.
+            To-be-extracted sentence, represented as a list of strings.
+        selection_func : SelectFunc
+            Function that determines whether activations for a token
+            should be extracted or not.
 
         Returns
         -------
-        sen_activations: PartialActivationDict
-            Extracted activations for this sentence.
-        extracted_labels: list
-            Labels corresponding to the tokens which activations were extracted.
+        sen_activations : PartialArrayDict
+            Extracted activations for this sentence. Activations are
+            converted to numpy arrays.
+        extracted_labels : Labels
+            List of labels corresponding to the extracted activations.
         """
 
-        sen_activations: PartialActivationDict = self._init_sen_activations(0)
-        extracted_labels = []
+        sen_activations: PartialArrayDict = self._init_sen_activations()
+        extracted_labels: Labels = []
 
-        activations: FullActivationDict = self.init_lstm_states.states
+        activations: FullActivationDict = self.init_lstm_states.create()
 
         for i, token in enumerate(sentence.sen):
-            out, activations = self.model(token, activations)
+            _out, activations = self.model(token, activations)
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
-                extracted_labels.append(sentence.labels[i])  # Add label corresonding to extracted activations
+                extracted_labels.append(sentence.labels[i])
 
                 for layer, name in self.activation_names:
-                    sen_activations[(layer, name)] = np.append(
-                        sen_activations[(layer, name)], activations[layer][name].detach().numpy()[np.newaxis, ...],
-                        axis=0
+                    sen_activations[(layer, name)].append(
+                        activations[layer][name].detach().numpy()
                     )
+
+        for name, arr in sen_activations.items():
+            sen_activations[name] = np.array(arr)
 
         return sen_activations, extracted_labels
 
-    def extract_average_eos_activations(self, print_every: int = 10):
+    # TODO: refactor
+    def extract_average_eos_activations(self, print_every: int = 10) -> None:
         """ Extract average end of sentence activations and dump them to a file. """
 
-        def _incremental_avg(old_avg: torch.Tensor, new_value: torch.Tensor, n_sens: int):
+        def _incremental_avg(old_avg: torch.Tensor,
+                             new_value: torch.Tensor,
+                             n_sens: int) -> torch.Tensor:
             return old_avg + 1 / n_sens * (new_value - old_avg)
 
-        def _eos_selection_func(pos: int, token: str, sentence: LabeledSentence):
-            return pos == len(sentence.sen) - 1
+        def _eos_selection_func(pos: int, _token: str, sentence: LabeledSentence) -> bool:
+            return pos == (len(sentence.sen) - 1)
 
-        start_time: float = time()
+        start_time = prev_time = time()
         print('\nStarting extraction for average eos activations...')
 
         # Init states
         avg_eos_states = {
-            layer: {'hx': torch.zeros(self.model.hidden_size), 'cx': torch.zeros(self.model.hidden_size)}
+            layer: {
+                'hx': torch.zeros(self.model.hidden_size),
+                'cx': torch.zeros(self.model.hidden_size)
+            }
             for layer in range(self.model.num_layers)
         }
 
@@ -213,17 +211,22 @@ class Extractor:
             avg_eos_states = {
                 layer: {
                     'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'], torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)), n_sens=i+1
+                        avg_eos_states[layer]['hx'],
+                        torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)),
+                        n_sens=i+1
                     ),
                     'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'], torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)), n_sens=i+1
+                        avg_eos_states[layer]['cx'],
+                        torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)),
+                        n_sens=i+1
                     )
                 }
                 for layer in avg_eos_states
             }
 
             if i % print_every == 0 and i > 0:
-                self._print_time_info(start_time, print_every, i)
+                self._print_time_info(prev_time, start_time, print_every, i)
+                prev_time = time()
 
         minutes, seconds = divmod(time() - start_time, 60)
 
@@ -233,28 +236,9 @@ class Extractor:
         print(f'\nExtraction finished.')
         print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
 
-    def _dump_activations(self, activations: PartialActivationDict) -> None:
-        """ Dumps the generated activations to a list of opened files
-
-        Parameters
-        ----------
-        activations : PartialActivationDict
-            The Tensors of each activation that was specifed by
-            self.activation_names at initialization.
-        """
-        for layer, name in self.activation_names:
-            pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
-
-    def _dump_labels(self, extracted_labels: list) -> None:
-        assert self.label_file is not None
-
-        labels: Labels = np.array(extracted_labels)
-
-        pickle.dump(labels, self.label_file)
-
-    def _init_sen_activations(self, sen_len: int) -> PartialActivationDict:
-        """ Initialize dict of Tensors that will be written to file. """
+    def _init_sen_activations(self, sen_len: int = 0) -> PartialArrayDict:
+        """ Initialize dict of numpy arrays that will be written to file. """
         return {
-            (layer, name): np.empty((sen_len, self.model.hidden_size))
+            (layer, name): [] if sen_len == 0 else np.empty((sen_len, self.model.hidden_size))
             for (layer, name) in self.activation_names
         }

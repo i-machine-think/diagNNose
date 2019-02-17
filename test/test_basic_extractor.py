@@ -249,11 +249,11 @@ class TestExtractor(unittest.TestCase):
         )
 
     @suppress_print
-    @patch('rnnalyse.extractors.base_extractor.Extractor._dump_activations')
+    @patch('rnnalyse.activations.activation_writer.ActivationWriter.dump_activations')
     def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
         """
-        Test whether functions used to dump pickle files during activation extraction are called with the right
-        arguments.
+        Test whether functions used to dump pickle files during activation extraction are called
+        with the right arguments.
         """
 
         self.extractor.model.reset()

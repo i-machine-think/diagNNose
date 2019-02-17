@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score
 
 from ..typedefs.models import ActivationName
 from ..typedefs.classifiers import ResultsDict
-from ..activations.activations_reader import ActivationsReader
+from ..activations.activation_reader import ActivationReader
 from ..utils.paths import dump_pickle, trim
 
 
@@ -34,12 +34,12 @@ class DCTrainer:
         Path to label files. If not provided, labels.pickle in
         `activations_dir` will be used.
     use_class_weights : bool
-        Flag to indicate whether class weights calculated from the training data should be used to train the
-        classifier (defaults to True).
+        Flag to indicate whether class weights calculated from the
+        training data should be used for training (defaults to True).
 
     Attributes
     ----------
-    activations_reader : ActivationsReader
+    activation_reader : ActivationReader
         Class that reads and preprocesses activation data.
     classifier : Classifier
         Current classifier that is being trained.
@@ -60,7 +60,7 @@ class DCTrainer:
         # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
         self.use_class_weights = use_class_weights
 
-        self.activations_reader = ActivationsReader(activations_dir, label_path)
+        self.activation_reader = ActivationReader(activations_dir, label_path)
         self._reset_classifier()
         self.results: ResultsDict = defaultdict(dict)
 
@@ -68,9 +68,9 @@ class DCTrainer:
         start_t = time()
 
         for a_name in self.activation_names:
-            data_dict = self.activations_reader.create_data_split(a_name,
-                                                                  train_subset_size,
-                                                                  train_test_split)
+            data_dict = self.activation_reader.create_data_split(a_name,
+                                                                 train_subset_size,
+                                                                 train_test_split)
 
             # Calculate class weights
             if self.use_class_weights:
@@ -95,7 +95,7 @@ class DCTrainer:
         }[self.classifier_type]
 
     def fit_data(self,
-                 train_x: np.array, train_y: np.array,
+                 train_x: np.ndarray, train_y: np.ndarray,
                  activation_name: ActivationName) -> None:
         print(f'\nStarting fitting model on {activation_name}...')
 
@@ -106,7 +106,7 @@ class DCTrainer:
 
     # TODO: Add more evaluation metrics here
     def eval_classifier(self,
-                        test_x: np.array, test_y: np.array,
+                        test_x: np.ndarray, test_y: np.ndarray,
                         activation_name: ActivationName) -> np.ndarray:
         pred_y = self.classifier.predict(test_x)
 

@@ -45,7 +45,7 @@ class TestDCTrainer(unittest.TestCase):
         # Create split here s.t. we can later mock this exact function in DCTrainer.train
         # This way we can use the same random data splits and make sure class weights are counted correctly,
         # otherwise this variable would be inside the local scope of the function and inaccessible
-        cls.data_dict = cls.weighed_model.activations_reader.create_data_split(ACTIVATION_NAMES[0])
+        cls.data_dict = cls.weighed_model.activation_reader.create_data_split(ACTIVATION_NAMES[0])
 
     @classmethod
     def tearDownClass(cls):
@@ -54,7 +54,7 @@ class TestDCTrainer(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
-    @patch('rnnalyse.activations.activations_reader.ActivationsReader.create_data_split')
+    @patch('rnnalyse.activations.activation_reader.ActivationReader.create_data_split')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer._reset_classifier')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.log_results')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.save_classifier')
