@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from ..typedefs.classifiers import DataDict
-from ..typedefs.extraction import ActivationRanges
+from ..typedefs.extraction import ActivationRanges, Range
 from ..typedefs.models import ActivationName
 from ..utils.paths import load_pickle, trim
 
@@ -68,10 +68,15 @@ class ActivationReader:
         """
         assert self.activations is not None, 'self.activations should be set first'
 
+        ranges = self._create_range_from_key(key)
+        inds = self._create_indices_from_range(ranges)
+        return self.activations[inds]
+
+    def _create_range_from_key(self, key: Union[int, slice, List[int], np.ndarray]) -> List[Range]:
         if isinstance(key, int):
             assert key in self.activation_ranges, 'key not present in activation ranges dict'
             ranges = [self.activation_ranges[key]]
-        elif isinstance(key, list) or isinstance(key, np.ndarray):
+        elif isinstance(key, (list, np.ndarray)):
             ranges = [self.activation_ranges[r] for r in key if r in self.activation_ranges]
         elif isinstance(key, slice):
             assert key.step is None or key.step == 1, 'Step slicing not supported for sen key index'
@@ -81,8 +86,7 @@ class ActivationReader:
         else:
             raise KeyError('Type of key is incompatible')
 
-        inds = self._create_indices_from_range(ranges)
-        return self.activations[inds]
+        return ranges
 
     @staticmethod
     def _create_indices_from_range(ranges: List[Tuple[int, int]]) -> np.ndarray:
@@ -119,12 +123,12 @@ class ActivationReader:
 
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
         """ Reads the pickled activations of activation_name
-        
+
         Parameters
         ----------
         activation_name : ActivationName
             (layer, name) tuple indicating the activations to be read in
-        
+
         Returns
         -------
         activations : np.ndarray
