@@ -5,8 +5,8 @@ from .language_model import LanguageModel
 def import_model_from_json(model: str,
                            vocab: str,
                            lm_module: str,
-                           device: str='cpu',
-                           model_class: LanguageModel=ForwardLSTM) -> LanguageModel:
+                           device: str = 'cpu',
+                           model_class: LanguageModel = ForwardLSTM) -> LanguageModel:
     """
     Import a model from a json file.
 

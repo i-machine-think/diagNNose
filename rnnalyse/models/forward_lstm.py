@@ -1,11 +1,11 @@
-from collections import defaultdict
+import os
 import sys
+from collections import defaultdict
 from typing import Tuple
 
 import torch
 from overrides import overrides
 from torch import Tensor
-import os
 
 from ..typedefs.models import ActivationLayer, FullActivationDict, ParameterDict
 from .language_model import LanguageModel
