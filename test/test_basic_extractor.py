@@ -105,6 +105,7 @@ class TestExtractor(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/cx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
     def test_extract_sentence(self):
         """ Test the _extract_sentence function for extracting the activations of whole sentences. """

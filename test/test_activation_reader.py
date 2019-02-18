@@ -37,6 +37,7 @@ class TestActivationReader(unittest.TestCase):
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
     def test_read_activations(self):
         """ Test reading activations from a pickle file. """
@@ -52,6 +53,27 @@ class TestActivationReader(unittest.TestCase):
         num_read_sentences = start_of_sentences.astype(int).sum()
 
         self.assertEqual(NUM_TEST_SENTENCES, num_read_sentences, "Number of read sentences is wrong")
+
+    def test_activation_indexing(self):
+        self.activation_reader.activations = (0, 'hx')
+        self.assertEqual(
+            self.activation_reader[0:].shape,
+            self.activation_reader.get_by_sen_key(slice(0, None, None)).shape,
+            'Indexing all activations by key and position yields different results'
+        )
+        first_index = list(self.activation_reader.activation_ranges.keys())[0]
+        self.assertEqual(
+            self.activation_reader[0].shape,
+            self.activation_reader.get_by_sen_key(first_index).shape,
+            'Activation shape of first sentence not equal by position/key indexing'
+        )
+
+    def test_activation_ranges(self):
+        self.assertEqual(
+            sum(ma-mi for mi, ma in self.activation_reader.activation_ranges.values()),
+            self.activation_reader.data_len,
+            'Length mismatch activation ranges and label length of ActivationReader'
+        )
 
     def test_create_data_split(self):
         """ Test creating the data set splits for Diagnostic Classifier training. """

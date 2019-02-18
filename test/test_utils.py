@@ -19,9 +19,11 @@ def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, 
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
         num_labels = 0
         activation_identifier = 0  # Identify activations globally by adding on number on one end
+        sen_lens = []
 
         for i in range(num_sentences):
             num_activations = random.randint(1, max_tokens)  # Determine the number of tokens in this sentence
+            sen_lens.append((num_labels, num_labels + num_activations))
             num_labels += num_activations
             activations = create_sentence_dummy_activations(num_activations, activations_dim, activation_identifier)
             activation_identifier += num_activations  # Increment global activation id
@@ -33,6 +35,12 @@ def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, 
         labels = torch.rand(num_labels)
         labels = (labels * 10).int() % num_classes
         pickle.dump(labels, f)
+
+    with open(f"{activations_dir}/ranges.pickle", "wb") as f:
+        ranges = {}
+        for i in range(num_sentences):
+            ranges[(i+1)**2] = sen_lens[i]
+        pickle.dump(ranges, f)
 
     return labels
 
