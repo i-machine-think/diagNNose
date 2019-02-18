@@ -23,7 +23,7 @@ ParameterDict = FullActivationDict
 # Activation indexing, as done in ActivationReader
 ActivationIndex = Union[int, slice, List[int], np.ndarray]
 
-IndexType = str  # 'pos' or 'key'
+IndexType = str  # 'pos', 'key' or 'all'
 
 ActivationKey = Union[
     ActivationIndex,

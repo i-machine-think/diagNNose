@@ -56,60 +56,61 @@ class ActivationReader:
 
     # TODO: Add examples here or somewhere else
     def __getitem__(self, key: ActivationKey) -> np.ndarray:
-        """ Provides indexing of activations, indexed by position or key.
+        """ Provides indexing of activations, indexed by sentence
+        position or key, or indexing the activations itself. Indexing
+        based on sentence returns all activations belonging to that
+        sentence.
 
-        Indexing by position refers to the order of extraction, selecting
-        the first sentence ([0]) will return all activations of the
-        sentence that was extracted firstly.
+        Indexing by position ('pos') refers to the order of extraction,
+        selecting the first sentence ([0]) will return all activations
+        of the sentence that was extracted firstly.
 
         Sentence keys refer to the keys of the labeled corpus that was
-        used in the Extractor. Indexing can be done by key, index list/
-        np.array, or slicing (which is translated into a range of keys).
+        used in the Extractor.
+
+        Indexing can be done by key, index list/np.array, or slicing
+        (which is translated into a range of keys).
 
         The index, indexing type and activation name can be provided as:
           [index]
-        | [index, indextype]                 | [index, activationname]
-        | [index, activationname, indextype] | [index, indextype, activationname]
-        With indextype either 'pos' or 'key', and activation name a
-        (layer, name) tuple.
+        | [index, indextype]         | [index, a_name]
+        | [index, a_name, indextype] | [index, indextype, a_name]
+        With indextype either 'pos', 'key' or 'all', and activation name
+        a (layer, name) tuple.
 
         If activationname is not provided it should have been set
         beforehand like `reader.activations = activationname`.
         """
-        key, indextype = self._parse_key(key)
+        index, indextype = self._parse_key(key)
         assert self.activations is not None, 'self.activations should be set first'
 
-        if indextype == 'key':
-            ranges = self._create_range_from_key(key)
+        if indextype == 'all':
+            return self.activations[index]
+        elif indextype == 'key':
+            ranges = self._create_range_from_key(index)
         else:
-            ranges = np.array(list(self.activation_ranges.values()))[key]
+            ranges = np.array(list(self.activation_ranges.values()))[index]
         inds = self._create_indices_from_range(ranges)
         return self.activations[inds]
 
     def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str]:
         indextype = 'pos'
         if isinstance(key, tuple):
-            if len(key) == 3:
-                if key[1] in ['pos', 'key']:
-                    indextype = key[1]
-                    self.activations = key[2]
-                elif key[2] in ['pos', 'key']:
-                    indextype = key[2]
-                    self.activations = key[1]
+            for arg in key[1:]:
+                if arg in ['all', 'key', 'pos']:
+                    indextype = arg
+                elif isinstance(arg[0], int) and isinstance(arg[1], str):
+                    self.activations = arg
                 else:
                     raise KeyError('Provided key is not compatible')
-            elif key[1] in ['pos', 'key']:
-                indextype = key[1]
-            elif isinstance(key[1], tuple):
-                self.activations = key[1]
-            else:
-                raise KeyError('Provided key is not compatible')
-            key = key[0]
+            index = key[0]
+        else:
+            index = key
 
-        if isinstance(key, int):
-            key = [key]
+        if isinstance(index, int):
+            index = [index]
 
-        return key, indextype
+        return index, indextype
 
     def _create_range_from_key(self, key: Union[int, slice, List[int], np.ndarray]) -> List[Range]:
         if isinstance(key, (list, np.ndarray)):
