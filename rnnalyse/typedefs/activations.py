@@ -8,8 +8,6 @@ ActivationNames = List[ActivationName]
 
 ActivationFiles = Dict[ActivationName, BinaryIO]
 
-ActivationIndex = Union[int, slice, List[int], np.ndarray]
-
 ActivationLayer = Dict[str, Tensor]
 
 # Nested dict with embeddings for each activation
@@ -20,3 +18,17 @@ PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
 
 ParameterDict = FullActivationDict
+
+
+# Activation indexing, as done in ActivationReader
+ActivationIndex = Union[int, slice, List[int], np.ndarray]
+
+IndexType = str  # 'pos' or 'key'
+
+ActivationKey = Union[
+    ActivationIndex,
+    Tuple[ActivationIndex, ActivationName],
+    Tuple[ActivationIndex, IndexType],
+    Tuple[ActivationIndex, ActivationName, IndexType],
+    Tuple[ActivationIndex, IndexType, ActivationName]
+]
