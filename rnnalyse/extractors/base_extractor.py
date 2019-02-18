@@ -10,7 +10,7 @@ from ..activations.initial import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
 from ..typedefs.extraction import ActivationRanges, SelectFunc
-from ..typedefs.models import ActivationNames, FullActivationDict, PartialArrayDict
+from ..typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 from ..utils.paths import dump_pickle, trim
 
 

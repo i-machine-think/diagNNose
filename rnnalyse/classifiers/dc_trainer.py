@@ -7,7 +7,7 @@ from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogReg
 from sklearn.metrics import accuracy_score
 
-from ..typedefs.models import ActivationName
+from ..typedefs.activations import ActivationName
 from ..typedefs.classifiers import ResultsDict
 from ..activations.activation_reader import ActivationReader
 from ..utils.paths import dump_pickle, trim

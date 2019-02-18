@@ -15,7 +15,7 @@ from torch import Tensor
 
 from rnnalyse.extractors.base_extractor import Extractor
 from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.models import FullActivationDict, PartialActivationDict
+from rnnalyse.typedefs.activations import FullActivationDict, PartialActivationDict
 from .test_utils import create_sentence_dummy_activations, suppress_print
 
 

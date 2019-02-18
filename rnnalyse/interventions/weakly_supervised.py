@@ -20,7 +20,7 @@ from overrides import overrides
 from ..interventions.mechanism import InterventionMechanism
 from ..models.forward_lstm import ForwardLSTM
 from ..typedefs.interventions import DiagnosticClassifierDict
-from ..typedefs.models import FullActivationDict
+from ..typedefs.activations import FullActivationDict
 
 
 class WeaklySupervisedMechanism(InterventionMechanism, ABC):
