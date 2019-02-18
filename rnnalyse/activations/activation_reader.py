@@ -44,6 +44,7 @@ class ActivationReader:
         self._activations: Optional[np.ndarray] = None
         self._activation_ranges: Optional[ActivationRanges] = None
 
+    # TODO: Add examples here or somewhere else
     def __getitem__(self, key: Union[int, slice, List[int], np.ndarray]) -> np.ndarray:
         """ Provides indexing of activations, indexed by position.
 
