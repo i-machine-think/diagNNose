@@ -1,5 +1,5 @@
 import pickle
-from typing import Optional
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -28,6 +28,7 @@ class ActivationReader:
     _data_len : int
         Number of extracted activations
     """
+
     def __init__(self,
                  activations_dir: str,
                  label_path: Optional[str] = None) -> None:
@@ -43,12 +44,52 @@ class ActivationReader:
         self._activations: Optional[np.ndarray] = None
         self._activation_ranges: Optional[ActivationRanges] = None
 
-    def __getitem__(self, item: int) -> np.ndarray:
-        assert self.activations is not None, 'self.activations should be set first'
-        assert item in self.activation_ranges, 'key not present in activation ranges dict'
+    def __getitem__(self, key: Union[int, slice, List[int], np.ndarray]) -> np.ndarray:
+        """ Provides indexing of activations, indexed by position.
 
-        min_ind, max_ind = self.activation_ranges[item]
-        return self.activations[min_ind:max_ind]
+        Use get_by_sen_key to index by sentence key. Indexing by slice
+        is possible too.
+        """
+        assert self.activations is not None, 'self.activations should be set first'
+
+        if isinstance(key, int):
+            key = [key]
+
+        ranges = np.array(list(self.activation_ranges.values()))[key]
+        inds = self._create_indices_from_range(ranges)
+        return self.activations[inds]
+
+    def get_by_sen_key(self, key: Union[int, slice, List[int], np.ndarray]) -> np.ndarray:
+        """ Activation indexing by sentence key.
+
+        Sentence keys are the indexing
+        """
+        assert self.activations is not None, 'self.activations should be set first'
+
+        if isinstance(key, int):
+            assert key in self.activation_ranges, 'key not present in activation ranges dict'
+            ranges = [self.activation_ranges[key]]
+        elif isinstance(key, list) or isinstance(key, np.ndarray):
+            ranges = [self.activation_ranges[r] for r in key if r in self.activation_ranges]
+        elif isinstance(key, slice):
+            assert key.step is None or key.step == 1, 'Step slicing not supported for sen key index'
+            start = key.start if key.start else 0
+            stop = key.stop if key.stop else max(self.activation_ranges.keys()) + 1
+            ranges = [r for k, r in self.activation_ranges.items() if start <= k < stop]
+            print(start, stop, ranges)
+            print(self.activation_ranges)
+        else:
+            raise KeyError('Type of key is incompatible')
+
+        inds = self._create_indices_from_range(ranges)
+        return self.activations[inds]
+
+    @staticmethod
+    def _create_indices_from_range(ranges: List[Tuple[int, int]]) -> np.ndarray:
+        inds = []
+        for mi, ma in ranges:
+            inds.append(range(mi, ma))
+        return np.concatenate(inds)
 
     @property
     def labels(self) -> np.ndarray:
