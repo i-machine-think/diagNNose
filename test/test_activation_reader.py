@@ -58,13 +58,18 @@ class TestActivationReader(unittest.TestCase):
         self.activation_reader.activations = (0, 'hx')
         self.assertEqual(
             self.activation_reader[0:].shape,
-            self.activation_reader.get_by_sen_key(slice(0, None, None)).shape,
+            self.activation_reader[slice(0, None, None), 'key'].shape,
             'Indexing all activations by key and position yields different results'
         )
         first_index = list(self.activation_reader.activation_ranges.keys())[0]
         self.assertEqual(
             self.activation_reader[0].shape,
-            self.activation_reader.get_by_sen_key(first_index).shape,
+            self.activation_reader[first_index, 'key'].shape,
+            'Activation shape of first sentence not equal by position/key indexing'
+        )
+        self.assertEqual(
+            self.activation_reader[0, (0, 'hx')].shape,
+            self.activation_reader[first_index, 'key', (0, 'hx')].shape,
             'Activation shape of first sentence not equal by position/key indexing'
         )
 
