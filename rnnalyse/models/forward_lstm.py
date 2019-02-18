@@ -18,13 +18,11 @@ class ForwardLSTM(LanguageModel):
                  module_path: str,
                  device_name: str = 'cpu') -> None:
 
-        super(ForwardLSTM, self).__init__()
+        super().__init__(model_path, vocab_path, module_path, device_name)
 
         sys.path.append(os.path.expanduser(module_path))
 
         print('Loading pretrained model...')
-        if module_path[-1] != '/':
-            module_path += '/'
         with open(os.path.expanduser(vocab_path), 'r') as vf:
             vocab_lines = vf.readlines()
 

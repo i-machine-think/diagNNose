@@ -1,3 +1,5 @@
+from typing import Type
+
 from .forward_lstm import ForwardLSTM
 from .language_model import LanguageModel
 
@@ -6,7 +8,7 @@ def import_model_from_json(model: str,
                            vocab: str,
                            lm_module: str,
                            device: str = 'cpu',
-                           model_class: LanguageModel = ForwardLSTM) -> LanguageModel:
+                           model_constructor: Type[LanguageModel] = ForwardLSTM) -> LanguageModel:
     """
     Import a model from a json file.
 
@@ -20,11 +22,11 @@ def import_model_from_json(model: str,
         Location of modules that should imported to load model from file
     device : str
         Name of torch device on which model will be run. Defaults to cpu
-    model_class: LanguageModel
+    model_constructor: LanguageModel
         The class that the model is going to be loaded into.
 
     Returns
     --------
     A LanguageModel created from the given files
     """
-    return model_class(model, vocab, lm_module, device)
+    return model_constructor(model, vocab, lm_module, device)

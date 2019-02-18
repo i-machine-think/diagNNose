@@ -1,6 +1,6 @@
 from collections import defaultdict
 from time import time
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 from sklearn.externals import joblib
@@ -128,7 +128,7 @@ class DCTrainer:
         joblib.dump(self.classifier, model_path)
 
     @staticmethod
-    def load_classifier(path):
+    def load_classifier(path: str) -> Any:
         return joblib.load(path)
 
     def log_results(self, start_t: float) -> None:

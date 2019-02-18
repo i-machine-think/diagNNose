@@ -8,6 +8,13 @@ from ..typedefs.models import FullActivationDict
 
 class LanguageModel(nn.Module):
     """ Abstract class for LM with intermediate activations """
+    def __init__(self,
+                 _model_path: str,
+                 _vocab_path: str,
+                 _module_path: str,
+                 _device: str = 'cpu') -> None:
+        super().__init__()
+
     @overrides
     def forward(self,
                 token: str,

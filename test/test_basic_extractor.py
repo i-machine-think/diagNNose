@@ -30,7 +30,7 @@ class MockLanguageModel(LanguageModel):
     Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
     """
     def __init__(self, num_layers: int, hidden_size: int, all_tokens: List[str], all_activations: Tensor):
-        super().__init__()
+        super().__init__('', '', '')
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.all_tokens = all_tokens

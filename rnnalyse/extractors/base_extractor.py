@@ -181,8 +181,8 @@ class Extractor:
                         activations[layer][name].detach().numpy()
                     )
 
-        for name, arr in sen_activations.items():
-            sen_activations[name] = np.array(arr)
+        for a_name, arr in sen_activations.items():
+            sen_activations[a_name] = np.array(arr)
 
         return sen_activations, extracted_labels
 
