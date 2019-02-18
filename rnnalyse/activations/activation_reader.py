@@ -49,6 +49,10 @@ class ActivationReader:
 
         Use get_by_sen_key to index by sentence key. Indexing by slice
         is possible too, as well as a list/np.array of indices.
+
+        self.activations should be set before calling this method, this
+        can be done setting it to the desired activation name:
+            `reader.activations = (layer, name)`
         """
         assert self.activations is not None, 'self.activations should be set first'
 
@@ -65,6 +69,10 @@ class ActivationReader:
         Sentence keys refer to the keys of the labeled corpus that was
         used in the Extractor. Indexing can be done by key, index list/
         np.array, or slicing (which is translated into a range of keys).
+
+        self.activations should be set before calling this method, this
+        can be done setting it to the desired activation name:
+            `reader.activations = (layer, name)`
         """
         assert self.activations is not None, 'self.activations should be set first'
 
@@ -76,13 +84,16 @@ class ActivationReader:
         if isinstance(key, int):
             assert key in self.activation_ranges, 'key not present in activation ranges dict'
             ranges = [self.activation_ranges[key]]
+
         elif isinstance(key, (list, np.ndarray)):
             ranges = [self.activation_ranges[r] for r in key if r in self.activation_ranges]
+
         elif isinstance(key, slice):
             assert key.step is None or key.step == 1, 'Step slicing not supported for sen key index'
             start = key.start if key.start else 0
             stop = key.stop if key.stop else max(self.activation_ranges.keys()) + 1
             ranges = [r for k, r in self.activation_ranges.items() if start <= k < stop]
+
         else:
             raise KeyError('Type of key is incompatible')
 
