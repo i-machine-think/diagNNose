@@ -1,13 +1,13 @@
 from collections import defaultdict
 from time import time
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogReg
 from sklearn.metrics import accuracy_score
 
-from ..typedefs.models import ActivationName
+from ..typedefs.activations import ActivationName
 from ..typedefs.classifiers import ResultsDict
 from ..activations.activation_reader import ActivationReader
 from ..utils.paths import dump_pickle, trim
@@ -128,7 +128,7 @@ class DCTrainer:
         joblib.dump(self.classifier, model_path)
 
     @staticmethod
-    def load_classifier(path):
+    def load_classifier(path: str) -> Any:
         return joblib.load(path)
 
     def log_results(self, start_t: float) -> None:

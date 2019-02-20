@@ -1,4 +1,4 @@
-from typing import BinaryIO, Dict, List, Tuple, Union
+from typing import BinaryIO, Dict, List, Union, Tuple
 
 import numpy as np
 from torch import Tensor
@@ -17,5 +17,18 @@ FullActivationDict = Dict[int, ActivationLayer]
 PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
 
-
 ParameterDict = FullActivationDict
+
+
+# Activation indexing, as done in ActivationReader
+ActivationIndex = Union[int, slice, List[int], np.ndarray]
+
+IndexType = str  # 'pos', 'key' or 'all'
+
+ActivationKey = Union[
+    ActivationIndex,
+    Tuple[ActivationIndex, ActivationName],
+    Tuple[ActivationIndex, IndexType],
+    Tuple[ActivationIndex, ActivationName, IndexType],
+    Tuple[ActivationIndex, IndexType, ActivationName]
+]

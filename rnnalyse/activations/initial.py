@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 
 from ..models.language_model import LanguageModel
-from ..typedefs.models import FullActivationDict
+from ..typedefs.activations import FullActivationDict
 from ..utils.paths import load_pickle
 
 

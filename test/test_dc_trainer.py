@@ -53,6 +53,7 @@ class TestDCTrainer(unittest.TestCase):
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
     @patch('rnnalyse.activations.activation_reader.ActivationReader.create_data_split')
     @patch('rnnalyse.classifiers.dc_trainer.DCTrainer._reset_classifier')

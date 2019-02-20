@@ -1,14 +1,14 @@
-from collections import defaultdict
+import os
 import sys
 from typing import Tuple
 
 import torch
 from overrides import overrides
 from torch import Tensor
-import os
 
-from ..typedefs.models import ActivationLayer, FullActivationDict, ParameterDict
+from ..typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
 from .language_model import LanguageModel
+from .w2i import W2I
 
 
 class ForwardLSTM(LanguageModel):
@@ -18,19 +18,16 @@ class ForwardLSTM(LanguageModel):
                  module_path: str,
                  device_name: str = 'cpu') -> None:
 
-        super(ForwardLSTM, self).__init__()
+        super().__init__(model_path, vocab_path, module_path, device_name)
 
         sys.path.append(os.path.expanduser(module_path))
 
         print('Loading pretrained model...')
-        if module_path[-1] != '/':
-            module_path += '/'
         with open(os.path.expanduser(vocab_path), 'r') as vf:
             vocab_lines = vf.readlines()
 
-        self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
-        self.unk_idx = self.w2i['<unk>']
-        self.w2i = defaultdict(lambda: self.unk_idx, self.w2i)
+        w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
+        self.w2i = W2I(w2i)
 
         # Load the pretrained model
         device = torch.device(device_name)
@@ -119,10 +116,7 @@ class ForwardLSTM(LanguageModel):
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
-        if token in self.w2i:
-            input_ = self.encoder[self.w2i[token]]
-        else:
-            input_ = self.encoder[self.unk_idx]
+        input_ = self.encoder[self.w2i[token]]
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}

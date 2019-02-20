@@ -1,25 +1,33 @@
-from typing import Tuple
+from abc import ABC, abstractmethod
+from typing import Any, Tuple
 
 from overrides import overrides
 from torch import Tensor, nn
 
-from ..typedefs.models import FullActivationDict
+from rnnalyse.typedefs.activations import FullActivationDict
 
 
-class LanguageModel(nn.Module):
+class LanguageModel(ABC, nn.Module):
     """ Abstract class for LM with intermediate activations """
-    def __init__(self) -> None:
-        super(LanguageModel, self).__init__()
+    @abstractmethod
+    def __init__(self,
+                 model: str,
+                 vocab: str,
+                 lm_module: str,
+                 device: str = 'cpu',
+                 *args: Any) -> None:
+        super().__init__()
 
     @overrides
+    @abstractmethod
     def forward(self,
-                inp: str,
+                token: str,
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
         """
 
         Parameters
         ----------
-        inp : str
+        token : str
             input token that is mapped to id
         prev_activations : FullActivationDict
             Dictionary mapping each layer to 'hx' and 'cx' to a tensor:
@@ -32,4 +40,3 @@ class LanguageModel(nn.Module):
         activations : FullActivationDict
             Dictionary mapping each layer to each activation name to a tensor
         """
-        raise NotImplementedError

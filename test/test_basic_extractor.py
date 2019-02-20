@@ -15,7 +15,7 @@ from torch import Tensor
 
 from rnnalyse.extractors.base_extractor import Extractor
 from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.models import FullActivationDict, PartialActivationDict
+from rnnalyse.typedefs.activations import FullActivationDict, PartialActivationDict
 from .test_utils import create_sentence_dummy_activations, suppress_print
 
 
@@ -30,7 +30,7 @@ class MockLanguageModel(LanguageModel):
     Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
     """
     def __init__(self, num_layers: int, hidden_size: int, all_tokens: List[str], all_activations: Tensor):
-        super().__init__()
+        super().__init__('', '', '')
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.all_tokens = all_tokens
@@ -105,6 +105,7 @@ class TestExtractor(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/cx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
     def test_extract_sentence(self):
         """ Test the _extract_sentence function for extracting the activations of whole sentences. """
