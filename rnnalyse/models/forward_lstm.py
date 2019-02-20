@@ -1,6 +1,5 @@
 import os
 import sys
-from collections import defaultdict
 from typing import Tuple
 
 import torch
@@ -9,6 +8,7 @@ from torch import Tensor
 
 from ..typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
 from .language_model import LanguageModel
+from .w2i import W2I
 
 
 class ForwardLSTM(LanguageModel):
@@ -26,9 +26,7 @@ class ForwardLSTM(LanguageModel):
         with open(os.path.expanduser(vocab_path), 'r') as vf:
             vocab_lines = vf.readlines()
 
-        self.w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
-        self.unk_idx = self.w2i['<unk>']
-        self.w2i = defaultdict(lambda: self.unk_idx, self.w2i)
+        self.w2i = W2I(vocab_lines)
 
         # Load the pretrained model
         device = torch.device(device_name)
@@ -117,10 +115,7 @@ class ForwardLSTM(LanguageModel):
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
-        if token in self.w2i:
-            input_ = self.encoder[self.w2i[token]]
-        else:
-            input_ = self.encoder[self.unk_idx]
+        input_ = self.encoder[self.w2i[token]]
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
