@@ -1,12 +1,12 @@
 from typing import Tuple
-
+from abc import ABC, abstractmethod
 from overrides import overrides
 from torch import Tensor, nn
 
 from ..typedefs.activations import FullActivationDict
 
 
-class LanguageModel(nn.Module):
+class LanguageModel(ABC, nn.Module):
     """ Abstract class for LM with intermediate activations """
     def __init__(self,
                  _model_path: str,
@@ -16,6 +16,7 @@ class LanguageModel(nn.Module):
         super().__init__()
 
     @overrides
+    @abstractmethod
     def forward(self,
                 token: str,
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
@@ -36,4 +37,3 @@ class LanguageModel(nn.Module):
         activations : FullActivationDict
             Dictionary mapping each layer to each activation name to a tensor
         """
-        raise NotImplementedError
