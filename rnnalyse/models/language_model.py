@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Any, Tuple
 from abc import ABC, abstractmethod
 from overrides import overrides
 from torch import Tensor, nn
@@ -8,11 +8,7 @@ from ..typedefs.activations import FullActivationDict
 
 class LanguageModel(ABC, nn.Module):
     """ Abstract class for LM with intermediate activations """
-    def __init__(self,
-                 _model_path: str,
-                 _vocab_path: str,
-                 _module_path: str,
-                 _device: str = 'cpu') -> None:
+    def __init__(self, *args: Any) -> None:
         super().__init__()
 
     @overrides
