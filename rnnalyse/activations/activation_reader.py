@@ -47,14 +47,14 @@ class ActivationReader:
             label_path = f'{self.activations_dir}/labels.pickle'
         self.label_path = label_path
 
-        self._activations = None
+        self._activations: Optional[np.ndarray] = None
         self._labels: Optional[np.ndarray] = None
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 
-        self.activations = None
+        self.activation_name: Optional[ActivationName] = None
+        self.activations: Optional[np.ndarray] = None
 
-    # TODO: Add examples here or somewhere else
     def __getitem__(self, key: ActivationKey) -> np.ndarray:
         """ Provides indexing of activations, indexed by sentence
         position or key, or indexing the activations itself. Indexing
@@ -63,7 +63,7 @@ class ActivationReader:
 
         Indexing by position ('pos') refers to the order of extraction,
         selecting the first sentence ([0]) will return all activations
-        of the sentence that was extracted firstly.
+        of the sentence that was extracted first.
 
         Sentence keys refer to the keys of the labeled corpus that was
         used in the Extractor.
@@ -76,17 +76,27 @@ class ActivationReader:
         | [index, indextype]         | [index, a_name]
         | [index, a_name, indextype] | [index, indextype, a_name]
         With indextype either 'pos', 'key' or 'all', and activation name
-        a (layer, name) tuple.
+        a (layer, name) tuple. Indextype defaults to 'pos'.
 
         If activationname is not provided it should have been set
         beforehand like `reader.activations = activationname`.
+
+        Examples:
+            reader[8]: activations of 8th extracted sentence
+            reader[8:]: activations of 8th to final extracted sentence
+            reader[8, 'key']: activations of sentence with key 8
+            reader[[0,4,6], 'key']: activations of sentences with key 0,
+                4 or 6.
+            reader[:20, 'all']: the first 20 activations
+            reader[8, (0, 'cx')]: the activations of the cell state in
+                the first layer of the 8th extracted sentence.
         """
         index, indextype = self._parse_key(key)
         assert self.activations is not None, 'self.activations should be set first'
 
         if indextype == 'all':
             return self.activations[index]
-        elif indextype == 'key':
+        if indextype == 'key':
             ranges = self._create_range_from_key(index)
         else:
             ranges = np.array(list(self.activation_ranges.values()))[index]
@@ -95,6 +105,7 @@ class ActivationReader:
 
     def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str]:
         indextype = 'pos'
+        # if key is a tuple it also contains a indextype and/or activation name
         if isinstance(key, tuple):
             for arg in key[1:]:
                 if arg in ['all', 'key', 'pos']:
@@ -160,7 +171,8 @@ class ActivationReader:
     def activations(self, activation_name: Optional[ActivationName]) -> None:
         if activation_name is None:
             self._activations = None
-        else:
+        elif activation_name != self.activation_name:
+            self.activation_name = activation_name
             self._activations = self.read_activations(activation_name)
 
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
