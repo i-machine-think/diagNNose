@@ -1,14 +1,20 @@
-from typing import Any, Tuple
 from abc import ABC, abstractmethod
+from typing import Tuple
+
 from overrides import overrides
 from torch import Tensor, nn
 
-from ..typedefs.activations import FullActivationDict
+from rnnalyse.typedefs.activations import FullActivationDict
 
 
 class LanguageModel(ABC, nn.Module):
     """ Abstract class for LM with intermediate activations """
-    def __init__(self, *args: Any) -> None:
+    @abstractmethod
+    def __init__(self,
+                 model: str,
+                 vocab: str,
+                 lm_module: str,
+                 device: str = 'cpu') -> None:
         super().__init__()
 
     @overrides
