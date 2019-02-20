@@ -7,8 +7,7 @@ class W2I(dict):
     Non-existing tokens are mapped to the id of an unk token that should
     be present in the vocab file.
     """
-    def __init__(self, vocab_lines: List[str], unk_token: str = '<unk>') -> None:
-        w2i: Dict[str, int] = {w.strip(): i for i, w in enumerate(vocab_lines)}
+    def __init__(self, w2i: Dict[str, int], unk_token: str = '<unk>') -> None:
         self.unk_idx = w2i[unk_token]
         super().__init__(w2i)
 

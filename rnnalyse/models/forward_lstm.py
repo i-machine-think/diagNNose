@@ -26,7 +26,8 @@ class ForwardLSTM(LanguageModel):
         with open(os.path.expanduser(vocab_path), 'r') as vf:
             vocab_lines = vf.readlines()
 
-        self.w2i = W2I(vocab_lines)
+        w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
+        self.w2i = W2I(w2i)
 
         # Load the pretrained model
         device = torch.device(device_name)
