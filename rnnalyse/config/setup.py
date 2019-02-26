@@ -88,8 +88,9 @@ class ConfigSetup:
     @staticmethod
     def _cast_activation_names(arg_dict: ArgDict) -> None:
         """ Cast activation names to (layer, name) format """
-        for i, name in enumerate(arg_dict['activation_names']):
-            arg_dict['activation_names'][i] = int(name[-1]), name[0:-1]
+        if 'activation_names' in arg_dict:
+            for i, name in enumerate(arg_dict['activation_names']):
+                arg_dict['activation_names'][i] = int(name[-1]), name[0:-1]
 
     @staticmethod
     def _pprint_arg_dict(arg_dict: ArgDict) -> None:
