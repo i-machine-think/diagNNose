@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
 
 from diagnnose.config.setup import ConfigSetup
-from diagnnose.corpora.import_corpus import convert_to_labeled_corpus
+from diagnnose.corpora.import_corpus import import_corpus_from_path
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model_from_json
 from diagnnose.models.language_model import LanguageModel
-from diagnnose.typedefs.corpus import LabeledCorpus
+from diagnnose.typedefs.corpus import Corpus
 
 
 def init_argparser() -> ArgumentParser:
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     config_dict = config_object.config_dict
 
     model: LanguageModel = import_model_from_json(**config_dict['model'])
-    corpus: LabeledCorpus = convert_to_labeled_corpus(**config_dict['corpus'])
+    corpus: Corpus = import_corpus_from_path(**config_dict['corpus'])
 
     extractor = Extractor(model, corpus, **config_dict['init_extract'])
     extractor.extract(**config_dict['extract'])

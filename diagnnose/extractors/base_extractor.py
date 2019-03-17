@@ -8,7 +8,7 @@ import torch
 from ..activations.activation_writer import ActivationWriter
 from ..activations.init_states import InitStates
 from ..models.language_model import LanguageModel
-from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
+from ..typedefs.corpus import Corpus, CorpusSentence, Labels
 from ..typedefs.extraction import ActivationRanges, SelectFunc
 from ..typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 from ..utils.paths import dump_pickle, trim
@@ -24,7 +24,7 @@ class Extractor:
     ----------
     model : LanguageModel
         Language model that inherits from LanguageModel.
-    corpus : LabeledCorpus
+    corpus : Corpus
         Corpus containing the labels for each sentence.
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
@@ -36,7 +36,7 @@ class Extractor:
     Attributes
     ----------
     model : LanguageModel
-    corpus : LabeledCorpus
+    corpus : Corpus
     activation_names : List[tuple[int, str]]
     output_dir: str
     init_lstm_states : FullActivationDict
@@ -46,7 +46,7 @@ class Extractor:
     """
     def __init__(self,
                  model: LanguageModel,
-                 corpus: LabeledCorpus,
+                 corpus: Corpus,
                  activation_names: ActivationNames,
                  output_dir: str,
                  init_lstm_states_path: Optional[str] = None) -> None:
@@ -56,7 +56,7 @@ class Extractor:
         self.activation_names: ActivationNames = activation_names
         self.output_dir = trim(output_dir)
         self.init_lstm_states: InitStates = InitStates(
-            model.num_layers, model.hidden, init_lstm_states_path
+            model.num_layers, model.hidden_size, init_lstm_states_path
         )
 
         self.activation_writer = ActivationWriter(output_dir, activation_names)
@@ -88,7 +88,7 @@ class Extractor:
             be extracted or not.
         """
         start_t = prev_t = time()
-        n_extracted = n_sens = 0
+        tot_extracted = n_sens = 0
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
         print('\nStarting extraction...')
@@ -104,8 +104,9 @@ class Extractor:
                 if cutoff == n_sens:
                     break
 
-                sen_activations, sen_extracted_labels = self._extract_sentence(labeled_sentence,
-                                                                               selection_func)
+                sen_activations, sen_extracted_labels, n_extracted = \
+                    self._extract_sentence(labeled_sentence, selection_func)
+
                 if dynamic_dumping:
                     self.activation_writer.dump_activations(sen_activations)
                 else:
@@ -113,10 +114,11 @@ class Extractor:
                         all_activations[name].append(sen_activations[name])
 
                 extracted_labels.extend(sen_extracted_labels)
-                activation_ranges[sen_id] = (n_extracted, n_extracted+len(sen_extracted_labels))
-                n_extracted += len(sen_extracted_labels)
+                activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
+                tot_extracted += n_extracted
 
-            self.activation_writer.dump_labels(extracted_labels)
+            if len(extracted_labels) > 0:
+                self.activation_writer.dump_labels(extracted_labels)
             self.activation_writer.dump_activation_ranges(activation_ranges)
             if not dynamic_dumping:
                 for name in all_activations.keys():
@@ -131,7 +133,7 @@ class Extractor:
 
         print(f'\nExtraction finished.')
         print(f'{n_sens} sentences have been extracted, '
-              f'yielding {n_extracted} data points.')
+              f'yielding {tot_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
     @staticmethod
@@ -145,14 +147,14 @@ class Extractor:
               f'Speed: {speed:.2f}s/sen')
 
     def _extract_sentence(self,
-                          sentence: LabeledSentence,
-                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, List]:
+                          sentence: CorpusSentence,
+                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, List, int]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
-        sentence : Sentence
-            To-be-extracted sentence, represented as a list of strings.
+        sentence : CorpusSentence
+            Corpus sentence containing the raw sentence and other info
         selection_func : SelectFunc
             Function that determines whether activations for a token
             should be extracted or not.
@@ -168,6 +170,7 @@ class Extractor:
 
         sen_activations: PartialArrayDict = self._init_sen_activations()
         extracted_labels: Labels = []
+        n_extracted = 0
 
         activations: FullActivationDict = self.init_lstm_states.create()
 
@@ -176,17 +179,20 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
-                extracted_labels.append(sentence.labels[i])
+                if sentence.labels is not None:
+                    extracted_labels.append(sentence.labels[i])
 
                 for layer, name in self.activation_names:
                     sen_activations[(layer, name)].append(
                         activations[layer][name].detach().numpy()
                     )
 
+                n_extracted += 1
+
         for a_name, arr in sen_activations.items():
             sen_activations[a_name] = np.array(arr)
 
-        return sen_activations, extracted_labels
+        return sen_activations, extracted_labels, n_extracted
 
     # TODO: refactor
     def extract_average_eos_activations(self, print_every: int = 10) -> None:
@@ -197,7 +203,7 @@ class Extractor:
                              n_sens: int) -> torch.Tensor:
             return old_avg + 1 / n_sens * (new_value - old_avg)
 
-        def _eos_selection_func(pos: int, _token: str, sentence: LabeledSentence) -> bool:
+        def _eos_selection_func(pos: int, _token: str, sentence: CorpusSentence) -> bool:
             return pos == (len(sentence.sen) - 1)
 
         start_time = prev_time = time()
@@ -214,7 +220,7 @@ class Extractor:
 
         # Extract
         for i, labeled_sentence in enumerate(self.corpus.values()):
-            eos_activations, _ = self._extract_sentence(labeled_sentence, _eos_selection_func)
+            eos_activations, _, _ = self._extract_sentence(labeled_sentence, _eos_selection_func)
 
             # Update average eos states if last activation was extracted
             avg_eos_states = {

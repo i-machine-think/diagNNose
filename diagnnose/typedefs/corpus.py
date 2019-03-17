@@ -1,21 +1,26 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 Labels = List[int]
 Sentence = List[str]
 
 
 @dataclass
-class LabeledSentence:
-    """Class that contains a sentence and a list of labels."""
+class CorpusSentence:
+    """Class that contains a sentence and, optionally, a list of labels.
+
+    Other sentence info is all stored in the `misc_info` dictionary.
+    """
     sen: Sentence
-    labels: Labels
-    misc_info: Any = None
+    labels: Optional[Labels]
+    misc_info: Dict[str, Any]
 
     def __len__(self) -> int:
         return len(self.sen)
 
     def validate(self) -> None:
+        if self.labels is None:
+            return
         sen_len = len(self.sen)
         labels_len = len(self.labels)
         assert sen_len == labels_len, \
@@ -23,4 +28,4 @@ class LabeledSentence:
             f'{sen_len} (sen) vs. {labels_len} (labels).'
 
 
-LabeledCorpus = Dict[int, LabeledSentence]
+Corpus = Dict[int, CorpusSentence]
