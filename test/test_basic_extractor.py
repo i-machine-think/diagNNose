@@ -112,7 +112,7 @@ class TestExtractor(unittest.TestCase):
 
         # Test extraction of all activations
         self.model.reset()
-        sentences_activations, labels = zip(*[
+        sentences_activations, labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: True)
             for sentence in self.corpus.values()
         ])
@@ -132,7 +132,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on position. """
 
         self.extractor.model.reset()
-        pos_sentences_activations, pos_labels = zip(*[
+        pos_sentences_activations, pos_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
             for sentence in self.corpus.values()
         ])
@@ -158,7 +158,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
         self.extractor.model.reset()
-        label_sentence_activations, label_labels = zip(*[
+        label_sentence_activations, label_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
             for sentence in self.corpus.values()
         ])
@@ -182,7 +182,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
         self.extractor.model.reset()
-        token_sentence_activations, token_labels = zip(*[
+        token_sentence_activations, token_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
             for sentence in self.corpus.values()
         ])
@@ -203,7 +203,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on additional info. """
 
         self.extractor.model.reset()
-        misc_sentence_activations, misc_labels = zip(*[
+        misc_sentence_activations, misc_labels, _ = zip(*[
             self.extractor._extract_sentence(
                 sentence, lambda pos, token, sentence: sentence.misc_info["quality"] == "delicious"
             )

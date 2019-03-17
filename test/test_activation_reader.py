@@ -74,7 +74,7 @@ class TestActivationReader(unittest.TestCase):
         )
         data_len = self.activation_reader.data_len
         ashape = self.activation_reader[slice(0, data_len//2, None), 'all'].shape
-        self.assert_(
+        self.assertTrue(
             ashape == (data_len//2, ACTIVATIONS_DIM),
             f'Indexing by all activations is not working: {ashape}'
         )
