@@ -5,13 +5,13 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 
-from ..activations.activation_writer import ActivationWriter
-from ..activations.init_states import InitStates
-from ..models.language_model import LanguageModel
-from ..typedefs.corpus import Corpus, CorpusSentence, Labels
-from ..typedefs.extraction import ActivationRanges, SelectFunc
-from ..typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
-from ..utils.paths import dump_pickle, trim
+from rnnalyse.activations.activation_writer import ActivationWriter
+from rnnalyse.activations.init_states import InitStates
+from rnnalyse.models.language_model import LanguageModel
+from rnnalyse.typedefs.corpus import Corpus, CorpusSentence, Labels
+from rnnalyse.typedefs.extraction import ActivationRanges, SelectFunc
+from rnnalyse.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
+from rnnalyse.utils.paths import dump_pickle, trim
 
 
 class Extractor:

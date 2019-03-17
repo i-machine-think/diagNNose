@@ -1,8 +1,8 @@
-from typing import Any, Dict, List
 import os
+from typing import Any, Dict, List
 
-from ..typedefs.corpus import Corpus, CorpusSentence
-from ..utils.paths import load_pickle
+from rnnalyse.typedefs.corpus import Corpus, CorpusSentence
+from rnnalyse.utils.paths import load_pickle
 
 
 def import_corpus_from_path(corpus_path: str, from_dict: bool = False) -> Corpus:
@@ -17,7 +17,7 @@ def import_corpus_from_path(corpus_path: str, from_dict: bool = False) -> Corpus
         assert 'sen' in item.keys() or 'sent' in item.keys(), \
             'Corpus item should contain a sentence (\'sen\' or \'sent\') attribute'
 
-        sen = item['sen'] if 'sen' in item else item['sent']
+        sen = item['sent'] if 'sent' in item else item['sen']
         labels = item['labels'] if 'labels' in item else None
         misc_info = {k: v for k, v in item.items() if k not in ['sen', 'sent', 'labels']}
         labeled_sentence = CorpusSentence(sen, labels, misc_info)

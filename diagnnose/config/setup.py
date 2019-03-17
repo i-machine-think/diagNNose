@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pprint import pprint
 from typing import Dict, Set
 
-from ..typedefs.config import ArgDict, ConfigDict
+from rnnalyse.typedefs.config import ArgDict, ConfigDict
 
 
 class ConfigSetup:

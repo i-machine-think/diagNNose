@@ -6,10 +6,10 @@ from typing import BinaryIO, Optional
 
 import numpy as np
 
-from ..typedefs.corpus import Labels
-from ..typedefs.extraction import ActivationRanges
-from ..typedefs.activations import ActivationFiles, ActivationNames, PartialArrayDict
-from ..utils.paths import dump_pickle, trim
+from rnnalyse.typedefs.corpus import Labels
+from rnnalyse.typedefs.extraction import ActivationRanges
+from rnnalyse.typedefs.activations import ActivationFiles, ActivationNames, PartialArrayDict
+from rnnalyse.utils.paths import dump_pickle, trim
 from .activation_reader import ActivationReader
 
 
