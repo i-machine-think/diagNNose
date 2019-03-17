@@ -1,0 +1,6 @@
+{
+  "activations_dir": "../lm_data/activations/extracted/gulordava",
+  "decoder_path": "../lm_data/classifiers/logreg/all_data_4c/logreg-hx_l1.pickle",
+  "num_layers": 2,
+  "hidden_size": 650
+}
