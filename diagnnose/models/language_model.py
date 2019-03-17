@@ -18,6 +18,9 @@ class LanguageModel(ABC, nn.Module):
                  *args: Any) -> None:
         super().__init__()
 
+        self.num_layers: int = 0
+        self.hidden_size: int = 0
+
     @overrides
     @abstractmethod
     def forward(self,

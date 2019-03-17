@@ -56,7 +56,8 @@ class ConfigSetup:
 
         self._overwrite_config_json(arg_dict, init_arg_dict, json_provided)
 
-        self._cast_activation_names(arg_dict)
+        if 'activation_names' in arg_dict:
+            self._cast_activation_names(arg_dict)
 
         self._pprint_arg_dict(arg_dict)
 

@@ -122,7 +122,7 @@ class DCTrainer:
         l, name = activation_name
 
         preds_path = f'{self.output_dir}/preds/{name}_l{l}.pickle'
-        model_path = f'{self.output_dir}/models/{name}_l{l}.pickle'
+        model_path = f'{self.output_dir}/models/{name}_l{l}.joblib'
 
         dump_pickle(pred_y, preds_path)
         joblib.dump(self.classifier, model_path)

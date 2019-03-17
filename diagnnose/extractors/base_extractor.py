@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from ..activations.activation_writer import ActivationWriter
-from ..activations.initial import InitStates
+from ..activations.init_states import InitStates
 from ..models.language_model import LanguageModel
 from ..typedefs.corpus import LabeledCorpus, LabeledSentence, Labels
 from ..typedefs.extraction import ActivationRanges, SelectFunc
@@ -55,7 +55,9 @@ class Extractor:
 
         self.activation_names: ActivationNames = activation_names
         self.output_dir = trim(output_dir)
-        self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
+        self.init_lstm_states: InitStates = InitStates(
+            model.num_layers, model.hidden, init_lstm_states_path
+        )
 
         self.activation_writer = ActivationWriter(output_dir, activation_names)
 
