@@ -42,6 +42,8 @@ class ActivationWriter:
 
     def create_output_files(self, stack: ExitStack) -> None:
         """ Opens a file for each to-be-extracted activation. """
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
         # check if output directory is empty
         if os.listdir(self.output_dir):
             warnings.warn("Output directory %s is not empty" % self.output_dir)
