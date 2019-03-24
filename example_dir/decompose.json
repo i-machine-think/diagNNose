@@ -1,6 +1,8 @@
 {
-  "activations_dir": "../lm_data/activations/extracted/gulordava",
-  "decoder_path": "../lm_data/classifiers/logreg/all_data_4c/logreg-hx_l1.pickle",
+  "activations_dir": "../lm_data/activations/extracted/na_gulordava",
+  "model": "../lm_data/models/gulordava/model.pt",
+  "vocab": "../lm_data/models/gulordava/vocab.txt",
+  "lm_module": "../lm_data/models/gulordava/",
   "num_layers": 2,
   "hidden_size": 650
 }

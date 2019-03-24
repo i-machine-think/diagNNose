@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 
 from rnnalyse.config.setup import ConfigSetup
-from rnnalyse.decompositions.decomposer import Decomposer
+from rnnalyse.decompositions.factory import DecomposerFactory
+from rnnalyse.models.import_model import import_decoder_from_model, import_model_from_json
 
 
 def init_argparser() -> ArgumentParser:
@@ -19,8 +20,14 @@ def init_argparser() -> ArgumentParser:
                                          'Specify experiment setup via commandline arguments')
     from_cmd.add_argument('--activations_dir',
                           help='Path to folder containing activations to decompose.')
-    from_cmd.add_argument('--decoder_path',
+    from_cmd.add_argument('--decoder',
                           help='Path to decoder classifier.')
+    from_cmd.add_argument('--model',
+                          help='Path to model parameters')
+    from_cmd.add_argument('--vocab',
+                          help='Path to model vocabulary')
+    from_cmd.add_argument('--lm_module',
+                          help='Path to folder containing model module')
     from_cmd.add_argument('--num_layers',
                           help='Number of layers in the language model.')
     from_cmd.add_argument('--hidden_size',
@@ -34,15 +41,25 @@ def init_argparser() -> ArgumentParser:
 
 
 if __name__ == '__main__':
-    required_args = {'activations_dir', 'decoder_path', 'num_layers', 'hidden_size'}
+    required_args = {'activations_dir', 'num_layers', 'hidden_size',
+                     ('decoder', ('model', 'vocab', 'lm_module'))}
     arg_groups = {
-        'decompose': {'activations_dir', 'decoder_path', 'num_layers', 'hidden_size',
-                      'init_lstm_states_path'},
+        'decompose': {'activations_dir', 'num_layers', 'hidden_size', 'init_lstm_states_path'},
+        'decoder': {'decoder', 'model', 'vocab', 'lm_module'},
     }
     argparser = init_argparser()
 
     config_object = ConfigSetup(argparser, required_args, arg_groups)
     config_dict = config_object.config_dict
 
-    decomposer = Decomposer(**config_dict['decompose'])
-    decomposer.decompose(0, 1)
+    if 'decoder' in config_dict['decoder']:
+        config_dict['decompose']['decoder'] = config_dict['decoder']['decoder']
+    else:
+        model = import_model_from_json(**config_dict['decoder'])
+        config_dict['decompose']['decoder'] = import_decoder_from_model(model)
+
+    constructor = DecomposerFactory(**config_dict['decompose'])
+    decomposer = constructor.create(32, 1, slice(10, 16, 1), [7061, 18214])
+
+    beta = decomposer.calc_beta()
+    gamma = decomposer.calc_gamma()
