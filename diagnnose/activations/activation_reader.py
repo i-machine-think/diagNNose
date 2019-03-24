@@ -153,8 +153,9 @@ class ActivationReader:
 
     @property
     def data_len(self) -> int:
+        """ data_len is defined based on the activation range of the last sentence """
         if self._data_len == -1:
-            self._data_len = len(self.labels)
+            self._data_len = list(self.activation_ranges.values())[-1][1]
         return self._data_len
 
     @property
