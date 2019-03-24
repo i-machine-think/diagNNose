@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pprint import pprint
 from typing import Dict, Set
 
-from rnnalyse.typedefs.config import ArgDict, ConfigDict
+from rnnalyse.typedefs.config import ArgDict, ConfigDict, RequiredArgs, ArgsDisjunction
 
 
 class ConfigSetup:
@@ -18,7 +18,7 @@ class ConfigSetup:
     ----------
     argparser : ArgumentParser
         argparser that reads in the provided arguments
-    required_args : Set[str]
+    required_args : RequiredArgs
         Set of arguments that should be at least provided in either the
         config file or as commandline argument.
     arg_groups : Dict[str, Set[str]]
@@ -33,7 +33,7 @@ class ConfigSetup:
     """
     def __init__(self,
                  argparser: ArgumentParser,
-                 required_args: Set[str],
+                 required_args: RequiredArgs,
                  arg_groups: Dict[str, Set[str]]) -> None:
 
         self.argparser = argparser
@@ -72,8 +72,33 @@ class ConfigSetup:
     def _validate_config(self, arg_dict: ArgDict, init_arg_dict: ArgDict) -> None:
         """ Check if required args are provided """
         for arg in self.required_args:
-            arg_present = arg in arg_dict.keys() or init_arg_dict.get(arg, None) is not None
-            assert arg_present, self.argparser.error(f'--{arg} should be provided')
+            if isinstance(arg, str):
+                arg_present = self._arg_is_provided(arg, arg_dict, init_arg_dict)
+                assert arg_present, self.argparser.error(f'--{arg} should be provided')
+
+            elif isinstance(arg, tuple):
+                args_present = self._validate_args_disjunction(arg, arg_dict, init_arg_dict)
+                assert args_present, self.argparser.error(f'--{arg} should be provided')
+
+    def _validate_args_disjunction(self,
+                                   args_disjunction: ArgsDisjunction,
+                                   arg_dict: ArgDict,
+                                   init_arg_dict: ArgDict) -> bool:
+        args_present = False
+        for subargs in args_disjunction:
+            subargs_present = True
+            if isinstance(subargs, str):
+                subargs_present &= self._arg_is_provided(subargs, arg_dict, init_arg_dict)
+            if isinstance(subargs, tuple):
+                for subarg in subargs:
+                    subargs_present &= self._arg_is_provided(subarg, arg_dict, init_arg_dict)
+            args_present |= subargs_present
+
+        return args_present
+
+    @staticmethod
+    def _arg_is_provided(arg: str, arg_dict: ArgDict, init_arg_dict: ArgDict) -> bool:
+        return arg in arg_dict.keys() or init_arg_dict.get(arg, None) is not None
 
     @staticmethod
     def _overwrite_config_json(arg_dict: ArgDict,
