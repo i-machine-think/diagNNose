@@ -16,7 +16,10 @@ FullActivationDict = Dict[int, ActivationLayer]
 
 # Dict with arbitrary number of activations
 PartialActivationDict = Dict[ActivationName, Tensor]
-PartialArrayDict = Dict[Union[ActivationName, str], Union[np.ndarray, List[np.ndarray]]]
+PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
+
+# Decompositions operate per layer on 1 array per type
+DecomposeArrayDict = Dict[str, np.ndarray]
 
 ParameterDict = FullActivationDict
 

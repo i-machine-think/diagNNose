@@ -1,13 +1,15 @@
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 from sklearn.externals import joblib
 
 from rnnalyse.activations.activation_reader import ActivationReader
 from rnnalyse.activations.init_states import InitStates
 from rnnalyse.decompositions.simple_cd import SimpleCD
-from rnnalyse.typedefs.activations import FullActivationDict, PartialArrayDict
+from rnnalyse.typedefs.activations import FullActivationDict, DecomposeArrayDict
 from rnnalyse.typedefs.classifiers import LinearDecoder
 from rnnalyse.utils.paths import trim
+
+from .base_decomposer import BaseDecomposer
 
 
 class DecomposerFactory:
@@ -34,7 +36,7 @@ class DecomposerFactory:
                sen_id: int,
                layer: int,
                index: slice = slice(None, None, None),
-               classes: Union[slice, List[int]] = slice(None, None, None)) -> Any:
+               classes: Union[slice, List[int]] = slice(None, None, None)) -> BaseDecomposer:
 
         activations = self._create_activations(sen_id, layer, index)
 
@@ -47,7 +49,7 @@ class DecomposerFactory:
     def _create_activations(self,
                             sen_id: int,
                             layer: int,
-                            index: slice = slice(None, None, None)) -> PartialArrayDict:
+                            index: slice = slice(None, None, None)) -> DecomposeArrayDict:
         forget_gates = self.activation_reader[sen_id, 'key', (layer, 'f_g')][index]
         output_gates = self.activation_reader[sen_id, 'key', (layer, 'o_g')]
         hidden_states = self.activation_reader[sen_id, 'key', (layer, 'hx')]
