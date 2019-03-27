@@ -5,7 +5,9 @@ from rnnalyse.typedefs.corpus import Corpus, CorpusSentence
 from rnnalyse.utils.paths import load_pickle
 
 
-def import_corpus_from_path(corpus_path: str, from_dict: bool = False) -> Corpus:
+def import_corpus_from_path(corpus_path: str,
+                            from_dict: bool = False,
+                            header: Optional[List[str]] = None) -> Corpus:
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
@@ -21,18 +23,20 @@ def import_corpus_from_path(corpus_path: str, from_dict: bool = False) -> Corpus
         Path to corpus file
     from_dict : bool, optional
         Indicates whether to load a pickled dict. Defaults to False.
+    header : List[str], optional
+        Optional list of attribute names of each column
 
     Returns
     -------
     corpus : Corpus
-        A Corpus type containing the parsed sentences and
+        A Corpus type containing the parsed sentences and optional labels
     """
     corpus = {}
 
     if from_dict:
         init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
     else:
-        init_corpus = read_raw_corpus(corpus_path)
+        init_corpus = read_raw_corpus(corpus_path, header=header)
 
     for key, item in init_corpus.items():
         assert 'sen' in item.keys() or 'sent' in item.keys(), \
