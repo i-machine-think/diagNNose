@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from rnnalyse.typedefs.corpus import Corpus, CorpusSentence
 from rnnalyse.utils.paths import load_pickle
@@ -27,12 +27,29 @@ def import_corpus_from_path(corpus_path: str, from_dict: bool = False) -> Corpus
     return labeled_corpus
 
 
-def read_raw_corpus(corpus_path: str, separator: str = '\t') -> Dict[int, Dict[str, Any]]:
+def read_raw_corpus(corpus_path: str,
+                    separator: str = '\t',
+                    header: Optional[List[str]] = None) -> Dict[int, Dict[str, Any]]:
+    """ Reads a tsv/csv type file and converts it to a dictionary.
+
+    Expects the first line to indicate the column names if header is not
+    provided.
+
+    Parameters
+    ----------
+    corpus_path : str
+        Path to corpus file
+    separator : str, optional
+        Character separator of each attribute in the corpus. Defaults to \t
+    header : List[str], optional
+        Optional list of attribute names of each column
+    """
     with open(corpus_path) as f:
         lines = f.read().strip().split('\n')
 
     split_lines = [l.strip().split(separator) for l in lines]
-    header = split_lines[0]
+    if header is None:
+        header = split_lines[0]
     corpus_lines = split_lines[1:]
 
     init_corpus = {
