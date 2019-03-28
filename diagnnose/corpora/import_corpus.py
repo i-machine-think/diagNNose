@@ -7,7 +7,8 @@ from rnnalyse.utils.paths import load_pickle
 
 def import_corpus_from_path(corpus_path: str,
                             from_dict: bool = False,
-                            header: Optional[List[str]] = None) -> Corpus:
+                            corpus_header: Optional[List[str]] = None,
+                            to_lower: bool = False) -> Corpus:
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
@@ -23,8 +24,10 @@ def import_corpus_from_path(corpus_path: str,
         Path to corpus file
     from_dict : bool, optional
         Indicates whether to load a pickled dict. Defaults to False.
-    header : List[str], optional
+    corpus_header : List[str], optional
         Optional list of attribute names of each column
+    to_lower : bool, optional
+        Transform entire corpus to lower case, defaults to False.
 
     Returns
     -------
@@ -36,7 +39,7 @@ def import_corpus_from_path(corpus_path: str,
     if from_dict:
         init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
     else:
-        init_corpus = read_raw_corpus(corpus_path, header=header)
+        init_corpus = read_raw_corpus(corpus_path, header=corpus_header, to_lower=to_lower)
 
     for key, item in init_corpus.items():
         assert 'sen' in item.keys() or 'sent' in item.keys(), \
@@ -55,7 +58,8 @@ def import_corpus_from_path(corpus_path: str,
 
 def read_raw_corpus(corpus_path: str,
                     separator: str = '\t',
-                    header: Optional[List[str]] = None) -> Dict[int, Dict[str, Any]]:
+                    header: Optional[List[str]] = None,
+                    to_lower: bool = False) -> Dict[int, Dict[str, Any]]:
     """ Reads a tsv/csv type file and converts it to a dictionary.
 
     Expects the first line to indicate the column names if header is not
@@ -69,6 +73,13 @@ def read_raw_corpus(corpus_path: str,
         Character separator of each attribute in the corpus. Defaults to \t
     header : List[str], optional
         Optional list of attribute names of each column
+    to_lower : bool, optional
+        Transform entire corpus to lower case, defaults to False.
+
+    Returns
+    -------
+    corpus : Dict[int, Dict[str, Any]]
+        Dictionary mapping id to dict of attributes
     """
     with open(corpus_path) as f:
         lines = f.read().strip().split('\n')
@@ -76,24 +87,26 @@ def read_raw_corpus(corpus_path: str,
     split_lines = [l.strip().split(separator) for l in lines]
     if header is None:
         header = split_lines[0]
-    corpus_lines = split_lines[1:]
+        split_lines = split_lines[1:]
 
     init_corpus = {
-        i: string_to_dict(header, x) for i, x in enumerate(corpus_lines)
+        i: string_to_dict(header, x, to_lower) for i, x in enumerate(split_lines)
     }
 
     return init_corpus
 
 
-def string_to_dict(header: List[str], line: List[str]) -> Dict[str, Any]:
+def string_to_dict(header: List[str], line: List[str], to_lower: bool) -> Dict[str, Any]:
     """Converts a list of attributes and values to a dictionary.
 
     Also splits the sentence string to a list of strings.
     """
     sendict: Dict[str, Any] = dict(zip(header, line))
     if 'sen' in sendict:
-        sendict['sen'] = sendict['sen'].strip().split(' ')
+        sen = sendict['sen'].lower() if to_lower else sendict['sen']
+        sendict['sen'] = sen.strip().split(' ')
     if 'sent' in sendict:
-        sendict['sent'] = sendict['sent'].strip().split(' ')
+        sen = sendict['sent'].lower() if to_lower else sendict['sent']
+        sendict['sent'] = sen.strip().split(' ')
 
     return sendict
