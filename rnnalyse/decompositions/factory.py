@@ -13,6 +13,22 @@ from .base_decomposer import BaseDecomposer
 
 
 class DecomposerFactory:
+    """ Creates a BaseDecomposer class for activation decomposition
+
+    Parameters
+    ----------
+    activations_dir : str
+        Path to folder containing extracted activations
+    decoder : Union[str, LinearDecoder]
+        Path to a pickled decoder or a (w,b) decoder tuple
+    num_layers : int
+        Number of layers in the language model
+    hidden_size : int
+        Number of hidden units in the language model
+    init_lstm_states_path : str, optional
+        Defaults to zero-embeddings, otherwise loads in pickled initial
+        cell states.
+    """
     def __init__(self,
                  activations_dir: str,
                  decoder: Union[str, LinearDecoder],
