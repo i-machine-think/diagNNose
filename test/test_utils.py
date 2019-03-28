@@ -12,8 +12,12 @@ from typing import Callable, Any, Type
 import torch
 
 
-def create_and_dump_dummy_activations(num_sentences: int, activations_dim: int, max_tokens: int, num_classes: int,
-                                      activations_dir: str, activations_name: str) -> torch.Tensor:
+def create_and_dump_dummy_activations(num_sentences: int,
+                                      activations_dim: int,
+                                      max_tokens: int,
+                                      num_classes: int,
+                                      activations_dir: str,
+                                      activations_name: str) -> torch.Tensor:
     """ Create and dump activations for a fictitious corpus. """
 
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
@@ -70,7 +74,7 @@ def suppress_print(func: Callable) -> Callable:
     https://codingdose.info/2018/03/22/supress-print-output-in-python/ for text "entrapment".
     """
     @wraps(func)
-    def wrapped(*args, **kwargs) -> Any:
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
 
         trap = io.StringIO()
 

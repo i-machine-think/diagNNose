@@ -19,7 +19,7 @@ class TestActivationReader(unittest.TestCase):
     """ Test functionalities of the ActivationReader class. """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         # Create directory if necessary
         if not os.path.exists(ACTIVATIONS_DIR):
             os.makedirs(ACTIVATIONS_DIR)
@@ -33,14 +33,14 @@ class TestActivationReader(unittest.TestCase):
         cls.activation_reader = ActivationReader(activations_dir=ACTIVATIONS_DIR)
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         # Remove files from previous tests
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
-    def test_read_activations(self):
+    def test_read_activations(self) -> None:
         """ Test reading activations from a pickle file. """
         activations = self.activation_reader.read_activations((0, "hx"))
         labels = self.activation_reader.labels
@@ -55,7 +55,7 @@ class TestActivationReader(unittest.TestCase):
 
         self.assertEqual(NUM_TEST_SENTENCES, num_read_sentences, "Number of read sentences is wrong")
 
-    def test_activation_indexing(self):
+    def test_activation_indexing(self) -> None:
         first_index = list(self.activation_reader.activation_ranges.keys())[0]
         self.assertEqual(
             self.activation_reader[0, (0, 'hx')].shape,
@@ -79,14 +79,14 @@ class TestActivationReader(unittest.TestCase):
             f'Indexing by all activations is not working: {ashape}'
         )
 
-    def test_activation_ranges(self):
+    def test_activation_ranges(self) -> None:
         self.assertEqual(
             sum(ma-mi for mi, ma in self.activation_reader.activation_ranges.values()),
             self.activation_reader.data_len,
             'Length mismatch activation ranges and label length of ActivationReader'
         )
 
-    def test_create_data_split(self):
+    def test_create_data_split(self) -> None:
         """ Test creating the data set splits for Diagnostic Classifier training. """
 
         # Validate data splits for the full data set
@@ -108,7 +108,7 @@ class TestActivationReader(unittest.TestCase):
             size=cutoff, data_split=train_test_split
         )
 
-    def _validate_data_split(self, train_x, train_y, test_x, test_y, size, data_split):
+    def _validate_data_split(self, train_x, train_y, test_x, test_y, size, data_split) -> None:
         """ Validate size and content of an arbitrary data split. """
         # Test the data set lengths
         right_num_train = int(size * data_split)

@@ -21,7 +21,7 @@ class TestDCTrainer(unittest.TestCase):
     """ Test functionalities of the DCTrainer class. """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         # Create directory if necessary
         if not os.path.exists(ACTIVATIONS_DIR):
             os.makedirs(ACTIVATIONS_DIR)
@@ -48,7 +48,7 @@ class TestDCTrainer(unittest.TestCase):
         cls.data_dict = cls.weighed_model.activation_reader.create_data_split(ACTIVATION_NAMES[0])
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         # Remove files after tests
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
@@ -63,7 +63,8 @@ class TestDCTrainer(unittest.TestCase):
     @patch('diagnnose.classifiers.dc_trainer.DCTrainer.fit_data')
     def test_class_weights(self, mock_fit_data: MagicMock, mock_eval_classifier: MagicMock,
                            mock_save_classifier: MagicMock, mock_log_results: MagicMock,
-                           mock_reset_classifier: MagicMock, create_data_split_mock: MagicMock):
+                           mock_reset_classifier: MagicMock,
+                           create_data_split_mock: MagicMock) -> None:
         create_data_split_mock.return_value = self.data_dict
 
         # Confirm that class weights are not used if flag is not given
