@@ -28,11 +28,9 @@ ParameterDict = FullActivationDict
 ActivationIndex = Union[int, slice, List[int], np.ndarray]
 
 IndexType = str  # 'pos', 'key' or 'all'
+ConcatToggle = bool
 
 ActivationKey = Union[
     ActivationIndex,
-    Tuple[ActivationIndex, ActivationName],
-    Tuple[ActivationIndex, IndexType],
-    Tuple[ActivationIndex, ActivationName, IndexType],
-    Tuple[ActivationIndex, IndexType, ActivationName]
+    Tuple[ActivationIndex, Dict[str, Union[ActivationName, IndexType, ConcatToggle]]]
 ]

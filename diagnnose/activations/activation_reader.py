@@ -71,27 +71,31 @@ class ActivationReader:
         Indexing can be done by key, index list/np.array, or slicing
         (which is translated into a range of keys).
 
-        The index, indexing type and activation name can be provided as:
-          [index]
-        | [index, indextype]         | [index, a_name]
-        | [index, a_name, indextype] | [index, indextype, a_name]
-        With indextype either 'pos', 'key' or 'all', and activation name
-        a (layer, name) tuple. Indextype defaults to 'pos'.
+        The index, indexing type and activation name can optionally
+         be provided as the second argument of a tuple as a dictionary.
+        This dict is optional, only passing the index is also allowed:
+
+        [index] | ([index], {indextype, concat, a_name})
+
+        With
+            - indextype either 'pos', 'key' or 'all', defaults to 'pos'.
+            - a_name an activation name (layer, name) tuple.
+            - concat a boolean that indicates whether the activations
+              should be concatenated or added as a separate tensor dim.
 
         If activationname is not provided it should have been set
         beforehand like `reader.activations = activationname`.
 
         Examples:
-            reader[8]: activations of 8th extracted sentence
-            reader[8:]: activations of 8th to final extracted sentence
-            reader[8, 'key']: activations of sentence with key 8
-            reader[[0,4,6], 'key']: activations of sentences with key 0,
-                4 or 6.
-            reader[:20, 'all']: the first 20 activations
-            reader[8, (0, 'cx')]: the activations of the cell state in
+            reader[8]: activations of the 8th extracted sentence
+            reader[8:]: activations of the 8th to final extracted sentence
+            reader[8, {'indextype': 'key'}]: activations of a sentence with key 8
+            reader[[0,4,6], {'indextype': 'key'}]: activations of sentences with key 0, 4 or 6.
+            reader[:20, {'indextype': 'all'}]: the first 20 activations
+            reader[8, {'a_name': (0, 'cx')}]: the activations of the cell state in
                 the first layer of the 8th extracted sentence.
         """
-        index, indextype = self._parse_key(key)
+        index, indextype, concat = self._parse_key(key)
         assert self.activations is not None, 'self.activations should be set first'
 
         if indextype == 'all':
@@ -100,28 +104,37 @@ class ActivationReader:
             ranges = self._create_range_from_key(index)
         else:
             ranges = np.array(list(self.activation_ranges.values()))[index]
-        inds = self._create_indices_from_range(ranges)
-        return self.activations[inds]
 
-    def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str]:
+        sen_ranges, mask = self._create_indices_from_range(ranges, concat)
+        if concat:
+            return self.activations[sen_ranges]
+
+        # We allow division by zero here to explicitly set the masked activation values to -inf,
+        # so a user would be warned later on if they would try to use such a masked value.
+        np.seterr(divide='ignore')
+        activations = self.activations[sen_ranges] / np.expand_dims(mask, axis=2)
+        np.seterr(divide='warn')
+
+        return activations
+
+    def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str, bool]:
         indextype = 'pos'
+        concat = True
         # if key is a tuple it also contains a indextype and/or activation name
         if isinstance(key, tuple):
-            for arg in key[1:]:
-                if arg in ['all', 'key', 'pos']:
-                    indextype = arg
-                elif isinstance(arg[0], int) and isinstance(arg[1], str):
-                    self.activations = arg
-                else:
-                    raise KeyError('Provided key is not compatible')
             index = key[0]
+
+            indextype = key[1].get('indextype', 'pos')
+            concat = key[1].get('concat', True)
+            if 'a_name' in key[1]:
+                self.activations = key[1]['a_name']
         else:
             index = key
 
         if isinstance(index, int):
             index = [index]
 
-        return index, indextype
+        return index, indextype, concat
 
     def _create_range_from_key(self, key: Union[int, slice, List[int], np.ndarray]) -> List[Range]:
         if isinstance(key, (list, np.ndarray)):
@@ -139,11 +152,22 @@ class ActivationReader:
         return ranges
 
     @staticmethod
-    def _create_indices_from_range(ranges: List[Tuple[int, int]]) -> np.ndarray:
-        inds = []
-        for mi, ma in ranges:
-            inds.append(range(mi, ma))
-        return np.concatenate(inds)
+    def _create_indices_from_range(ranges: List[Tuple[int, int]],
+                                   concat: bool) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        # Concatenate all range indices into a 1d array
+        if concat:
+            return np.concatenate([range(*r) for r in ranges]), None
+
+        # Create an index array with a separate row for each sentence range
+        maxrange = max(x[1]-x[0] for x in ranges)
+        indices = np.zeros((len(ranges), maxrange), dtype=int) - 1
+
+        for i, r in enumerate(ranges):
+            indices[i, :r[1]-r[0]] = np.array(range(*r))
+
+        mask = indices >= 0
+
+        return indices, mask
 
     @property
     def labels(self) -> np.ndarray:
@@ -219,6 +243,7 @@ class ActivationReader:
 
         return activations
 
+    # TODO: move outside this class, to classification specific
     def create_data_split(self,
                           activation_name: ActivationName,
                           data_subset_size: int = -1,
