@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from sklearn.externals import joblib
 
-from rnnalyse.activations.activation_reader import ActivationReader
+from rnnalyse.activations.activation_reader import ActivationKey, ActivationReader
 from rnnalyse.activations.init_states import InitStates
 from rnnalyse.decompositions.simple_cd import SimpleCD
 from rnnalyse.typedefs.activations import FullActivationDict, DecomposeArrayDict
@@ -48,13 +48,14 @@ class DecomposerFactory:
 
         self.zero_cell_state = InitStates(num_layers, hidden_size).create()
 
+    # TODO: Allow batch decomposition
     def create(self,
-               sen_id: int,
+               sen_index: ActivationKey,
                layer: int,
                index: slice = slice(None, None, None),
                classes: Union[slice, List[int]] = slice(None, None, None)) -> BaseDecomposer:
 
-        activations = self._create_activations(sen_id, layer, index)
+        activations = self._create_activations(sen_index, layer, index)
 
         decoder = self.decoder_w[classes], self.decoder_b[classes]
 
@@ -63,18 +64,18 @@ class DecomposerFactory:
         return decomposer
 
     def _create_activations(self,
-                            sen_id: int,
+                            sen_index: ActivationKey,
                             layer: int,
                             index: slice = slice(None, None, None)) -> DecomposeArrayDict:
-        forget_gates = self.activation_reader[sen_id, 'key', (layer, 'f_g')][index]
-        output_gates = self.activation_reader[sen_id, 'key', (layer, 'o_g')]
-        hidden_states = self.activation_reader[sen_id, 'key', (layer, 'hx')]
+        forget_gates = self.activation_reader[sen_index, 'key', (layer, 'f_g')][index]
+        output_gates = self.activation_reader[sen_index, 'key', (layer, 'o_g')]
+        hidden_states = self.activation_reader[sen_index, 'key', (layer, 'hx')]
 
         final_index = output_gates.shape[0] - 1 if index.stop is None else index.stop - 1
         final_output_gate = output_gates[final_index]
         final_hidden_state = hidden_states[final_index]
 
-        cell_states = self.activation_reader[sen_id, 'key', (layer, 'cx')]
+        cell_states = self.activation_reader[sen_index, 'key', (layer, 'cx')]
         if index.start == 0 or index.start is None:
             init_cell_state = self.init_cell_state[layer]['cx'].numpy()
         else:
