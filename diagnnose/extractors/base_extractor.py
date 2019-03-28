@@ -150,19 +150,19 @@ class Extractor:
         minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')
-        print(f'{n_sens} sentences have been extracted, '
+        print(f'{n_sens+1} sentences have been extracted, '
               f'yielding {tot_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
     @staticmethod
     def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int) -> None:
-        speed = (time() - prev_t) / print_every
+        speed = 1 / ((time() - prev_t) / print_every)
         duration = time() - start_t
         minutes, seconds = divmod(duration, 60)
 
         print(f'#sens: {n_sens:>4}\t\t'
               f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
-              f'Speed: {speed:.2f}s/sen')
+              f'Speed: {speed:.2f}sen/s')
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
