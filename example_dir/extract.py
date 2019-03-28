@@ -34,6 +34,11 @@ def init_argparser() -> ArgumentParser:
                           help='Activations to be extracted', nargs='*')
     from_cmd.add_argument('--output_dir',
                           help='Path to folder to which extracted embeddings will be written.')
+    from_cmd.add_argument('--corpus_header', nargs='*',
+                          help='(optional) List of corpus attribute names.'
+                               'If not provided first line is used as header.'),
+    from_cmd.add_argument('--to_lower', type=bool,
+                          help='(optional) Convert corpus to lowercase, defaults to False.'),
     from_cmd.add_argument('--device',
                           help='(optional) Torch device name on which model will be run.'
                                'Defaults to cpu.')
@@ -50,6 +55,12 @@ def init_argparser() -> ArgumentParser:
     from_cmd.add_argument('--dynamic_dumping', type=bool,
                           help='(optional) Set to true to directly dump activations to file. '
                                'This way no activations are stored in RAM. Defaults to true.')
+    from_cmd.add_argument('--create_label_file', type=bool,
+                          help='(optional) Set to true to directly store the corpus labels as a '
+                               'separate numpy array, defaults to True.')
+    from_cmd.add_argument('--create_avg_eos', type=bool,
+                          help='(optional) Set to true to directly store the average end of '
+                               'sentence activations, defaults to False')
 
     return parser
 
@@ -58,9 +69,10 @@ if __name__ == '__main__':
     required_args = {'model', 'vocab', 'lm_module', 'corpus_path', 'activation_names', 'output_dir'}
     arg_groups = {
         'model': {'model', 'vocab', 'lm_module', 'device'},
-        'corpus': {'corpus_path'},
+        'corpus': {'corpus_path', 'corpus_header', 'to_lower'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
-        'extract': {'cutoff', 'print_every', 'dynamic_dumping'},
+        'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',
+                    'create_avg_eos'},
     }
     argparser = init_argparser()
 
