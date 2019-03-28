@@ -11,7 +11,7 @@ from rnnalyse.models.language_model import LanguageModel
 from rnnalyse.typedefs.corpus import Corpus, CorpusSentence, Labels
 from rnnalyse.typedefs.extraction import ActivationRanges, SelectFunc
 from rnnalyse.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
-from rnnalyse.utils.paths import dump_pickle, trim
+from rnnalyse.utils.paths import trim
 
 
 class Extractor:
@@ -59,14 +59,16 @@ class Extractor:
             model.num_layers, model.hidden_size, init_lstm_states_path
         )
 
-        self.activation_writer = ActivationWriter(output_dir, activation_names)
+        self.activation_writer = ActivationWriter(output_dir, list(activation_names))
 
     # TODO: Allow batch input
     def extract(self,
                 cutoff: int = -1,
                 print_every: int = 10,
                 dynamic_dumping: bool = True,
-                selection_func: SelectFunc = lambda pos, token, labeled_sentence: True) -> None:
+                selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
+                create_label_file: bool = True,
+                create_avg_eos: bool = False) -> None:
         """ Extracts embeddings from a labeled corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -86,16 +88,25 @@ class Extractor:
         selection_func: Callable
             Function which determines if activations for a token should
             be extracted or not.
+        create_label_file : bool, optional
+            Indicates whether to create a label file, defaults to True.
+        create_avg_eos : bool, optional
+            Toggle to save average end of sentence activations. Will be
+            stored in in `self.output_dir`.
         """
         start_t = prev_t = time()
         tot_extracted = n_sens = 0
+
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
+
         print('\nStarting extraction...')
 
         with ExitStack() as stack:
-            self.activation_writer.create_output_files(stack)
+            self.activation_writer.create_output_files(stack, create_label_file, create_avg_eos)
+
             extracted_labels: Labels = []
+            avg_eos_states = self._init_avg_eos_activations()
 
             for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items()):
                 if n_sens % print_every == 0 and n_sens > 0:
@@ -113,13 +124,20 @@ class Extractor:
                     for name in all_activations.keys():
                         all_activations[name].append(sen_activations[name])
 
+                if create_avg_eos:
+                    self._update_avg_eos_activations(avg_eos_states, sen_activations)
+
                 extracted_labels.extend(sen_extracted_labels)
                 activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
                 tot_extracted += n_extracted
 
+            self.activation_writer.dump_activation_ranges(activation_ranges)
             if len(extracted_labels) > 0:
                 self.activation_writer.dump_labels(extracted_labels)
-            self.activation_writer.dump_activation_ranges(activation_ranges)
+            if create_avg_eos:
+                self._normalize_avg_eos_activations(avg_eos_states, n_sens+1)
+                self.activation_writer.dump_avg_eos(avg_eos_states)
+
             if not dynamic_dumping:
                 for name in all_activations.keys():
                     all_activations[name] = np.concatenate(all_activations[name], axis=0)
@@ -194,66 +212,39 @@ class Extractor:
 
         return sen_activations, extracted_labels, n_extracted
 
-    # TODO: refactor
-    def extract_average_eos_activations(self, print_every: int = 10) -> None:
-        """ Extract average end of sentence activations and dump them to a file. """
-
-        def _incremental_avg(old_avg: torch.Tensor,
-                             new_value: torch.Tensor,
-                             n_sens: int) -> torch.Tensor:
-            return old_avg + 1 / n_sens * (new_value - old_avg)
-
-        def _eos_selection_func(pos: int, _token: str, sentence: CorpusSentence) -> bool:
-            return pos == (len(sentence.sen) - 1)
-
-        start_time = prev_time = time()
-        print('\nStarting extraction for average eos activations...')
-
-        # Init states
-        avg_eos_states = {
-            layer: {
-                'hx': torch.zeros(self.model.hidden_size),
-                'cx': torch.zeros(self.model.hidden_size)
-            }
-            for layer in range(self.model.num_layers)
-        }
-
-        # Extract
-        for i, labeled_sentence in enumerate(self.corpus.values()):
-            eos_activations, _, _ = self._extract_sentence(labeled_sentence, _eos_selection_func)
-
-            # Update average eos states if last activation was extracted
-            avg_eos_states = {
-                layer: {
-                    'hx': _incremental_avg(
-                        avg_eos_states[layer]['hx'],
-                        torch.Tensor(eos_activations[(layer, 'hx')].squeeze(0)),
-                        n_sens=i+1
-                    ),
-                    'cx': _incremental_avg(
-                        avg_eos_states[layer]['cx'],
-                        torch.Tensor(eos_activations[(layer, 'cx')].squeeze(0)),
-                        n_sens=i+1
-                    )
-                }
-                for layer in avg_eos_states
-            }
-
-            if i % print_every == 0 and i > 0:
-                self._print_time_info(prev_time, start_time, print_every, i)
-                prev_time = time()
-
-        minutes, seconds = divmod(time() - start_time, 60)
-
-        # Dump average eos states
-        dump_pickle(avg_eos_states, f'{self.output_dir}/avg_eos.pickle')
-
-        print(f'\nExtraction finished.')
-        print(f'Total time took {minutes:.0f}m {seconds:.2f}s')
-
     def _init_sen_activations(self, sen_len: int = 0) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """
         return {
             (layer, name): [] if sen_len == 0 else np.empty((sen_len, self.model.hidden_size))
             for (layer, name) in self.activation_names
         }
+
+    def _init_avg_eos_activations(self) -> FullActivationDict:
+        init_avg_eos_activations: FullActivationDict = {}
+
+        for layer in range(self.model.num_layers):
+            init_avg_eos_activations[layer] = {
+                'hx': torch.zeros(self.model.hidden_size),
+                'cx': torch.zeros(self.model.hidden_size),
+            }
+            if (layer, 'hx') not in self.activation_names:
+                self.activation_names.append((layer, 'hx'))
+            if (layer, 'cx') not in self.activation_names:
+                self.activation_names.append((layer, 'cx'))
+
+        return init_avg_eos_activations
+
+    @staticmethod
+    def _update_avg_eos_activations(prev_activations: FullActivationDict,
+                                    new_activations: PartialArrayDict) -> None:
+        for layer in prev_activations.keys():
+            for name in prev_activations[layer].keys():
+                eos_activation = new_activations[(layer, name)][-1]
+                prev_activations[layer][name] += torch.from_numpy(eos_activation)
+
+    @staticmethod
+    def _normalize_avg_eos_activations(avg_eos_activations: FullActivationDict,
+                                       n_sens: int) -> None:
+        for layer in avg_eos_activations.keys():
+            for name in avg_eos_activations[layer].keys():
+                avg_eos_activations[layer][name] /= n_sens

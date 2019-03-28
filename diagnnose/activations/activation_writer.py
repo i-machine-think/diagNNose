@@ -6,10 +6,12 @@ from typing import BinaryIO, Optional
 
 import numpy as np
 
+from rnnalyse.typedefs.activations import (
+    ActivationFiles, ActivationNames, FullActivationDict, PartialArrayDict)
 from rnnalyse.typedefs.corpus import Labels
 from rnnalyse.typedefs.extraction import ActivationRanges
-from rnnalyse.typedefs.activations import ActivationFiles, ActivationNames, PartialArrayDict
 from rnnalyse.utils.paths import dump_pickle, trim
+
 from .activation_reader import ActivationReader
 
 
@@ -30,17 +32,22 @@ class ActivationWriter:
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
         File to which sentence labels will be written.
-
+    avg_eos_file: Optional[BinaryIO]
+        File to which avg end of sentence activations will be written
     """
     def __init__(self, output_dir: str, activation_names: ActivationNames) -> None:
         self.output_dir = trim(output_dir)
         self.activation_names = activation_names
 
         self.activation_files: ActivationFiles = {}
-        self.label_file: Optional[BinaryIO] = None
         self.activation_ranges_file: Optional[BinaryIO] = None
+        self.label_file: Optional[BinaryIO] = None
+        self.avg_eos_file: Optional[BinaryIO] = None
 
-    def create_output_files(self, stack: ExitStack) -> None:
+    def create_output_files(self,
+                            stack: ExitStack,
+                            create_label_file: bool = True,
+                            create_avg_eos_file: bool = False) -> None:
         """ Opens a file for each to-be-extracted activation. """
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -55,12 +62,17 @@ class ActivationWriter:
                 )
             for (layer, name) in self.activation_names
         }
-        self.label_file = stack.enter_context(
-            open(f'{self.output_dir}/labels.pickle', 'wb')
-        )
         self.activation_ranges_file = stack.enter_context(
             open(f'{self.output_dir}/ranges.pickle', 'wb')
         )
+        if create_label_file:
+            self.label_file = stack.enter_context(
+                open(f'{self.output_dir}/labels.pickle', 'wb')
+            )
+        if create_avg_eos_file:
+            self.avg_eos_file = stack.enter_context(
+                open(f'{self.output_dir}/avg_eos.pickle', 'wb')
+            )
 
     def dump_activations(self, activations: PartialArrayDict) -> None:
         """ Dumps the generated activations to a list of opened files
@@ -75,17 +87,22 @@ class ActivationWriter:
             assert (layer, name) in self.activation_files.keys(), 'Activation file is not opened'
             pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
 
-    def dump_labels(self, extracted_labels: list) -> None:
-        assert self.label_file is not None
-
-        labels: Labels = np.array(extracted_labels)
-
-        pickle.dump(labels, self.label_file)
-
     def dump_activation_ranges(self, activation_ranges: ActivationRanges) -> None:
         assert self.activation_ranges_file is not None
 
         pickle.dump(activation_ranges, self.activation_ranges_file)
+
+    def dump_labels(self, extracted_labels: Labels) -> None:
+        assert self.label_file is not None
+
+        labels: np.ndarray = np.array(extracted_labels)
+
+        pickle.dump(labels, self.label_file)
+
+    def dump_avg_eos(self, avg_eos_states: FullActivationDict) -> None:
+        assert self.avg_eos_file is not None
+
+        pickle.dump(avg_eos_states, self.avg_eos_file)
 
     def concat_pickle_dumps(self, overwrite: bool = True) -> None:
         """ Concatenates a sequential pickle dump and pickles to file .
