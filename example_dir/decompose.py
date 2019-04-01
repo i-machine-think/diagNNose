@@ -59,7 +59,6 @@ if __name__ == '__main__':
         config_dict['decompose']['decoder'] = import_decoder_from_model(model)
 
     constructor = DecomposerFactory(**config_dict['decompose'])
-    decomposer = constructor.create(32, 1, slice(10, 16, 1), [7061, 18214])
-
-    beta = decomposer.calc_beta()
-    gamma = decomposer.calc_gamma()
+    decomposer = constructor.create([0, 1], 1, slice(0, 5, 1), [42696, 11336, 100])
+    beta = decomposer.decompose(append_bias=True)
+    print(beta)

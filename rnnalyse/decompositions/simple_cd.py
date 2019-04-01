@@ -31,17 +31,23 @@ class SimpleCD(BaseDecomposer):
             Initial cell state at start of sentence
         '0cx' : np.ndarray (hidden_dim,)
             Zero valued vector to ensure proper decomposition
+    final_index : np.ndarray
+        1-d numpy array with index of final element of a batch element.
+        Due to masking for sentences of uneven length the final index
+        can differ between batch elements.
     """
     def __init__(self,
                  decoder: LinearDecoder,
-                 activations: DecomposeArrayDict) -> None:
-        super().__init__(decoder, activations)
+                 activations: DecomposeArrayDict,
+                 batch_size: int,
+                 final_index: np.ndarray) -> None:
+        super().__init__(decoder, activations, batch_size, final_index)
 
     @overrides
     def _decompose(self) -> DecomposeArrayDict:
         return {
             'beta': self.calc_beta(),
-            'gamma': self.calc_gamma(),
+            # 'gamma': self.calc_gamma(),
         }
 
     def calc_beta(self) -> np.ndarray:
@@ -76,23 +82,25 @@ class SimpleCD(BaseDecomposer):
         return gamma
 
     def _decompose_cell_states(self, cell_states: np.ndarray) -> np.ndarray:
-        cell_diffs = np.tanh(cell_states[1:]) - np.tanh(cell_states[:-1])
+        cell_diffs = np.tanh(cell_states[:, 1:]) - np.tanh(cell_states[:, :-1])
 
-        decomposed_h = self.activations['o_g'] * cell_diffs
-        decomposition = np.exp(np.dot(decomposed_h, self.decoder_w.T))
+        final_output_gate = np.expand_dims(self.activations['o_g'], 1)
+        decomposed_h = final_output_gate * cell_diffs
+        decomposition = np.exp(np.ma.dot(decomposed_h, self.decoder_w.T))
 
         self._assert_decomposition(decomposition)
 
-        return decomposition
+        return decomposition.data
 
     def _assert_decomposition(self, decomposition: np.ndarray) -> None:
         original_logits = self.calc_original_logits()
-        reconstructed_h = self.activations['o_g'] * np.tanh(self.activations['cx'][-1])
+        decomposed_logit = np.prod(decomposition, axis=1) * self.decompose_bias()
 
-        decomposed_logit = np.prod(decomposition, axis=0) * self.decompose_bias()
+        final_cell_state = self.activations['cx'][range(self.batch_size), [self.final_index+2]][0]
+        reconstructed_h = self.activations['o_g'] * np.tanh(final_cell_state)
 
         np.testing.assert_array_almost_equal(
             self.activations['hx'], reconstructed_h,
             err_msg='Reconstructed state h_T not equal to provided hidden state')
         assert np.allclose(original_logits, decomposed_logit, rtol=1e-4), \
-            f'Decomposed logits not equal to original\n{original_logits}\n{decomposed_logit}'
+            f'Decomposed logits not equal to original\n{original_logits}\n\n{decomposed_logit}'
