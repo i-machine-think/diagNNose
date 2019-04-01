@@ -3,7 +3,8 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from rnnalyse.typedefs.activations import ActivationIndex, ActivationKey, ActivationName
+from rnnalyse.typedefs.activations import (
+    ActivationIndex, ActivationKey, ActivationName, PartialArrayDict)
 from rnnalyse.typedefs.classifiers import DataDict
 from rnnalyse.typedefs.extraction import ActivationRanges, Range
 from rnnalyse.utils.paths import load_pickle, trim
@@ -19,6 +20,10 @@ class ActivationReader:
     label_path : str, optional
         Path to pickle file containing the labels. Defaults to
         labels.pickle in activations_dir if no path has been provided.
+    store_multiple_activations : bool, optional
+        Set to true to store multiple activation arrays in RAM at once.
+        Defaults to False, meaning that only one activation type will be
+        stored in the class.
 
     Attributes
     ----------
@@ -39,7 +44,8 @@ class ActivationReader:
 
     def __init__(self,
                  activations_dir: str,
-                 label_path: Optional[str] = None) -> None:
+                 label_path: Optional[str] = None,
+                 store_multiple_activations: bool = False) -> None:
 
         self.activations_dir = trim(activations_dir)
 
@@ -190,15 +196,19 @@ class ActivationReader:
 
     @property
     def activations(self) -> Optional[np.ndarray]:
-        return self._activations
+        return self._activations[self.activation_name]
 
     @activations.setter
-    def activations(self, activation_name: Optional[ActivationName]) -> None:
-        if activation_name is None:
-            self._activations = None
-        elif activation_name != self.activation_name:
-            self.activation_name = activation_name
-            self._activations = self.read_activations(activation_name)
+    def activations(self, activation_name: ActivationName) -> None:
+        self.activation_name = activation_name
+        if activation_name not in self._activations:
+            activations = self.read_activations(activation_name)
+            if self.store_multiple_activations:
+                self._activations[activation_name] = activations
+            else:
+                self._activations = {
+                    activation_name: activations
+                }
 
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
         """ Reads the pickled activations of activation_name
@@ -230,13 +240,12 @@ class ActivationReader:
 
                     # To make hidden size dependent of data only, the activations array
                     # is created only after observing the first batch of activations.
-                    # TODO: Take care of data_len when using unlabeled corpora! (use np.concatenate)
                     if hidden_size is None:
                         hidden_size = sen_activations.shape[1]
                         activations = np.empty((self.data_len, hidden_size), dtype=np.float32)
 
                     i = len(sen_activations)
-                    activations[n:n+i] = sen_activations
+                    activations[n:n + i] = sen_activations
                     n += i
                 except EOFError:
                     break
