@@ -76,7 +76,7 @@ class DCTrainer:
             if self.use_class_weights:
                 classes, class_freqs = np.unique(data_dict['train_y'], return_counts=True)
                 norm = class_freqs.sum()  # Norm factor
-                class_weight = {classes[i]: class_freqs[i] / norm for i in range(len(class_freqs))}  # Normalize
+                class_weight = {classes[i]: class_freqs[i] / norm for i in range(len(class_freqs))}
                 self.classifier.class_weight = class_weight
 
             # Train

@@ -13,35 +13,8 @@ class SimpleCD(BaseDecomposer):
     Murdoch and Szlam, Automatic Rule Extraction from Long Short Term
     Memory Networks (2017) https://arxiv.org/pdf/1702.02540.pdf
 
-    Parameters
-    ----------
-    decoder : (np.ndarray, np.ndarray) ((num_classes, hidden_dim), (hidden_dim,))
-        (Coefficients, bias) tuple of the (linear) decoding layer
-    activations : PartialArrayDict
-        (layer, name) -> Array dictionary containing:
-        'f_g' : np.ndarray (num_tokens, hidden_dim)
-            Forget gate activations for each token
-        'o_g' : np.ndarray (hidden_dim,)
-            Final output gate activation of the sequence
-        'hx' : np.ndarray (hidden_dim,)
-            Final hidden state of the sequence
-        'cx' : np.ndarray (num_tokens, hidden_dim)
-            Cell state activations for each token
-        'icx' : np.ndarray (hidden_dim,)
-            Initial cell state at start of sentence
-        '0cx' : np.ndarray (hidden_dim,)
-            Zero valued vector to ensure proper decomposition
-    final_index : np.ndarray
-        1-d numpy array with index of final element of a batch element.
-        Due to masking for sentences of uneven length the final index
-        can differ between batch elements.
+    Inherits and uses functions from BaseDecomposer.
     """
-    def __init__(self,
-                 decoder: LinearDecoder,
-                 activations: DecomposeArrayDict,
-                 batch_size: int,
-                 final_index: np.ndarray) -> None:
-        super().__init__(decoder, activations, batch_size, final_index)
 
     @overrides
     def _decompose(self) -> DecomposeArrayDict:
@@ -75,7 +48,8 @@ class SimpleCD(BaseDecomposer):
 
         gated_cells = np.zeros(self.activations['cx'].shape)
         for i in range(self.activations['cx'].shape[0]):
-            gated_cells[i] = self.activations['cx'][i] * np.prod(self.activations['f_g'][i:], axis=0)
+            forget_product = np.prod(self.activations['f_g'][i:], axis=0)
+            gated_cells[i] = self.activations['cx'][i] * forget_product
 
         gamma = self._decompose_cell_states(gated_cells)
 

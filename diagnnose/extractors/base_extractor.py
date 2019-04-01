@@ -132,7 +132,7 @@ class Extractor:
                 tot_extracted += n_extracted
 
             self.activation_writer.dump_activation_ranges(activation_ranges)
-            if len(extracted_labels) > 0:
+            if extracted_labels:
                 self.activation_writer.dump_labels(extracted_labels)
             if create_avg_eos:
                 self._normalize_avg_eos_activations(avg_eos_states, n_sens+1)

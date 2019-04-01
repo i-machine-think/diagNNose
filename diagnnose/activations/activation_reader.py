@@ -5,7 +5,6 @@ import numpy as np
 
 from rnnalyse.typedefs.activations import (
     ActivationIndex, ActivationKey, ActivationName, PartialArrayDict)
-from rnnalyse.typedefs.classifiers import DataDict
 from rnnalyse.typedefs.extraction import ActivationRanges, Range
 from rnnalyse.utils.paths import load_pickle, trim
 
@@ -44,17 +43,15 @@ class ActivationReader:
 
     def __init__(self,
                  activations_dir: str,
-                 label_path: Optional[str] = None,
                  store_multiple_activations: bool = False) -> None:
 
         self.activations_dir = trim(activations_dir)
 
-        if label_path is None:
-            label_path = f'{self.activations_dir}/labels.pickle'
-        self.label_path = label_path
+        # if label_path is None:
+        #     label_path = f'{self.activations_dir}/labels.pickle'
+        # self.label_path = label_path
 
         self._activations: PartialArrayDict = {}
-        self._labels: Optional[np.ndarray] = None
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 
@@ -179,11 +176,11 @@ class ActivationReader:
 
         return indices
 
-    @property
-    def labels(self) -> np.ndarray:
-        if self._labels is None:
-            self._labels = load_pickle(self.label_path)
-        return self._labels
+    # @property
+    # def labels(self) -> np.ndarray:
+    #     if self._labels is None:
+    #         self._labels = load_pickle(self.label_path)
+    #     return self._labels
 
     @property
     def data_len(self) -> int:
@@ -256,40 +253,40 @@ class ActivationReader:
 
         return activations
 
-    # TODO: move outside this class, to classification specific
-    def create_data_split(self,
-                          activation_name: ActivationName,
-                          data_subset_size: int = -1,
-                          train_test_split: float = 0.9) -> DataDict:
-        """ Creates train/test data split of activations
-
-        Parameters
-        ----------
-        activation_name : ActivationName
-            (layer, name) tuple indicating the activations to be read in
-        data_subset_size : int, optional
-            Subset size of data to train on. Defaults to -1, indicating
-            the entire data set.
-        train_test_split : float
-            Percentage of the train/test split. Defaults to 0.9.
-        """
-
-        if data_subset_size != -1:
-            assert 0 < data_subset_size <= self.data_len, \
-                "Size of subset must be positive and not bigger than the whole data set."
-
-        activations = self.read_activations(activation_name)
-
-        data_size = self.data_len if data_subset_size == -1 else data_subset_size
-        split = int(data_size * train_test_split)
-
-        indices = np.random.choice(range(data_size), data_size, replace=False)
-        train_indices = indices[:split]
-        test_indices = indices[split:]
-
-        return {
-            'train_x': activations[train_indices],
-            'train_y': self.labels[train_indices],
-            'test_x': activations[test_indices],
-            'test_y': self.labels[test_indices]
-        }
+    # TODO: move outside this class, too classification specific
+    # def create_data_split(self,
+    #                       activation_name: ActivationName,
+    #                       data_subset_size: int = -1,
+    #                       train_test_split: float = 0.9) -> DataDict:
+    #     """ Creates train/test data split of activations
+    #
+    #     Parameters
+    #     ----------
+    #     activation_name : ActivationName
+    #         (layer, name) tuple indicating the activations to be read in
+    #     data_subset_size : int, optional
+    #         Subset size of data to train on. Defaults to -1, indicating
+    #         the entire data set.
+    #     train_test_split : float
+    #         Percentage of the train/test split. Defaults to 0.9.
+    #     """
+    #
+    #     if data_subset_size != -1:
+    #         assert 0 < data_subset_size <= self.data_len, \
+    #             "Size of subset must be positive and not bigger than the whole data set."
+    #
+    #     activations = self.read_activations(activation_name)
+    #
+    #     data_size = self.data_len if data_subset_size == -1 else data_subset_size
+    #     split = int(data_size * train_test_split)
+    #
+    #     indices = np.random.choice(range(data_size), data_size, replace=False)
+    #     train_indices = indices[:split]
+    #     test_indices = indices[split:]
+    #
+    #     return {
+    #         'train_x': activations[train_indices],
+    #         'train_y': self.labels[train_indices],
+    #         'test_x': activations[test_indices],
+    #         'test_y': self.labels[test_indices]
+    #     }

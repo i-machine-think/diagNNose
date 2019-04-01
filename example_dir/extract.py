@@ -36,9 +36,9 @@ def init_argparser() -> ArgumentParser:
                           help='Path to folder to which extracted embeddings will be written.')
     from_cmd.add_argument('--corpus_header', nargs='*',
                           help='(optional) List of corpus attribute names.'
-                               'If not provided first line is used as header.'),
+                               'If not provided first line is used as header.')
     from_cmd.add_argument('--to_lower', type=bool,
-                          help='(optional) Convert corpus to lowercase, defaults to False.'),
+                          help='(optional) Convert corpus to lowercase, defaults to False.')
     from_cmd.add_argument('--device',
                           help='(optional) Torch device name on which model will be run.'
                                'Defaults to cpu.')

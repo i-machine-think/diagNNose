@@ -61,4 +61,3 @@ if __name__ == '__main__':
     constructor = DecomposerFactory(**config_dict['decompose'])
     decomposer = constructor.create([0, 1], 1, slice(0, 5, 1), [42696, 11336, 100])
     beta = decomposer.decompose(append_bias=True)
-    print(beta)
