@@ -53,15 +53,15 @@ class ActivationReader:
             label_path = f'{self.activations_dir}/labels.pickle'
         self.label_path = label_path
 
-        self._activations: Optional[np.ndarray] = None
+        self._activations: PartialArrayDict = {}
         self._labels: Optional[np.ndarray] = None
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 
         self.activation_name: Optional[ActivationName] = None
-        self.activations: Optional[np.ndarray] = None
+        self.store_multiple_activations = store_multiple_activations
 
-    def __getitem__(self, key: ActivationKey) -> np.ndarray:
+    def __getitem__(self, key: ActivationKey) -> np.ma.MaskedArray:
         """ Provides indexing of activations, indexed by sentence
         position or key, or indexing the activations itself. Indexing
         based on sentence returns all activations belonging to that
@@ -81,7 +81,13 @@ class ActivationReader:
          be provided as the second argument of a tuple as a dictionary.
         This dict is optional, only passing the index is also allowed:
 
-        [index] | ([index], {indextype, concat, a_name})
+        [index] |
+        [index, {
+            indextype?: 'pos' | 'key' | 'all',
+            a_name?: (layer, name),
+            concat?: bool,
+          }
+        ]
 
         With
             - indextype either 'pos', 'key' or 'all', defaults to 'pos'.
@@ -111,15 +117,15 @@ class ActivationReader:
         else:
             ranges = np.array(list(self.activation_ranges.values()))[index]
 
-        sen_ranges, mask = self._create_indices_from_range(ranges, concat)
+        sen_indices = self._create_indices_from_range(ranges, concat)
         if concat:
-            return self.activations[sen_ranges]
+            return self.activations[sen_indices]
 
-        # We allow division by zero here to explicitly set the masked activation values to -inf,
-        # so a user would be warned later on if they would try to use such a masked value.
-        np.seterr(divide='ignore')
-        activations = self.activations[sen_ranges] / np.expand_dims(mask, axis=2)
-        np.seterr(divide='warn')
+        activations = self.activations[sen_indices]
+
+        # MaskedArray mask is not broadcasted automatically: https://stackoverflow.com/a/24800917
+        mask = np.broadcast_to((sen_indices < 0)[..., np.newaxis], activations.shape)
+        activations = np.ma.masked_array(activations, mask=mask)
 
         return activations
 
@@ -158,22 +164,20 @@ class ActivationReader:
         return ranges
 
     @staticmethod
-    def _create_indices_from_range(ranges: List[Tuple[int, int]],
-                                   concat: bool) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    def _create_indices_from_range(ranges: List[Tuple[int, int]], concat: bool) -> np.ndarray:
         # Concatenate all range indices into a 1d array
         if concat:
-            return np.concatenate([range(*r) for r in ranges]), None
+            return np.concatenate([range(*r) for r in ranges])
 
         # Create an index array with a separate row for each sentence range
-        maxrange = max(x[1]-x[0] for x in ranges)
+        maxrange = max(x[1] - x[0] for x in ranges)
+
         indices = np.zeros((len(ranges), maxrange), dtype=int) - 1
 
         for i, r in enumerate(ranges):
-            indices[i, :r[1]-r[0]] = np.array(range(*r))
+            indices[i, :r[1] - r[0]] = np.array(range(*r))
 
-        mask = indices >= 0
-
-        return indices, mask
+        return indices
 
     @property
     def labels(self) -> np.ndarray:

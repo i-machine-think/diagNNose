@@ -29,8 +29,9 @@ ActivationIndex = Union[int, slice, List[int], np.ndarray]
 
 IndexType = str  # 'pos', 'key' or 'all'
 ConcatToggle = bool
+ActivationKeyConfig = Dict[str, Union[ActivationName, IndexType, ConcatToggle]]
 
 ActivationKey = Union[
     ActivationIndex,
-    Tuple[ActivationIndex, Dict[str, Union[ActivationName, IndexType, ConcatToggle]]]
+    Tuple[ActivationIndex, ActivationKeyConfig]
 ]
