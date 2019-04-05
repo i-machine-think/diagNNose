@@ -22,6 +22,9 @@ def init_argparser() -> ArgumentParser:
                           help='Path to folder containing activations to decompose.')
     from_cmd.add_argument('--decoder',
                           help='Path to decoder classifier.')
+    from_cmd.add_argument('--decomposer',
+                          help='Class name of decomposer constructor. As of now either '
+                               'CellDecomposer or ContextualDecomposer')
     from_cmd.add_argument('--model',
                           help='Path to model parameters')
     from_cmd.add_argument('--vocab',
@@ -44,7 +47,8 @@ if __name__ == '__main__':
     required_args = {'activations_dir', 'num_layers', 'hidden_size',
                      ('decoder', ('model', 'vocab', 'lm_module'))}
     arg_groups = {
-        'decompose': {'activations_dir', 'num_layers', 'hidden_size', 'init_lstm_states_path'},
+        'decompose': {'decomposer', 'activations_dir', 'num_layers', 'hidden_size',
+                      'init_lstm_states_path'},
         'decoder': {'decoder', 'model', 'vocab', 'lm_module'},
     }
     argparser = init_argparser()
@@ -59,5 +63,6 @@ if __name__ == '__main__':
         config_dict['decompose']['decoder'] = import_decoder_from_model(model)
 
     constructor = DecomposerFactory(**config_dict['decompose'])
-    decomposer = constructor.create([0, 1], 1, slice(0, 5, 1), [42696, 11336, 100])
+    decomposer = constructor.create(1, 0, slice(0, None, 1), classes=[42696])
     beta = decomposer.decompose(append_bias=True)
+    print(beta['beta'].shape)

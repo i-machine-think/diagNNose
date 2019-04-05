@@ -100,7 +100,7 @@ class Extractor:
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
 
-        print('\nStarting extraction...')
+        print(f'\nStarting extraction of {len(self.corpus) if cutoff < 0 else cutoff} sentences...')
 
         with ExitStack() as stack:
             self.activation_writer.create_output_files(stack, create_label_file, create_avg_eos)
