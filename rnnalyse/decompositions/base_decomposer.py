@@ -1,5 +1,8 @@
+from typing import Any
+
 import numpy as np
 
+from rnnalyse.models.language_model import LanguageModel
 from rnnalyse.typedefs.activations import ActivationName, DecomposeArrayDict, PartialArrayDict
 from rnnalyse.typedefs.classifiers import LinearDecoder
 
@@ -21,12 +24,13 @@ class BaseDecomposer:
         The index of the layer on which the decomposition will be done.
     """
     def __init__(self,
+                 model: LanguageModel,
                  decoder: LinearDecoder,
                  activation_dict: PartialArrayDict,
                  final_index: np.ndarray,
                  layer: int) -> None:
+        self.model = model
         self.decoder_w, self.decoder_b = decoder
-
         self.activation_dict = activation_dict
 
         self.final_index = final_index
@@ -36,11 +40,11 @@ class BaseDecomposer:
         self._validate_activation_shapes()
         self._append_init_cell_states()
 
-    def _decompose(self) -> DecomposeArrayDict:
+    def _decompose(self, *arg: Any) -> DecomposeArrayDict:
         raise NotImplementedError
 
-    def decompose(self, append_bias: bool = False) -> DecomposeArrayDict:
-        decomposition = self._decompose()
+    def decompose(self, *arg: Any, append_bias: bool = False) -> DecomposeArrayDict:
+        decomposition = self._decompose(*arg)
 
         if append_bias:
             bias = self.decompose_bias()
