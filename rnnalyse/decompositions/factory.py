@@ -7,11 +7,12 @@ from rnnalyse.activations.activation_reader import ActivationReader
 from rnnalyse.activations.init_states import InitStates
 from rnnalyse.decompositions.cell_decomposer import CellDecomposer
 from rnnalyse.decompositions.contextual_decomposer import ContextualDecomposer
+from rnnalyse.models.import_model import import_decoder_from_model
+from rnnalyse.models.language_model import LanguageModel
 from rnnalyse.typedefs.activations import (
-    ActivationKey, ActivationName, ActivationNames,
-    FullActivationDict, PartialArrayDict)
+    ActivationKey, ActivationName, ActivationNames, FullActivationDict, PartialArrayDict)
 from rnnalyse.typedefs.classifiers import LinearDecoder
-from rnnalyse.utils.paths import trim, camel2snake
+from rnnalyse.utils.paths import camel2snake, trim
 
 from .base_decomposer import BaseDecomposer
 
@@ -21,38 +22,37 @@ class DecomposerFactory:
 
     Parameters
     ----------
+    model : LanguageModel
+        LanguageModel for which decomposition will be performed
+    decomposer : Type[BaseDecomposer] | str
+        Either an uninstantiated BaseDecomposer class or a string of the
+        class name ('CellDecomposer' or 'ContextualDecomposer').
     activations_dir : str
         Path to folder containing extracted activations
     decoder : Union[str, LinearDecoder]
         Path to a pickled decoder or a (w,b) decoder tuple
-    num_layers : int
-        Number of layers in the language model
-    hidden_size : int
-        Number of hidden units in the language model
     init_lstm_states_path : str, optional
         Defaults to zero-embeddings, otherwise loads in pickled initial
         cell states.
     """
 
     def __init__(self,
+                 model: LanguageModel,
                  decomposer: Union[Type[BaseDecomposer], str],
                  activations_dir: str,
-                 decoder: Union[str, LinearDecoder],
-                 num_layers: int,
-                 hidden_size: int,
+                 decoder: Optional[str] = None,
                  init_lstm_states_path: Optional[str] = None) -> None:
 
         self.decomposer_constructor = self._read_decomposer(decomposer)
         self.activation_reader = ActivationReader(activations_dir, store_multiple_activations=True)
+        self.model = model
 
         self.decoder_w, self.decoder_b = self._read_decoder(decoder)
 
-        self.hidden_size = hidden_size
         self.init_cell_state: FullActivationDict = \
-            InitStates(num_layers, hidden_size, init_lstm_states_path).create()
+            InitStates(model.num_layers, model.hidden_size, init_lstm_states_path).create()
 
     def create(self,
-               layer: int,
                sen_index: ActivationKey,
                subsen_index: slice = slice(None, None, None),
                classes: Union[slice, List[int]] = slice(None, None, None)) -> BaseDecomposer:
@@ -60,18 +60,21 @@ class DecomposerFactory:
         decoder = self.decoder_w[classes], self.decoder_b[classes]
 
         if issubclass(self.decomposer_constructor, CellDecomposer):
-            activation_names = [(layer, name) for name in ['f_g', 'o_g', 'hx', 'cx', 'icx', '0cx']]
+            activation_names = [
+                (self.model.num_layers-1, name)
+                for name in ['f_g', 'o_g', 'hx', 'cx', 'icx', '0cx']
+            ]
         elif issubclass(self.decomposer_constructor, ContextualDecomposer):
-            activation_names = [(l, 'icx') for l in range(layer+1)] \
-                               + [(l, '0cx') for l in range(layer+1)] \
-                               + [(0, 'emb')]
+            activation_names = [(0, 'emb'), (self.model.num_layers-1, 'hx')]
+            for l in range(self.model.num_layers):
+                activation_names.extend([(l, 'icx'), (l, 'ihx')])
         else:
             raise ValueError('Decomposer constructor not understood')
 
         activation_dict, final_index = self._create_activations(activation_names, sen_index,
                                                                 subsen_index)
 
-        decomposer = self.decomposer_constructor(decoder, activation_dict, final_index, layer)
+        decomposer = self.decomposer_constructor(self.model, activation_dict, decoder, final_index)
 
         return decomposer
 
@@ -114,7 +117,7 @@ class DecomposerFactory:
         batch_size = activations.shape[0]
 
         if name[0] == '0':
-            return np.zeros((batch_size, 1, self.hidden_size))
+            return np.zeros((batch_size, 1, self.model.hidden_size))
 
         if subsen_index.start == 0 or subsen_index.start is None:
             init_state = self.init_cell_state[layer][name[1:]].numpy()
@@ -135,7 +138,7 @@ class DecomposerFactory:
 
         final_index = np.sum(np.all(1 - cell_states.mask, axis=2), axis=1) - 1
         if subsen_index.stop:
-            assert np.all(final_index < subsen_index.stop), \
+            assert np.all(final_index >= subsen_index.stop), \
                 'Subsentence index can\'t be longer than sentence itself'
             final_index = np.array([subsen_index.stop - 1] * batch_size)
 
@@ -144,6 +147,16 @@ class DecomposerFactory:
         final_index -= start
 
         return final_index
+
+    def _read_decoder(self, decoder_path: Optional[str]) -> LinearDecoder:
+        if decoder_path:
+            classifier = joblib.load(trim(decoder_path))
+            decoder_w = classifier.coef_
+            decoder_b = classifier.intercept_
+        else:
+            decoder_w, decoder_b = import_decoder_from_model(self.model)
+
+        return decoder_w, decoder_b
 
     @staticmethod
     def _read_decomposer(decomposer_constructor: Union[str, Type[BaseDecomposer]]
@@ -158,14 +171,3 @@ class DecomposerFactory:
             return decomposer
 
         return decomposer_constructor
-
-    @staticmethod
-    def _read_decoder(decoder: Union[str, LinearDecoder]) -> LinearDecoder:
-        if isinstance(decoder, str):
-            classifier = joblib.load(trim(decoder))
-            decoder_w = classifier.coef_
-            decoder_b = classifier.intercept_
-        else:
-            decoder_w, decoder_b = decoder
-
-        return decoder_w, decoder_b

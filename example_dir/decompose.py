@@ -31,10 +31,6 @@ def init_argparser() -> ArgumentParser:
                           help='Path to model vocabulary')
     from_cmd.add_argument('--lm_module',
                           help='Path to folder containing model module')
-    from_cmd.add_argument('--num_layers',
-                          help='Number of layers in the language model.')
-    from_cmd.add_argument('--hidden_size',
-                          help='Size of hidden units in the language model.')
     from_cmd.add_argument('--init_lstm_states_path',
                           help='(optional) Location of initial lstm states of the model. '
                                'If no path is provided zero-initialized states will be used at the'
@@ -44,25 +40,20 @@ def init_argparser() -> ArgumentParser:
 
 
 if __name__ == '__main__':
-    required_args = {'activations_dir', 'num_layers', 'hidden_size',
-                     ('decoder', ('model', 'vocab', 'lm_module'))}
+    required_args = {'activations_dir', 'model', 'vocab', 'lm_module'}
     arg_groups = {
         'decompose': {'decomposer', 'activations_dir', 'num_layers', 'hidden_size',
                       'init_lstm_states_path'},
-        'decoder': {'decoder', 'model', 'vocab', 'lm_module'},
+        'decoder': {'model', 'vocab', 'lm_module'},
     }
     argparser = init_argparser()
 
     config_object = ConfigSetup(argparser, required_args, arg_groups)
     config_dict = config_object.config_dict
 
-    if 'decoder' in config_dict['decoder']:
-        config_dict['decompose']['decoder'] = config_dict['decoder']['decoder']
-    else:
-        model = import_model_from_json(**config_dict['decoder'])
-        config_dict['decompose']['decoder'] = import_decoder_from_model(model)
+    model = import_model_from_json(**config_dict['decoder'])
 
-    constructor = DecomposerFactory(**config_dict['decompose'])
-    decomposer = constructor.create(1, 0, slice(0, None, 1), classes=[42696])
-    beta = decomposer.decompose(append_bias=True)
-    print(beta['beta'].shape)
+    constructor = DecomposerFactory(model, **config_dict['decompose'])
+    decomposer = constructor.create(0, slice(0, None, 1), classes=[20])
+    cd = decomposer.decompose(11, 12)
+    print(cd['relevant_h'])

@@ -12,30 +12,30 @@ class BaseDecomposer:
 
     Parameters
     ----------
-    decoder : (np.ndarray, np.ndarray) ((num_classes, hidden_dim), (hidden_dim,))
-        (Coefficients, bias) tuple of the (linear) decoding layer
+    model : LanguageModel
+        LanguageModel for which decomposition will be performed
     activation_dict : PartialArrayDict
         Dictionary containing the necessary activations for decomposition
+    decoder : (np.ndarray, np.ndarray) ((num_classes, hidden_dim), (hidden_dim,))
+        (Coefficients, bias) tuple of the (linear) decoding layer
     final_index : np.ndarray
         1-d numpy array with index of final element of a batch element.
         Due to masking for sentences of uneven length the final index
         can differ between batch elements.
-    layer : int
-        The index of the layer on which the decomposition will be done.
     """
     def __init__(self,
                  model: LanguageModel,
-                 decoder: LinearDecoder,
                  activation_dict: PartialArrayDict,
-                 final_index: np.ndarray,
-                 layer: int) -> None:
+                 decoder: LinearDecoder,
+                 final_index: np.ndarray) -> None:
         self.model = model
         self.decoder_w, self.decoder_b = decoder
         self.activation_dict = activation_dict
 
         self.final_index = final_index
         self.batch_size = len(final_index)
-        self.layer = layer
+        self.model = model
+        self.toplayer = model.num_layers-1
 
         self._validate_activation_shapes()
         self._append_init_cell_states()
@@ -60,9 +60,9 @@ class BaseDecomposer:
     def calc_original_logits(self, normalize: bool = False) -> np.ndarray:
         bias = self.decoder_b
 
-        assert (self.layer, 'hx') in self.activation_dict, \
+        assert (self.toplayer, 'hx') in self.activation_dict, \
             '\'hx\' should be provided to calculate the original logit'
-        final_hidden_state = self.get_final_activations((self.layer, 'hx'))
+        final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))
 
         original_logit = np.exp(np.ma.dot(final_hidden_state, self.decoder_w.T) + bias)
 
