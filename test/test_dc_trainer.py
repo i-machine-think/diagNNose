@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import os
 
-from rnnalyse.classifiers.dc_trainer import DCTrainer
+from diagnnose.classifiers.dc_trainer import DCTrainer
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
@@ -55,12 +55,12 @@ class TestDCTrainer(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
-    @patch('rnnalyse.activations.activation_reader.ActivationReader.create_data_split')
-    @patch('rnnalyse.classifiers.dc_trainer.DCTrainer._reset_classifier')
-    @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.log_results')
-    @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.save_classifier')
-    @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.eval_classifier')
-    @patch('rnnalyse.classifiers.dc_trainer.DCTrainer.fit_data')
+    @patch('diagnnose.activations.activation_reader.ActivationReader.create_data_split')
+    @patch('diagnnose.classifiers.dc_trainer.DCTrainer._reset_classifier')
+    @patch('diagnnose.classifiers.dc_trainer.DCTrainer.log_results')
+    @patch('diagnnose.classifiers.dc_trainer.DCTrainer.save_classifier')
+    @patch('diagnnose.classifiers.dc_trainer.DCTrainer.eval_classifier')
+    @patch('diagnnose.classifiers.dc_trainer.DCTrainer.fit_data')
     def test_class_weights(self, mock_fit_data: MagicMock, mock_eval_classifier: MagicMock,
                            mock_save_classifier: MagicMock, mock_log_results: MagicMock,
                            mock_reset_classifier: MagicMock, create_data_split_mock: MagicMock):

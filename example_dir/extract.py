@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
 
-from rnnalyse.config.setup import ConfigSetup
-from rnnalyse.corpora.import_corpus import convert_to_labeled_corpus
-from rnnalyse.extractors.base_extractor import Extractor
-from rnnalyse.models.import_model import import_model_from_json
-from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.corpus import LabeledCorpus
+from diagnnose.config.setup import ConfigSetup
+from diagnnose.corpora.import_corpus import convert_to_labeled_corpus
+from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.models.import_model import import_model_from_json
+from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.corpus import LabeledCorpus
 
 
 def init_argparser() -> ArgumentParser:

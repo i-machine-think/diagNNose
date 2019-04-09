@@ -1,4 +1,4 @@
-# rnnalyse &middot; [![Build Status](https://travis-ci.com/dieuwkehupkes/diagnosing_lms.svg?branch=master)](https://travis-ci.com/dieuwkehupkes/diagnosing_lms)
+# diagnnose &middot; [![Build Status](https://travis-ci.com/dieuwkehupkes/diagnosing_lms.svg?branch=master)](https://travis-ci.com/dieuwkehupkes/diagnosing_lms)
 
 This library contains a set of modules that can be used to analyse recurrent neural networks.
 In particular, it contains functionality to:
@@ -13,7 +13,7 @@ In particular, it contains functionality to:
 Our library is not (yet) officially registered with pip. You can use the library by cloning it and do an editable install with pip:
 
 ```
-git clone https://github.com/dieuwkehupkes/diagnosing_lms.git $custom_path
+git clone git@github.com:i-machine-think/diagnnose.git $custom_path
 pip3 install -e $custom_path
 ```
 

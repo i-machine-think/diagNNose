@@ -5,7 +5,7 @@ import unittest
 import random
 import os
 
-from rnnalyse.activations.activation_reader import ActivationReader
+from diagnnose.activations.activation_reader import ActivationReader
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS

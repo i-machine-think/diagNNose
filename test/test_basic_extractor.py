@@ -13,9 +13,9 @@ from overrides import overrides
 import torch
 from torch import Tensor
 
-from rnnalyse.extractors.base_extractor import Extractor
-from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.activations import FullActivationDict, PartialActivationDict
+from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.activations import FullActivationDict, PartialActivationDict
 from .test_utils import create_sentence_dummy_activations, suppress_print
 
 
@@ -226,7 +226,7 @@ class TestExtractor(unittest.TestCase):
 
     # dump_pickle isn't defined in base_extractor but is imported via a from ... import ...
     # statement, therefore this patch path
-    @patch('rnnalyse.extractors.base_extractor.dump_pickle')
+    @patch('diagnnose.extractors.base_extractor.dump_pickle')
     @suppress_print
     def test_extract_average_eos_activations(self, dump_pickle_mock: MagicMock):
         """ Test whether average end-of-sentence embeddings are calculated correctly. """
@@ -250,7 +250,7 @@ class TestExtractor(unittest.TestCase):
         )
 
     @suppress_print
-    @patch('rnnalyse.activations.activation_writer.ActivationWriter.dump_activations')
+    @patch('diagnnose.activations.activation_writer.ActivationWriter.dump_activations')
     def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
         """
         Test whether functions used to dump pickle files during activation extraction are called
@@ -268,7 +268,7 @@ class TestExtractor(unittest.TestCase):
             "Function was called with wrong type of variable, expected PartialActivationDict."
         )
 
-    @patch('rnnalyse.extractors.base_extractor.dump_pickle')
+    @patch('diagnnose.extractors.base_extractor.dump_pickle')
     @suppress_print
     def test_average_eos_dumping_args(self, dump_pickle_mock: MagicMock):
         """

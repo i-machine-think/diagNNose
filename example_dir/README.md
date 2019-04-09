@@ -1,6 +1,6 @@
 # Example directory
 
-In this directory, you can download several examples that illustrate how to use `rnnalyse`.
+In this directory, you can download several examples that illustrate how to use `diagnnose`.
 Currently, all the examples are based on the pretrained model provided by Gulordava et al (2018).
 To download the files required for the examples, first run the file `setup.sh` in this folder:
 
