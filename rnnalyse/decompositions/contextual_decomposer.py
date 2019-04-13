@@ -153,16 +153,23 @@ class ContextualDecomposer(BaseDecomposer):
 def decomp_three(a: np.ndarray, b: np.ndarray, c: np.ndarray,
                  activation: Callable[[np.ndarray], np.ndarray]
                  ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    a_contrib = 0.5 * (
-                (activation(a + c) - activation(c)) + (activation(a + b + c) - activation(b + c)))
-    b_contrib = 0.5 * (
-                (activation(b + c) - activation(c)) + (activation(a + b + c) - activation(a + c)))
-    return a_contrib, b_contrib, activation(c)
+    ac = activation(a + c)
+    bc = activation(b + c)
+    abc = activation(a + b + c)
+
+    c_contrib = activation(c)
+    a_contrib = 0.5 * ((ac - c_contrib) + (abc - bc))
+    b_contrib = 0.5 * ((bc - c_contrib) + (abc - ac))
+
+    return a_contrib, b_contrib, c_contrib
 
 
 def decomp_tanh_two(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    return 0.5 * (np.tanh(a) + (np.tanh(a + b) - np.tanh(b))), 0.5 * (
-                np.tanh(b) + (np.tanh(a + b) - np.tanh(a)))
+    atanh = np.tanh(a)
+    btanh = np.tanh(b)
+    abtanh = np.tanh(a + b)
+
+    return 0.5 * (atanh + (abtanh - btanh)), 0.5 * (btanh + (abtanh - atanh))
 
 
 def tanh(arr: np.ndarray) -> np.ndarray:
