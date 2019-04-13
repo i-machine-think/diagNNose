@@ -1,6 +1,6 @@
 from typing import Type
 
-from rnnalyse.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.classifiers import LinearDecoder
 
 from .forward_lstm import ForwardLSTM
 from .language_model import LanguageModel
