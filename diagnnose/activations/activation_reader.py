@@ -3,10 +3,10 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from rnnalyse.typedefs.activations import (
+from diagnnose.typedefs.activations import (
     ActivationIndex, ActivationKey, ActivationName, PartialArrayDict)
-from rnnalyse.typedefs.extraction import ActivationRanges, Range
-from rnnalyse.utils.paths import load_pickle, trim
+from diagnnose.typedefs.extraction import ActivationRanges, Range
+from diagnnose.utils.paths import load_pickle, trim
 
 
 class ActivationReader:

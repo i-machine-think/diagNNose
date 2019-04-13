@@ -3,16 +3,16 @@ from typing import List, Optional, Tuple, Type, Union
 import numpy as np
 from sklearn.externals import joblib
 
-from rnnalyse.activations.activation_reader import ActivationReader
-from rnnalyse.activations.init_states import InitStates
-from rnnalyse.decompositions.cell_decomposer import CellDecomposer
-from rnnalyse.decompositions.contextual_decomposer import ContextualDecomposer
-from rnnalyse.models.import_model import import_decoder_from_model
-from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.activations import (
+from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.activations.init_states import InitStates
+from diagnnose.decompositions.cell_decomposer import CellDecomposer
+from diagnnose.decompositions.contextual_decomposer import ContextualDecomposer
+from diagnnose.models.import_model import import_decoder_from_model
+from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.activations import (
     ActivationKey, ActivationName, ActivationNames, FullActivationDict, PartialArrayDict)
-from rnnalyse.typedefs.classifiers import LinearDecoder
-from rnnalyse.utils.paths import camel2snake, trim
+from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.utils.paths import camel2snake, trim
 
 from .base_decomposer import BaseDecomposer
 

@@ -2,9 +2,9 @@ from typing import Any
 
 import numpy as np
 
-from rnnalyse.models.language_model import LanguageModel
-from rnnalyse.typedefs.activations import ActivationName, DecomposeArrayDict, PartialArrayDict
-from rnnalyse.typedefs.classifiers import LinearDecoder
+from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.activations import ActivationName, DecomposeArrayDict, PartialArrayDict
+from diagnnose.typedefs.classifiers import LinearDecoder
 
 
 class BaseDecomposer:

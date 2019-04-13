@@ -1,8 +1,8 @@
 import os
 from typing import Any, Dict, List, Optional
 
-from rnnalyse.typedefs.corpus import Corpus, CorpusSentence
-from rnnalyse.utils.paths import load_pickle
+from diagnnose.typedefs.corpus import Corpus, CorpusSentence
+from diagnnose.utils.paths import load_pickle
 
 
 def import_corpus_from_path(corpus_path: str,

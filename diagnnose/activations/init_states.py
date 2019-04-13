@@ -2,8 +2,8 @@ from typing import Optional
 
 import torch
 
-from rnnalyse.typedefs.activations import FullActivationDict
-from rnnalyse.utils.paths import load_pickle
+from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.utils.paths import load_pickle
 
 
 class InitStates:

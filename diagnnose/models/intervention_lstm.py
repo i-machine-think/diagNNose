@@ -2,8 +2,8 @@ from typing import Dict
 
 from overrides import overrides
 
-from rnnalyse.models.forward_lstm import ForwardLSTM
-from rnnalyse.typedefs.activations import FullActivationDict
+from diagnnose.models.forward_lstm import ForwardLSTM
+from diagnnose.typedefs.activations import FullActivationDict
 
 
 class InterventionLSTM(ForwardLSTM):

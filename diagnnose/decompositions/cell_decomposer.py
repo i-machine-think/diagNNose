@@ -1,7 +1,7 @@
 import numpy as np
 from overrides import overrides
 
-from rnnalyse.typedefs.activations import DecomposeArrayDict
+from diagnnose.typedefs.activations import DecomposeArrayDict
 
 from .base_decomposer import BaseDecomposer
 

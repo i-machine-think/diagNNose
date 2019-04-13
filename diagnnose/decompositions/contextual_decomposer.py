@@ -4,7 +4,7 @@ import numpy as np
 from overrides import overrides
 from scipy.special import expit as sigmoid
 
-from rnnalyse.typedefs.activations import DecomposeArrayDict, PartialArrayDict
+from diagnnose.typedefs.activations import DecomposeArrayDict, PartialArrayDict
 
 from .base_decomposer import BaseDecomposer
 

@@ -7,10 +7,10 @@ from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogReg
 from sklearn.metrics import accuracy_score
 
-from rnnalyse.typedefs.activations import ActivationName
-from rnnalyse.typedefs.classifiers import ResultsDict
-from rnnalyse.activations.activation_reader import ActivationReader
-from rnnalyse.utils.paths import dump_pickle, trim
+from diagnnose.typedefs.activations import ActivationName
+from diagnnose.typedefs.classifiers import ResultsDict
+from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.utils.paths import dump_pickle, trim
 
 
 class DCTrainer:

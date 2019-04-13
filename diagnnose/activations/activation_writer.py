@@ -6,11 +6,11 @@ from typing import BinaryIO, Optional
 
 import numpy as np
 
-from rnnalyse.typedefs.activations import (
+from diagnnose.typedefs.activations import (
     ActivationFiles, ActivationNames, FullActivationDict, PartialArrayDict)
-from rnnalyse.typedefs.corpus import Labels
-from rnnalyse.typedefs.extraction import ActivationRanges
-from rnnalyse.utils.paths import dump_pickle, trim
+from diagnnose.typedefs.corpus import Labels
+from diagnnose.typedefs.extraction import ActivationRanges
+from diagnnose.utils.paths import dump_pickle, trim
 
 from .activation_reader import ActivationReader
 

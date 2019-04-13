@@ -4,7 +4,7 @@ from typing import Tuple
 from overrides import overrides
 from torch import Tensor, nn
 
-from ..typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import FullActivationDict
 
 
 class LanguageModel(ABC, nn.Module):

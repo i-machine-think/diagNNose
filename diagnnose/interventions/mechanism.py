@@ -9,8 +9,8 @@ from typing import Callable, Tuple, Dict
 
 from torch import Tensor
 
-from rnnalyse.models.intervention_lstm import InterventionLSTM
-from rnnalyse.typedefs.activations import FullActivationDict
+from diagnnose.models.intervention_lstm import InterventionLSTM
+from diagnnose.typedefs.activations import FullActivationDict
 
 
 class InterventionMechanism(ABC):
