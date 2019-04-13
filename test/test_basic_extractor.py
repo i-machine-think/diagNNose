@@ -243,28 +243,6 @@ class TestExtractor(unittest.TestCase):
             "Function was called with wrong type of variable, expected PartialActivationDict."
         )
 
-    @patch('diagnnose.extractors.base_extractor.dump_pickle')
-    @suppress_print
-    def test_average_eos_dumping_args(self, dump_pickle_mock: MagicMock) -> None:
-        """
-        Test whether functions used to dump pickle files during thge calculation of the average end-of-sentence
-        activations are called with the right arguments.
-        """
-        self.extractor.model.reset()
-        self.extractor.extract_average_eos_activations()
-        first_arg, second_arg = dump_pickle_mock.call_args[0]
-
-        # Validate function call
-        dump_pickle_mock.assert_called_once()
-        self.assertTrue(
-            self.is_full_activation_dict(first_arg),
-            "First argument of dump function received a wrong type of argument, excepted FullActivationDict."
-        )
-
-        self.assertEqual(
-            second_arg, f"{ACTIVATIONS_DIR}/avg_eos.pickle", "Second argument is not a string or the wrong path."
-        )
-
     @staticmethod
     def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.ndarray:
         """ Merge activations from different sentences into one single numpy array. """
