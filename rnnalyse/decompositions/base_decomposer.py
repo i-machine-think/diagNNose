@@ -40,11 +40,11 @@ class BaseDecomposer:
         self._validate_activation_shapes()
         self._append_init_cell_states()
 
-    def _decompose(self, *arg: Any) -> DecomposeArrayDict:
+    def _decompose(self, *arg: Any, **kwargs: Any) -> DecomposeArrayDict:
         raise NotImplementedError
 
-    def decompose(self, *arg: Any, append_bias: bool = False) -> DecomposeArrayDict:
-        decomposition = self._decompose(*arg)
+    def decompose(self, *arg: Any, append_bias: bool = False, **kwargs: Any) -> DecomposeArrayDict:
+        decomposition = self._decompose(*arg, **kwargs)
 
         if append_bias:
             bias = self.decompose_bias()

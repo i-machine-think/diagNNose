@@ -56,6 +56,7 @@ class CellDecomposer(BaseDecomposer):
         cell_diffs = np.tanh(cell_states[:, 1:]) - np.tanh(cell_states[:, :-1])
 
         final_output_gate = self.get_final_activations((self.toplayer, 'o_g'))
+        final_output_gate = np.expand_dims(final_output_gate, axis=1)
 
         decomposed_h = final_output_gate * cell_diffs
         decomposition = np.exp(np.ma.dot(decomposed_h, self.decoder_w.T))
