@@ -79,42 +79,53 @@ class ContextualDecomposer(BaseDecomposer):
                                                                               bias[layer, 'g'],
                                                                               tanh)
 
-                relevant_c[layer][i] = rel_contrib_i * (
-                        rel_contrib_g + bias_contrib_g) + bias_contrib_i * rel_contrib_g
-                irrelevant_c[layer][i] = irrel_contrib_i * (
-                        rel_contrib_g + irrel_contrib_g + bias_contrib_g) + (
-                        rel_contrib_i + bias_contrib_i) * irrel_contrib_g
+                relevant_c[layer][i] = (
+                        rel_contrib_i * (rel_contrib_g + bias_contrib_g)
+                        + rel_contrib_g * bias_contrib_i
+                )
+                irrelevant_c[layer][i] = (
+                        irrel_contrib_i * (rel_contrib_g + irrel_contrib_g + bias_contrib_g)
+                        + irrel_contrib_g * (rel_contrib_i + bias_contrib_i)
+                )
+
+                if start <= i < stop:
+                    relevant_c[layer][i] += bias_contrib_i * bias_contrib_g
+                else:
+                    irrelevant_c[layer][i] += bias_contrib_i * bias_contrib_g
 
                 # FORGET DECOMPOSITION
                 rel_contrib_f, irrel_contrib_f, bias_contrib_f = decomp_three(rel_f, irrel_f,
                                                                               bias[layer, 'f'],
                                                                               sigmoid)
-                relevant_c[layer][i] += rel_contrib_f * prev_rel_c
-                irrelevant_c[layer][i] += ((rel_contrib_f + irrel_contrib_f + bias_contrib_f) *
-                                           prev_irrel_c + irrel_contrib_f * prev_rel_c)
+                relevant_c[layer][i] += (
+                        prev_rel_c * (rel_contrib_f + bias_contrib_f)
+                )
+                irrelevant_c[layer][i] += (
+                        prev_irrel_c * (rel_contrib_f + irrel_contrib_f + bias_contrib_f)
+                        + irrel_contrib_f * prev_rel_c
+                )
 
-                # BIAS DECOMPOSITION
-                if start <= i < stop and layer == 0:
-                    relevant_c[layer][i] += bias_contrib_i * bias_contrib_g
-                    relevant_c[layer][i] += bias_contrib_f * prev_rel_c
-                else:
-                    irrelevant_c[layer][i] += bias_contrib_i * bias_contrib_g
-                    irrelevant_c[layer][i] += bias_contrib_f * prev_rel_c
-
-                new_rel_h, new_irrel_h = decomp_tanh_two(relevant_c[layer][i], irrelevant_c[layer][i])
+                new_rel_h, new_irrel_h = decomp_tanh_two(relevant_c[layer][i],
+                                                         irrelevant_c[layer][i])
 
                 # OUTPUT DECOMPOSITION
                 if decompose_o:
-                    rel_contrib_o, irrel_contrib_o, bias_contrib_o = decomp_three(rel_o, irrel_o, bias[layer, 'o'], sigmoid)
-                    relevant_h[layer][i] = new_rel_h * (rel_contrib_o + bias_contrib_o)
-                    irrelevant_h[layer][i] = new_rel_h * irrel_contrib_o + new_irrel_h * (
-                            rel_contrib_o + irrel_contrib_o + bias_contrib_o)
+                    rel_contrib_o, irrel_contrib_o, bias_contrib_o = decomp_three(rel_o, irrel_o,
+                                                                                  bias[layer, 'o'],
+                                                                                  sigmoid)
+                    relevant_h[layer][i] = (
+                            new_rel_h * (rel_contrib_o + bias_contrib_o)
+                    )
+                    irrelevant_h[layer][i] = (
+                            new_rel_h * irrel_contrib_o
+                            + new_irrel_h * (rel_contrib_o + irrel_contrib_o + bias_contrib_o)
+                    )
                 else:
                     o = sigmoid(rel_o + irrel_o + bias[layer, 'o'])
                     relevant_h[layer][i] = o * new_rel_h
                     irrelevant_h[layer][i] = o * new_irrel_h
 
-        self._assert_decomposition(relevant_h, irrelevant_h)
+        # self._assert_decomposition(relevant_h, irrelevant_h)
 
         return {
             'relevant_h': relevant_h,
