@@ -39,6 +39,9 @@ def init_argparser() -> ArgumentParser:
                                'If not provided first line is used as header.')
     from_cmd.add_argument('--to_lower', type=bool,
                           help='(optional) Convert corpus to lowercase, defaults to False.')
+    from_cmd.add_argument('--from_dict', type=bool,
+                          help='(optional) Set to true to load in pickled corpus dictionary, '
+                               'instead of a raw file.')
     from_cmd.add_argument('--device',
                           help='(optional) Torch device name on which model will be run.'
                                'Defaults to cpu.')
@@ -69,7 +72,7 @@ if __name__ == '__main__':
     required_args = {'model', 'vocab', 'lm_module', 'corpus_path', 'activation_names', 'output_dir'}
     arg_groups = {
         'model': {'model', 'vocab', 'lm_module', 'device'},
-        'corpus': {'corpus_path', 'corpus_header', 'to_lower'},
+        'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
         'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',
                     'create_avg_eos'},

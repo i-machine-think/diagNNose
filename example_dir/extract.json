@@ -3,6 +3,7 @@
   "vocab": "model/vocab.txt",
   "lm_module": "model/",
   "corpus_path": "data/mini_corpus.pickle",
+  "from_dict": true,
   "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
   "output_dir": "extracted",
   "print_every": 50,
