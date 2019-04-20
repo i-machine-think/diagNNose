@@ -1,23 +1,112 @@
-from typing import Any, Dict
 import os
+from typing import Any, Dict, List, Optional
 
-from ..typedefs.corpus import LabeledCorpus, LabeledSentence
-from ..utils.paths import load_pickle
+from diagnnose.typedefs.corpus import Corpus, CorpusSentence
+from diagnnose.utils.paths import load_pickle
 
 
-def convert_to_labeled_corpus(corpus_path: str) -> LabeledCorpus:
-    labeled_corpus = {}
+def import_corpus_from_path(corpus_path: str,
+                            from_dict: bool = False,
+                            corpus_header: Optional[List[str]] = None,
+                            to_lower: bool = False) -> Corpus:
+    """ Imports a corpus from a path.
 
-    init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
+    The corpus can either be a raw string or a pickled dictionary.
+    Outputs a `Corpus` type, that is used throughout the library.
+
+    The raw sentence is assumed to be labeled `sen` or `sent`
+    Sentences can possibly be labeled, which are assumed to be labeled
+    by a `labels` tag.
+
+    Parameters
+    ----------
+    corpus_path : str
+        Path to corpus file
+    from_dict : bool, optional
+        Indicates whether to load a pickled dict. Defaults to False.
+    corpus_header : List[str], optional
+        Optional list of attribute names of each column
+    to_lower : bool, optional
+        Transform entire corpus to lower case, defaults to False.
+
+    Returns
+    -------
+    corpus : Corpus
+        A Corpus type containing the parsed sentences and optional labels
+    """
+    corpus = {}
+
+    if from_dict:
+        init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
+    else:
+        init_corpus = read_raw_corpus(corpus_path, header=corpus_header, to_lower=to_lower)
 
     for key, item in init_corpus.items():
-        assert 'sen' in item.keys() and 'labels' in item.keys(), 'Corpus item has wrong format.'
+        assert 'sen' in item.keys() or 'sent' in item.keys(), \
+            'Corpus item should contain a sentence (\'sen\' or \'sent\') attribute'
 
-        sen = item['sen']
-        labels = item['labels']
-        misc_info = {k: v for k, v in item.items() if k not in ['sen', 'labels']}
-        labeled_sentence = LabeledSentence(sen, labels, misc_info)
-        labeled_sentence.validate()
-        labeled_corpus[key] = labeled_sentence
+        sen = item['sent'] if 'sent' in item else item['sen']
+        labels = item['labels'] if 'labels' in item else None
+        misc_info = {k: v for k, v in item.items() if k not in ['sen', 'sent', 'labels']}
 
-    return labeled_corpus
+        corpus_sentence = CorpusSentence(sen, labels, misc_info)
+        corpus_sentence.validate()
+        corpus[key] = corpus_sentence
+
+    return corpus
+
+
+def read_raw_corpus(corpus_path: str,
+                    separator: str = '\t',
+                    header: Optional[List[str]] = None,
+                    to_lower: bool = False) -> Dict[int, Dict[str, Any]]:
+    """ Reads a tsv/csv type file and converts it to a dictionary.
+
+    Expects the first line to indicate the column names if header is not
+    provided.
+
+    Parameters
+    ----------
+    corpus_path : str
+        Path to corpus file
+    separator : str, optional
+        Character separator of each attribute in the corpus. Defaults to \t
+    header : List[str], optional
+        Optional list of attribute names of each column
+    to_lower : bool, optional
+        Transform entire corpus to lower case, defaults to False.
+
+    Returns
+    -------
+    corpus : Dict[int, Dict[str, Any]]
+        Dictionary mapping id to dict of attributes
+    """
+    with open(corpus_path) as f:
+        lines = f.read().strip().split('\n')
+
+    split_lines = [l.strip().split(separator) for l in lines]
+    if header is None:
+        header = split_lines[0]
+        split_lines = split_lines[1:]
+
+    init_corpus = {
+        i: string_to_dict(header, x, to_lower) for i, x in enumerate(split_lines)
+    }
+
+    return init_corpus
+
+
+def string_to_dict(header: List[str], line: List[str], to_lower: bool) -> Dict[str, Any]:
+    """Converts a list of attributes and values to a dictionary.
+
+    Also splits the sentence string to a list of strings.
+    """
+    sendict: Dict[str, Any] = dict(zip(header, line))
+    if 'sen' in sendict:
+        sen = sendict['sen'].lower() if to_lower else sendict['sen']
+        sendict['sen'] = sen.strip().split(' ')
+    if 'sent' in sendict:
+        sen = sendict['sent'].lower() if to_lower else sendict['sent']
+        sendict['sent'] = sen.strip().split(' ')
+
+    return sendict

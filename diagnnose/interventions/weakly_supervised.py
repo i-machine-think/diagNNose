@@ -17,10 +17,10 @@ from torch.nn.modules.loss import _Loss
 from torch.optim import SGD
 from overrides import overrides
 
-from ..interventions.mechanism import InterventionMechanism
-from ..models.forward_lstm import ForwardLSTM
-from ..typedefs.interventions import DiagnosticClassifierDict
-from ..typedefs.activations import FullActivationDict
+from diagnnose.interventions.mechanism import InterventionMechanism
+from diagnnose.models.forward_lstm import ForwardLSTM
+from diagnnose.typedefs.interventions import DiagnosticClassifierDict
+from diagnnose.typedefs.activations import FullActivationDict
 
 
 class WeaklySupervisedMechanism(InterventionMechanism, ABC):

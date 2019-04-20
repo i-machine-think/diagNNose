@@ -55,7 +55,7 @@ class TestExtractor(unittest.TestCase):
     """ Test functionalities of the Extractor class. """
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         # Create directory if necessary
         if not os.path.exists(ACTIVATIONS_DIR):
             os.makedirs(ACTIVATIONS_DIR)
@@ -99,7 +99,7 @@ class TestExtractor(unittest.TestCase):
         cls.extractor = Extractor(cls.model, cls.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         # Delete activations after tests
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
@@ -107,12 +107,12 @@ class TestExtractor(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
-    def test_extract_sentence(self):
-        """ Test the _extract_sentence function for extracting the activations of whole sentences. """
+    def test_extract_sentence(self) -> None:
+        """ Test _extract_sentence for extracting the activations of whole sentences. """
 
         # Test extraction of all activations
         self.model.reset()
-        sentences_activations, labels = zip(*[
+        sentences_activations, labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: True)
             for sentence in self.corpus.values()
         ])
@@ -128,11 +128,11 @@ class TestExtractor(unittest.TestCase):
             "Selection function didn't extract all labels"
         )
 
-    def test_activation_extraction_by_pos(self):
+    def test_activation_extraction_by_pos(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on position. """
 
         self.extractor.model.reset()
-        pos_sentences_activations, pos_labels = zip(*[
+        pos_sentences_activations, pos_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
             for sentence in self.corpus.values()
         ])
@@ -154,11 +154,11 @@ class TestExtractor(unittest.TestCase):
             "Wrong labels were extracted based on position."
         )
 
-    def test_activation_extraction_by_label(self):
+    def test_activation_extraction_by_label(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
         self.extractor.model.reset()
-        label_sentence_activations, label_labels = zip(*[
+        label_sentence_activations, label_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
             for sentence in self.corpus.values()
         ])
@@ -178,11 +178,11 @@ class TestExtractor(unittest.TestCase):
             "Wrong labels were extracted based on label."
         )
 
-    def test_activation_extraction_by_token(self):
+    def test_activation_extraction_by_token(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
         self.extractor.model.reset()
-        token_sentence_activations, token_labels = zip(*[
+        token_sentence_activations, token_labels, _ = zip(*[
             self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
             for sentence in self.corpus.values()
         ])
@@ -199,11 +199,11 @@ class TestExtractor(unittest.TestCase):
             "Wrong labels were extracted based on token."
         )
 
-    def test_activation_extraction_by_misc_info(self):
+    def test_activation_extraction_by_misc_info(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on additional info. """
 
         self.extractor.model.reset()
-        misc_sentence_activations, misc_labels = zip(*[
+        misc_sentence_activations, misc_labels, _ = zip(*[
             self.extractor._extract_sentence(
                 sentence, lambda pos, token, sentence: sentence.misc_info["quality"] == "delicious"
             )
@@ -224,34 +224,9 @@ class TestExtractor(unittest.TestCase):
             "Wrong labels extracted based on misc info."
         )
 
-    # dump_pickle isn't defined in base_extractor but is imported via a from ... import ...
-    # statement, therefore this patch path
-    @patch('diagnnose.extractors.base_extractor.dump_pickle')
-    @suppress_print
-    def test_extract_average_eos_activations(self, dump_pickle_mock: MagicMock):
-        """ Test whether average end-of-sentence embeddings are calculated correctly. """
-
-        self.extractor.model.reset()
-        self.extractor.extract_average_eos_activations()
-        # Get the incrementally computed activations that were used as an arg to our mock dump_pickle function
-        all_avg_eos_activations, _ = dump_pickle_mock.call_args[0]
-
-        # Confirm the the correct average eos activation was calculated
-        eos_activations = [activations[-1, :].unsqueeze(0) for activations in self.test_sentence_activations]
-        avg_eos_activation = torch.cat(eos_activations, dim=0).mean(dim=0)
-        self.assertTrue(
-            (avg_eos_activation == all_avg_eos_activations[0]["hx"]).all(),
-            "Average end of sentence activations have wrong value."
-        )
-
-        self.assertEqual(
-            len(all_avg_eos_activations[0]["hx"]), self.extractor.model.hidden_size,
-            "Average end of sentence activations have wrong dimensions."
-        )
-
     @suppress_print
     @patch('diagnnose.activations.activation_writer.ActivationWriter.dump_activations')
-    def test_extraction_dumping_args(self, dump_activations_mock: MagicMock):
+    def test_extraction_dumping_args(self, dump_activations_mock: MagicMock) -> None:
         """
         Test whether functions used to dump pickle files during activation extraction are called
         with the right arguments.
@@ -268,37 +243,15 @@ class TestExtractor(unittest.TestCase):
             "Function was called with wrong type of variable, expected PartialActivationDict."
         )
 
-    @patch('diagnnose.extractors.base_extractor.dump_pickle')
-    @suppress_print
-    def test_average_eos_dumping_args(self, dump_pickle_mock: MagicMock):
-        """
-        Test whether functions used to dump pickle files during thge calculation of the average end-of-sentence
-        activations are called with the right arguments.
-        """
-        self.extractor.model.reset()
-        self.extractor.extract_average_eos_activations()
-        first_arg, second_arg = dump_pickle_mock.call_args[0]
-
-        # Validate function call
-        dump_pickle_mock.assert_called_once()
-        self.assertTrue(
-            self.is_full_activation_dict(first_arg),
-            "First argument of dump function received a wrong type of argument, excepted FullActivationDict."
-        )
-
-        self.assertEqual(
-            second_arg, f"{ACTIVATIONS_DIR}/avg_eos.pickle", "Second argument is not a string or the wrong path."
-        )
-
     @staticmethod
-    def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.array:
+    def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.ndarray:
         """ Merge activations from different sentences into one single numpy array. """
         return np.array(list(itertools.chain(
             *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
         ))
 
     @staticmethod
-    def _merge_labels(sentence_labels: List[np.array]):
+    def _merge_labels(sentence_labels: List[np.array]) -> np.ndarray:
         """ Merge labels from different sentences into a single numpy array. """
         return np.array(list(itertools.chain(*sentence_labels)))
 
@@ -306,8 +259,8 @@ class TestExtractor(unittest.TestCase):
     def is_full_activation_dict(var: Any) -> bool:
         """ Check whether a variable is of type FullActivationDict. """
 
-        # This way of checking the type is rather awkward, but there seems to be no function to compare a variable
-        # against a subscripted generic - believe me, I also hate this
+        # This way of checking the type is rather awkward, but there seems to be no function
+        # to compare a variable against a subscripted generic - believe me, I also hate this
         first_outer_key = list(var.keys())[0]
         first_value = list(var.values())[0]
         first_inner_key = list(var[first_outer_key].keys())[0]

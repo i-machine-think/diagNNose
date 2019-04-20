@@ -6,7 +6,8 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from ..typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
+from diagnnose.typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
+
 from .language_model import LanguageModel
 from .w2i import W2I
 

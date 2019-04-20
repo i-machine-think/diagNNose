@@ -3,6 +3,7 @@ from typing import BinaryIO, Dict, List, Union, Tuple
 import numpy as np
 from torch import Tensor
 
+# (layer, name)
 ActivationName = Tuple[int, str]
 ActivationNames = List[ActivationName]
 
@@ -17,6 +18,9 @@ FullActivationDict = Dict[int, ActivationLayer]
 PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
 
+# Dictionary mapping decomposition types to numpy arrays
+DecomposeArrayDict = Dict[str, np.ndarray]
+
 ParameterDict = FullActivationDict
 
 
@@ -24,11 +28,10 @@ ParameterDict = FullActivationDict
 ActivationIndex = Union[int, slice, List[int], np.ndarray]
 
 IndexType = str  # 'pos', 'key' or 'all'
+ConcatToggle = bool
+ActivationKeyConfig = Dict[str, Union[ActivationName, IndexType, ConcatToggle]]
 
 ActivationKey = Union[
     ActivationIndex,
-    Tuple[ActivationIndex, ActivationName],
-    Tuple[ActivationIndex, IndexType],
-    Tuple[ActivationIndex, ActivationName, IndexType],
-    Tuple[ActivationIndex, IndexType, ActivationName]
+    Tuple[ActivationIndex, ActivationKeyConfig]
 ]

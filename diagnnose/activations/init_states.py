@@ -2,9 +2,8 @@ from typing import Optional
 
 import torch
 
-from ..models.language_model import LanguageModel
-from ..typedefs.activations import FullActivationDict
-from ..utils.paths import load_pickle
+from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.utils.paths import load_pickle
 
 
 class InitStates:
@@ -13,16 +12,23 @@ class InitStates:
     Attributes
     ----------
     num_layers : int
-        Number of layers of the language model
-    model : LanguageModel
-        LanguageModel containing number of layers and hidden units used.
+        Number of LSTM layers in the language model.
+    hidden_size : int
+        Size of hidden state of LSTM.
+    init_lstm_states_path : str, optional
+        Path to pickled file with initial lstm states.
+    batch_size : int, optional
+        Number of init states that should be created, defaults to None.
     """
     def __init__(self,
-                 model: LanguageModel,
-                 init_lstm_states_path: Optional[str] = None) -> None:
-        self.num_layers = model.num_layers
-        self.hidden_size = model.hidden_size
+                 num_layers: int,
+                 hidden_size: int,
+                 init_lstm_states_path: Optional[str] = None,
+                 batch_size: Optional[int] = None) -> None:
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
         self.init_lstm_states_path = init_lstm_states_path
+        self.batch_size = batch_size
 
     def create(self) -> FullActivationDict:
         """ Set up the initial LM states.
@@ -67,7 +73,13 @@ class InitStates:
         """Zero-initialized states if no init state has been provided"""
         return {
             l: {
-                'hx': torch.zeros(self.hidden_size),
-                'cx': torch.zeros(self.hidden_size)
+                'hx': self._create_zero_state(),
+                'cx': self._create_zero_state(),
             } for l in range(self.num_layers)
         }
+
+    def _create_zero_state(self) -> torch.Tensor:
+        if self.batch_size is not None:
+            return torch.zeros((self.batch_size, self.hidden_size))
+
+        return torch.zeros(self.hidden_size)

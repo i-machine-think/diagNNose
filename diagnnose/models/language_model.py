@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Tuple
 
 from overrides import overrides
 from torch import Tensor, nn
 
-from ..typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import FullActivationDict
 
 
 class LanguageModel(ABC, nn.Module):
@@ -14,9 +14,11 @@ class LanguageModel(ABC, nn.Module):
                  model: str,
                  vocab: str,
                  lm_module: str,
-                 device: str = 'cpu',
-                 *args: Any) -> None:
+                 device: str = 'cpu') -> None:
         super().__init__()
+
+        self.num_layers: int = 0
+        self.hidden_size: int = 0
 
     @overrides
     @abstractmethod
