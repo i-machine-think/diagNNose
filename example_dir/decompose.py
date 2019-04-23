@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 
-from rnnalyse.config.setup import ConfigSetup
-from rnnalyse.decompositions.factory import DecomposerFactory
-from rnnalyse.models.import_model import import_decoder_from_model, import_model_from_json
+from diagnnose.config.setup import ConfigSetup
+from diagnnose.decompositions.factory import DecomposerFactory
+from diagnnose.models.import_model import import_model_from_json
 
 
 def init_argparser() -> ArgumentParser:

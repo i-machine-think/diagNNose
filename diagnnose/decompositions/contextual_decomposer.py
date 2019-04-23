@@ -27,8 +27,6 @@ class ContextualDecomposer(BaseDecomposer):
         weight, bias = self._get_model_weights()
 
         word_vecs = self.activation_dict[0, 'emb'][0]
-        # TODO: Think about how only a subsentence can be decomposed without having to calculate all
-        # irrelevant cell states beforehand, i.e. read those from a_reader
         slen = word_vecs.shape[0]
         hidden_size = self.model.hidden_size
         num_layers = self.model.num_layers
@@ -77,7 +75,7 @@ class ContextualDecomposer(BaseDecomposer):
                                                                               sigmoid)
                 rel_contrib_g, irrel_contrib_g, bias_contrib_g = decomp_three(rel_g, irrel_g,
                                                                               bias[layer, 'g'],
-                                                                              tanh)
+                                                                              np.tanh)
 
                 relevant_c[layer][i] = (
                         rel_contrib_i * (rel_contrib_g + bias_contrib_g)
@@ -125,7 +123,7 @@ class ContextualDecomposer(BaseDecomposer):
                     relevant_h[layer][i] = o * new_rel_h
                     irrelevant_h[layer][i] = o * new_irrel_h
 
-        # self._assert_decomposition(relevant_h, irrelevant_h)
+        self._assert_decomposition(relevant_h, irrelevant_h)
 
         return {
             'relevant_h': relevant_h,
@@ -181,7 +179,3 @@ def decomp_tanh_two(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarra
     abtanh = np.tanh(a + b)
 
     return 0.5 * (atanh + (abtanh - btanh)), 0.5 * (btanh + (abtanh - atanh))
-
-
-def tanh(arr: np.ndarray) -> np.ndarray:
-    return np.tanh(arr)

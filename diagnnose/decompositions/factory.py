@@ -166,7 +166,7 @@ class DecomposerFactory:
             # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
             from importlib import import_module
             module_name = camel2snake(decomposer_constructor)
-            module = import_module(f'rnnalyse.decompositions.{module_name}')
+            module = import_module(f'diagnnose.decompositions.{module_name}')
             decomposer: Type[BaseDecomposer] = getattr(module, decomposer_constructor)
             return decomposer
 
