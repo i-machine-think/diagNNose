@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 from overrides import overrides
@@ -21,116 +21,149 @@ class ContextualDecomposer(BaseDecomposer):
 
     Inherits and uses functions from BaseDecomposer.
     """
+    def __init__(self, *args: Any,
+                 rel_interactions: Optional[List[str]] = None,
+                 irrel_interactions: Optional[List[str]] = None,
+                 bias_always_irrel: bool = False) -> None:
+        super().__init__(*args)
+
+        self.rel_interactions = rel_interactions or ['rel-rel', 'rel-b']
+        self.irrel_interactions = irrel_interactions or ['irrel-irrel', 'irrel-b']
+
+        word_vecs = self.activation_dict[0, 'emb'][0]
+        hidden_size = self.model.hidden_size
+        num_layers = self.model.num_layers
+
+        self.slen = word_vecs.shape[0]
+        self.activations: DecomposeArrayDict = {}
+        self.decompositions: DecomposeArrayDict = {
+            'relevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'irrelevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'relevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'irrelevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32)
+        }
 
     @overrides
     def _decompose(self, start: int, stop: int, decompose_o: bool = False) -> DecomposeArrayDict:
         weight, bias = self._get_model_weights()
 
-        word_vecs = self.activation_dict[0, 'emb'][0]
-        slen = word_vecs.shape[0]
-        hidden_size = self.model.hidden_size
-        num_layers = self.model.num_layers
+        for layer in range(self.model.num_layers):
+            for i in range(self.slen):
+                self.calc_activations(layer, i, start, stop, weight)
 
-        relevant_c = np.zeros((num_layers, slen, hidden_size), dtype=np.float32)
-        irrelevant_c = np.zeros((num_layers, slen, hidden_size), dtype=np.float32)
-        relevant_h = np.zeros((num_layers, slen, hidden_size), dtype=np.float32)
-        irrelevant_h = np.zeros((num_layers, slen, hidden_size), dtype=np.float32)
+                self.add_forget_decomposition(layer, i, bias[layer, 'f'])
 
-        for layer in range(num_layers):
-            rel_input = relevant_h[layer-1]
-            irrel_input = irrelevant_h[layer-1]
+                self.add_input_decomposition(layer, i, start, stop,
+                                             bias[layer, 'i'], bias[layer, 'g'])
 
-            for i in range(slen):
-                if i > 0:
-                    prev_rel_h = relevant_h[layer][i-1]
-                    prev_rel_c = relevant_c[layer][i-1]
-                    prev_irrel_h = irrelevant_h[layer][i-1]
-                    prev_irrel_c = irrelevant_c[layer][i-1]
-                else:
-                    prev_rel_h = np.zeros(hidden_size, dtype=np.float32)
-                    prev_rel_c = np.zeros(hidden_size, dtype=np.float32)
-                    prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
-                    prev_irrel_c = self.activation_dict[layer, 'icx'][0, 0]
+                self.add_output_decomposition(layer, i, decompose_o, bias[layer, 'o'])
 
-                if layer == 0 and start <= i < stop:
-                    rel_input = word_vecs
-                    irrel_input = np.zeros((slen, hidden_size), dtype=np.float32)
-                elif layer == 0:
-                    rel_input = np.zeros((slen, hidden_size), dtype=np.float32)
-                    irrel_input = word_vecs
+        self._assert_decomposition()
 
-                rel_i = weight[layer, 'hi'] @ prev_rel_h + weight[layer, 'ii'] @ rel_input[i]
-                rel_g = weight[layer, 'hg'] @ prev_rel_h + weight[layer, 'ig'] @ rel_input[i]
-                rel_f = weight[layer, 'hf'] @ prev_rel_h + weight[layer, 'if'] @ rel_input[i]
-                rel_o = weight[layer, 'ho'] @ prev_rel_h + weight[layer, 'io'] @ rel_input[i]
+        return self.decompositions
 
-                irrel_i = weight[layer, 'hi'] @ prev_irrel_h + weight[layer, 'ii'] @ irrel_input[i]
-                irrel_g = weight[layer, 'hg'] @ prev_irrel_h + weight[layer, 'ig'] @ irrel_input[i]
-                irrel_f = weight[layer, 'hf'] @ prev_irrel_h + weight[layer, 'if'] @ irrel_input[i]
-                irrel_o = weight[layer, 'ho'] @ prev_irrel_h + weight[layer, 'io'] @ irrel_input[i]
+    def calc_activations(self,
+                         layer: int, i: int, start: int, stop: int,
+                         weight: PartialArrayDict) -> None:
+        if layer == 0:
+            if start <= i < stop:
+                rel_input = self.activation_dict[0, 'emb'][0][i]
+                irrel_input = np.zeros(self.model.hidden_size, dtype=np.float32)
+            else:
+                rel_input = np.zeros(self.model.hidden_size, dtype=np.float32)
+                irrel_input = self.activation_dict[0, 'emb'][0][i]
+        else:
+            rel_input = self.decompositions['relevant_h'][layer - 1][i]
+            irrel_input = self.decompositions['irrelevant_h'][layer - 1][i]
 
-                # INPUT DECOMPOSITION
-                rel_contrib_i, irrel_contrib_i, bias_contrib_i = decomp_three(rel_i, irrel_i,
-                                                                              bias[layer, 'i'],
-                                                                              sigmoid)
-                rel_contrib_g, irrel_contrib_g, bias_contrib_g = decomp_three(rel_g, irrel_g,
-                                                                              bias[layer, 'g'],
-                                                                              np.tanh)
+        if i > 0:
+            prev_rel_h = self.decompositions['relevant_h'][layer][i - 1]
+            prev_irrel_h = self.decompositions['irrelevant_h'][layer][i - 1]
+        else:
+            prev_rel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
+            prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
 
-                relevant_c[layer][i] = (
-                        rel_contrib_i * (rel_contrib_g + bias_contrib_g)
-                        + rel_contrib_g * bias_contrib_i
-                )
-                irrelevant_c[layer][i] = (
-                        irrel_contrib_i * (rel_contrib_g + irrel_contrib_g + bias_contrib_g)
-                        + irrel_contrib_g * (rel_contrib_i + bias_contrib_i)
-                )
+        self.activations['rel_i'] = \
+            weight[layer, 'hi'] @ prev_rel_h + weight[layer, 'ii'] @ rel_input
+        self.activations['rel_g'] = \
+            weight[layer, 'hg'] @ prev_rel_h + weight[layer, 'ig'] @ rel_input
+        self.activations['rel_f'] = \
+            weight[layer, 'hf'] @ prev_rel_h + weight[layer, 'if'] @ rel_input
+        self.activations['rel_o'] = \
+            weight[layer, 'ho'] @ prev_rel_h + weight[layer, 'io'] @ rel_input
 
-                if start <= i < stop:
-                    relevant_c[layer][i] += bias_contrib_i * bias_contrib_g
-                else:
-                    irrelevant_c[layer][i] += bias_contrib_i * bias_contrib_g
+        self.activations['irrel_i'] = \
+            weight[layer, 'hi'] @ prev_irrel_h + weight[layer, 'ii'] @ irrel_input
+        self.activations['irrel_g'] = \
+            weight[layer, 'hg'] @ prev_irrel_h + weight[layer, 'ig'] @ irrel_input
+        self.activations['irrel_f'] = \
+            weight[layer, 'hf'] @ prev_irrel_h + weight[layer, 'if'] @ irrel_input
+        self.activations['irrel_o'] = \
+            weight[layer, 'ho'] @ prev_irrel_h + weight[layer, 'io'] @ irrel_input
 
-                # FORGET DECOMPOSITION
-                rel_contrib_f, irrel_contrib_f, bias_contrib_f = decomp_three(rel_f, irrel_f,
-                                                                              bias[layer, 'f'],
-                                                                              sigmoid)
-                relevant_c[layer][i] += (
-                        prev_rel_c * (rel_contrib_f + bias_contrib_f)
-                )
-                irrelevant_c[layer][i] += (
-                        prev_irrel_c * (rel_contrib_f + irrel_contrib_f + bias_contrib_f)
-                        + irrel_contrib_f * prev_rel_c
-                )
+    def add_forget_decomposition(self, layer: int, i: int, bias_f: np.ndarray) -> None:
+        rel_contrib_f, irrel_contrib_f, bias_contrib_f = \
+            decomp_three(self.activations['rel_f'], self.activations['irrel_f'], bias_f, sigmoid)
 
-                new_rel_h, new_irrel_h = decomp_tanh_two(relevant_c[layer][i],
-                                                         irrelevant_c[layer][i])
+        if i > 0:
+            prev_rel_c = self.decompositions['relevant_c'][layer][i - 1]
+            prev_irrel_c = self.decompositions['irrelevant_c'][layer][i - 1]
+        else:
+            prev_rel_c = np.zeros(self.model.hidden_size, dtype=np.float32)
+            prev_irrel_c = self.activation_dict[layer, 'icx'][0, 0]
 
-                # OUTPUT DECOMPOSITION
-                if decompose_o:
-                    rel_contrib_o, irrel_contrib_o, bias_contrib_o = decomp_three(rel_o, irrel_o,
-                                                                                  bias[layer, 'o'],
-                                                                                  sigmoid)
-                    relevant_h[layer][i] = (
-                            new_rel_h * (rel_contrib_o + bias_contrib_o)
-                    )
-                    irrelevant_h[layer][i] = (
-                            new_rel_h * irrel_contrib_o
-                            + new_irrel_h * (rel_contrib_o + irrel_contrib_o + bias_contrib_o)
-                    )
-                else:
-                    o = sigmoid(rel_o + irrel_o + bias[layer, 'o'])
-                    relevant_h[layer][i] = o * new_rel_h
-                    irrelevant_h[layer][i] = o * new_irrel_h
+        self.decompositions['relevant_c'][layer][i] += (
+                prev_rel_c * (rel_contrib_f + bias_contrib_f)
+        )
+        self.decompositions['irrelevant_c'][layer][i] += (
+                prev_irrel_c * (rel_contrib_f + irrel_contrib_f + bias_contrib_f)
+                + irrel_contrib_f * prev_rel_c
+        )
 
-        self._assert_decomposition(relevant_h, irrelevant_h)
+    def add_input_decomposition(self,
+                                layer: int, i: int, start: int, stop: int,
+                                bias_i: np.ndarray, bias_g: np.ndarray) -> None:
+        rel_contrib_i, irrel_contrib_i, bias_contrib_i = \
+            decomp_three(self.activations['rel_i'], self.activations['irrel_i'], bias_i, sigmoid)
+        rel_contrib_g, irrel_contrib_g, bias_contrib_g = \
+            decomp_three(self.activations['rel_g'], self.activations['irrel_g'], bias_g, np.tanh)
 
-        return {
-            'relevant_h': relevant_h,
-            'irrelevant_h': irrelevant_h,
-            'relevant_c': relevant_c,
-            'irrelevant_c': irrelevant_c,
-        }
+        self.decompositions['relevant_c'][layer][i] += (
+                rel_contrib_i * (rel_contrib_g + bias_contrib_g)
+                + rel_contrib_g * bias_contrib_i
+        )
+        self.decompositions['irrelevant_c'][layer][i] += (
+                irrel_contrib_i * (rel_contrib_g + irrel_contrib_g + bias_contrib_g)
+                + irrel_contrib_g * (rel_contrib_i + bias_contrib_i)
+        )
+
+        if start <= i < stop:
+            self.decompositions['relevant_c'][layer][i] += bias_contrib_i * bias_contrib_g
+        else:
+            self.decompositions['irrelevant_c'][layer][i] += bias_contrib_i * bias_contrib_g
+
+    def add_output_decomposition(self,
+                                 layer: int, i: int, decompose_o: bool,
+                                 bias_o: np.ndarray) -> None:
+        rel_h, irrel_h = decomp_tanh_two(self.decompositions['relevant_c'][layer][i],
+                                         self.decompositions['irrelevant_c'][layer][i])
+        rel_o, irrel_o = self.activations['rel_o'], self.activations['irrel_o']
+
+        if decompose_o:
+            rel_contrib_o, irrel_contrib_o, bias_contrib_o = \
+                decomp_three(rel_o, irrel_o, bias_o, sigmoid)
+
+            self.decompositions['relevant_h'][layer][i] = (
+                    rel_h * (rel_contrib_o + bias_contrib_o)
+            )
+            self.decompositions['irrelevant_h'][layer][i] = (
+                    rel_h * irrel_contrib_o
+                    + irrel_h * (rel_contrib_o + irrel_contrib_o + bias_contrib_o)
+            )
+        else:
+            o = sigmoid(rel_o + irrel_o + bias_o)
+            self.decompositions['relevant_h'][layer][i] = o * rel_h
+            self.decompositions['irrelevant_h'][layer][i] = o * irrel_h
 
     def _get_model_weights(self) -> Tuple[PartialArrayDict, PartialArrayDict]:
         weight: PartialArrayDict = {}
@@ -146,12 +179,12 @@ class ContextualDecomposer(BaseDecomposer):
 
         return weight, bias
 
-    def _assert_decomposition(self, relevant_h: np.ndarray, irrelevant_h: np.ndarray) -> None:
+    def _assert_decomposition(self) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))
         original_score = final_hidden_state[0] @ self.decoder_w.T
 
-        decomposed_score = relevant_h[-1, -1] @ self.decoder_w.T
-        decomposed_score += irrelevant_h[-1, -1] @ self.decoder_w.T
+        decomposed_score = (self.decompositions['relevant_h'][-1, -1] +
+                            self.decompositions['irrelevant_h'][-1, -1]) @ self.decoder_w.T
 
         # Sanity check: scores + irrel_scores should equal the LSTM's output minus bias
         assert np.allclose(original_score, decomposed_score, rtol=1e-4), \
