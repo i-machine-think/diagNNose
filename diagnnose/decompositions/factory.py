@@ -56,6 +56,26 @@ class DecomposerFactory:
                sen_index: ActivationKey,
                subsen_index: slice = slice(None, None, None),
                classes: Union[slice, List[int]] = slice(None, None, None)) -> BaseDecomposer:
+        """ Creates an instance of a BaseDecomposer.
+
+        Parameters
+        ----------
+        sen_index : ActivationKey
+            Denotes the sentence index or range of indices for which the
+            decomposition should be performed.
+        subsen_index : slice, optional
+            Denotes slice of sentences on which decomposition should be
+            performed, allowing only a subsentence to be taken into
+            account.
+        classes : slice | List[int], optional
+            Denotes the the class indices of the model decoder for which
+            the decomposed scores should be calculated.
+
+        Returns
+        -------
+        decomposer : BaseDecomposer
+            BaseDecomposer instance pertaining to the provided parameters.
+        """
 
         decoder = self.decoder_w[classes], self.decoder_b[classes]
 
