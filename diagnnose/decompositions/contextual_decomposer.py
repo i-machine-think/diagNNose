@@ -70,24 +70,12 @@ class ContextualDecomposer(BaseDecomposer):
             indicating that bias-bias interactions inside the subphrase
             range are added to the relevant decomposition.
         """
-<<<<<<< Updated upstream
-        self.rel_interactions = rel_interactions or ['rel-rel', 'rel-irrel', 'rel-b']
-        self.irrel_interactions = irrel_interactions or ['irrel-irrel', 'irrel-b']
-||||||| merged common ancestors
-        self.rel_interactions = set(rel_interactions or {'rel-rel', 'rel-irrel', 'rel-b'})
-=======
         self.rel_interactions = set(rel_interactions or {'rel-rel', 'rel-irrel', 'rel-b'})
         assert len(self.rel_interactions.intersection({'irrel-irrel', 'irrel-b'})) == 0, \
             'irrel-irrel and irrel-b can\'t be part of rel interactions'
->>>>>>> Stashed changes
 
         weight, bias = self._get_model_weights()
-<<<<<<< Updated upstream
-||||||| merged common ancestors
-        self._reset_decompositions()
-=======
         self._reset_decompositions(start)
->>>>>>> Stashed changes
 
         for layer in range(self.model.num_layers):
             for i in range(start, self.slen):
@@ -127,25 +115,12 @@ class ContextualDecomposer(BaseDecomposer):
             prev_rel_h = self.decompositions['relevant_h'][layer][i - 1]
             prev_irrel_h = self.decompositions['irrelevant_h'][layer][i - 1]
         else:
-<<<<<<< Updated upstream
-            prev_rel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
-            prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
-||||||| merged common ancestors
             if start < 0:
                 prev_rel_h = self.activation_dict[layer, 'ihx'][0, 0]
                 prev_irrel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
             else:
                 prev_rel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
                 prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
-        self.test(weight, layer, prev_rel_h, rel_input, prev_irrel_h, irrel_input)
-=======
-            if start < 0:
-                prev_rel_h = self.activation_dict[layer, 'ihx'][0, 0]
-                prev_irrel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
-            else:
-                prev_rel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
-                prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
->>>>>>> Stashed changes
 
         self.activations['rel_i'] = weight[layer, 'hi'] @ prev_rel_h + weight[layer, 'ii'] @ rel_input
         self.activations['rel_g'] = weight[layer, 'hg'] @ prev_rel_h + weight[layer, 'ig'] @ rel_input
@@ -230,36 +205,6 @@ class ContextualDecomposer(BaseDecomposer):
                          rel_decomp_name: str = 'relevant_c',
                          irrel_decomp_name: str = 'irrelevant_c') -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
-<<<<<<< Updated upstream
-||||||| merged common ancestors
-        all_interactions = {'rel-rel', 'rel-b', 'irrel-irrel', 'irrel-b', 'rel-irrel'}
-        irrel_interactions = all_interactions - self.rel_interactions
-
-        for decomp_name, interactions in ((rel_decomp_name, self.rel_interactions),
-                                          (irrel_decomp_name, irrel_interactions)):
-            for interaction in interactions:
-                if interaction == 'rel-rel':
-                    self.decompositions[decomp_name][layer][i] += rel_term1 * rel_term2
-                elif interaction == 'rel-b':
-                    if bias_term2 is not None:
-                        self.decompositions[decomp_name][layer][i] += rel_term1 * bias_term2
-                    self.decompositions[decomp_name][layer][i] += rel_term2 * bias_term1
-                elif interaction == 'irrel-irrel':
-                    self.decompositions[decomp_name][layer][i] += irrel_term1 * irrel_term2
-                elif interaction == 'irrel-b':
-                    if bias_term2 is not None:
-                        self.decompositions[decomp_name][layer][i] += irrel_term1 * bias_term2
-                    self.decompositions[decomp_name][layer][i] += irrel_term2 * bias_term1
-                elif interaction == 'rel-irrel':
-                    self.decompositions[decomp_name][layer][i] += rel_term1 * irrel_term2
-                    self.decompositions[decomp_name][layer][i] += rel_term2 * irrel_term1
-                else:
-                    raise ValueError('Interaction type not understood')
-
-    def _reset_decompositions(self) -> None:
-        hidden_size = self.model.hidden_size
-        num_layers = self.model.num_layers
-=======
         all_interactions = {'rel-rel', 'rel-b', 'irrel-irrel', 'irrel-b', 'rel-irrel'}
         irrel_interactions = all_interactions - self.rel_interactions
 
@@ -287,7 +232,6 @@ class ContextualDecomposer(BaseDecomposer):
     def _reset_decompositions(self, start: int) -> None:
         hidden_size = self.model.hidden_size
         num_layers = self.model.num_layers
->>>>>>> Stashed changes
 
         for rel_i in self.rel_interactions:
             if rel_i == 'rel-rel':
