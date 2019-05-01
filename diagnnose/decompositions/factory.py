@@ -85,8 +85,9 @@ class DecomposerFactory:
                 for name in ['f_g', 'o_g', 'hx', 'cx', 'icx', '0cx']
             ]
         elif issubclass(self.decomposer_constructor, ContextualDecomposer):
-            activation_names = [(0, 'emb'), (self.model.num_layers-1, 'hx')]
+            activation_names = [(0, 'emb')]
             for l in range(self.model.num_layers):
+                activation_names.extend([(l, 'cx'), (l, 'hx')])
                 activation_names.extend([(l, 'icx'), (l, 'ihx')])
         else:
             raise ValueError('Decomposer constructor not understood')

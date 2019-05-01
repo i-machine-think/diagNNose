@@ -54,6 +54,6 @@ if __name__ == '__main__':
     model = import_model_from_json(**config_dict['decoder'])
 
     constructor = DecomposerFactory(model, **config_dict['decompose'])
-    decomposer = constructor.create(0, slice(0, None, 1), classes=[20])
-    cd = decomposer.decompose(11, 12)
-    print(cd['relevant_h'])
+    decomposer = constructor.create(64, slice(0, 6, 1), classes=[model.w2i['is'], model.w2i['are']])
+    cd = decomposer.decompose(3, 4, ['rel-rel'])
+    print(cd)
