@@ -30,19 +30,13 @@ class ContextualDecomposer(BaseDecomposer):
 
         self.slen = word_vecs.shape[0]
         self.activations: DecomposeArrayDict = {}
-        self.decompositions: DecomposeArrayDict = {
-            'relevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'irrelevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'relevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'irrelevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32)
-        }
+        self.decompositions: DecomposeArrayDict = {}
 
     @overrides
     def _decompose(self,
                    start: int, stop: int,
                    decompose_o: bool = False,
                    rel_interactions: Optional[List[str]] = None,
-                   irrel_interactions: Optional[List[str]] = None,
                    bias_always_irrel: bool = False
                    ) -> DecomposeArrayDict:
         """ Main loop for the contextual decomposition.
@@ -60,10 +54,6 @@ class ContextualDecomposer(BaseDecomposer):
             Indicates the interactions that are part of the relevant
             decomposition. Possible interactions are: rel-rel, rel-b and
             rel-irrel.
-        irrel_interactions : List[str], optional
-            Indicates the interactions that are part of the irrelevant
-            decomposition. Possible interactions are: irrel-irrel,
-            irrel-b and rel-irrel.
         bias_always_irrel : bool, optional
             Toggles whether the bias-bias interaction should always be
             added to the irrelevant decomposition. Defaults to false,
@@ -78,7 +68,7 @@ class ContextualDecomposer(BaseDecomposer):
         self._reset_decompositions(start)
 
         for layer in range(self.model.num_layers):
-            for i in range(start, self.slen):
+            for i in range(self.slen):
                 self.calc_activations(layer, i, start, stop, weight)
 
                 self.add_forget_decomposition(layer, i, bias[layer, 'f'])
@@ -90,7 +80,9 @@ class ContextualDecomposer(BaseDecomposer):
 
         self._assert_decomposition()
 
-        return self.decompositions
+        scores = self._calc_scores()
+
+        return scores
 
     def calc_activations(self,
                          layer: int, i: int, start: int, stop: int,
@@ -233,38 +225,19 @@ class ContextualDecomposer(BaseDecomposer):
         hidden_size = self.model.hidden_size
         num_layers = self.model.num_layers
 
-        for rel_i in self.rel_interactions:
-            if rel_i == 'rel-rel':
-                self.decompositions[rel_decomp_name][layer][i] += rel_term1 * rel_term2
-            elif rel_i == 'rel-b':
-                if bias_term2 is not None:
-                    self.decompositions[rel_decomp_name][layer][i] += rel_term1 * bias_term2
-                self.decompositions[rel_decomp_name][layer][i] += rel_term2 * bias_term1
-            elif rel_i == 'rel-irrel':
-                self.decompositions[rel_decomp_name][layer][i] += rel_term1 * irrel_term2
-                self.decompositions[rel_decomp_name][layer][i] += rel_term2 * irrel_term1
-            else:
-                raise ValueError('Interaction type not understood')
-
-        for rel_i in self.irrel_interactions:
-            if rel_i == 'irrel-irrel':
-                self.decompositions[irrel_decomp_name][layer][i] += irrel_term1 * irrel_term2
-            elif rel_i == 'irrel-b':
-                if bias_term2 is not None:
-                    self.decompositions[irrel_decomp_name][layer][i] += irrel_term1 * bias_term2
-                self.decompositions[irrel_decomp_name][layer][i] += irrel_term2 * bias_term1
-            elif rel_i == 'rel-irrel':
-                self.decompositions[irrel_decomp_name][layer][i] += irrel_term1 * rel_term2
-                self.decompositions[irrel_decomp_name][layer][i] += irrel_term2 * rel_term1
-            else:
-                raise ValueError('Interaction type not understood')
+        self.decompositions = {
+            'relevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'relevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'irrelevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'irrelevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+        }
 
         # All indices until the start position of the relevant token won't yield any contribution,
         # so we can directly set the cell/hidden states that have been computed already.
-        for l in range(num_layers):
-            for i in range(start):
-                self.decompositions['irrelevant_c'][l][i] = self.activation_dict[(l, 'cx')][0][i]
-                self.decompositions['irrelevant_h'][l][i] = self.activation_dict[(l, 'hx')][0][i]
+        # for l in range(num_layers):
+        #     for i in range(start):
+        #         self.decompositions['irrelevant_c'][l][i] = self.activation_dict[(l, 'cx')][0][i+1]
+        #         self.decompositions['irrelevant_h'][l][i] = self.activation_dict[(l, 'hx')][0][i+1]
 
     def _get_model_weights(self) -> Tuple[PartialArrayDict, PartialArrayDict]:
         weight: PartialArrayDict = {}
@@ -282,7 +255,7 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _assert_decomposition(self) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))
-        original_score = final_hidden_state[0] @ self.decoder_w.T
+        original_score = np.ma.dot(final_hidden_state[0], self.decoder_w.T)
 
         decomposed_score = (self.decompositions['relevant_h'][-1, -1] +
                             self.decompositions['irrelevant_h'][-1, -1]) @ self.decoder_w.T
@@ -290,6 +263,12 @@ class ContextualDecomposer(BaseDecomposer):
         # Sanity check: scores + irrel_scores should equal the LSTM's output minus bias
         assert np.allclose(original_score, decomposed_score, rtol=1e-4), \
             f'Decomposed score does not match: {original_score} vs {decomposed_score}'
+
+    def _calc_scores(self) -> DecomposeArrayDict:
+        return {
+            'relevant': self.decompositions['relevant_h'][-1] @ self.decoder_w.T,
+            'irrelevant': self.decompositions['irrelevant_h'][-1] @ self.decoder_w.T,
+        }
 
 
 # Activation linearizations as described in chapter 3.2.2
