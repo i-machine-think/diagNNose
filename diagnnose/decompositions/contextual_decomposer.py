@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Set, Tuple
 
 import numpy as np
 from overrides import overrides
@@ -24,20 +24,20 @@ class ContextualDecomposer(BaseDecomposer):
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
 
-        word_vecs = self.activation_dict[0, 'emb'][0]
-        hidden_size = self.model.hidden_size
-        num_layers = self.model.num_layers
-
-        self.slen = word_vecs.shape[0]
+        self.weight: PartialArrayDict = {}
+        self.bias: PartialArrayDict = {}
         self.activations: DecomposeArrayDict = {}
         self.decompositions: DecomposeArrayDict = {}
 
+        self.rel_interactions: Set[str] = set()
+        self.irrel_interactions: Set[str] = set()
+
     @overrides
-    def _decompose(self,
-                   start: int, stop: int,
-                   decompose_o: bool = False,
+    def _decompose(self, start: int, stop: int,
                    rel_interactions: Optional[List[str]] = None,
-                   bias_always_irrel: bool = False
+                   decompose_o: bool = False,
+                   bias_bias_only_in_phrase: bool = True,
+                   use_extracted_activations: bool = False
                    ) -> DecomposeArrayDict:
         """ Main loop for the contextual decomposition.
 
@@ -54,46 +54,56 @@ class ContextualDecomposer(BaseDecomposer):
             Indicates the interactions that are part of the relevant
             decomposition. Possible interactions are: rel-rel, rel-b and
             rel-irrel.
-        bias_always_irrel : bool, optional
-            Toggles whether the bias-bias interaction should always be
-            added to the irrelevant decomposition. Defaults to false,
-            indicating that bias-bias interactions inside the subphrase
-            range are added to the relevant decomposition.
-        """
-        self.rel_interactions = set(rel_interactions or {'rel-rel', 'rel-irrel', 'rel-b'})
-        assert len(self.rel_interactions.intersection({'irrel-irrel', 'irrel-b'})) == 0, \
-            'irrel-irrel and irrel-b can\'t be part of rel interactions'
+        bias_bias_only_in_phrase : bool, optional
+            Toggles whether the bias-bias interaction should only be
+            added when inside the relevant phrase. Defaults to True,
+            indicating that only bias-bias interactions inside the
+            subphrase range are added to the relevant decomposition.
+        use_extracted_activations : bool, optional
+            Allows previously extracted activations to be used to avoid
+            unnecessary recomputations of those activations.
+            Defaults to False.
 
-        weight, bias = self._get_model_weights()
-        self._reset_decompositions(start)
+        Returns
+        -------
+        scores : DecomposeArrayDict
+            Dictionary with keys `relevant` and `irrelevant`, containing
+            the decomposed scores for the earlier provided decoder.
+        """
+        self._set_rel_interactions(rel_interactions)
+
+        start_index = max(0, start) if use_extracted_activations else 0
+        slen = self.activation_dict[0, 'emb'].shape[1]
+
+        self._set_model_weights()
+        self._reset_decompositions(start, slen, use_extracted_activations)
 
         for layer in range(self.model.num_layers):
-            for i in range(self.slen):
-                self.calc_activations(layer, i, start, stop, weight)
+            for i in range(start_index, slen):
+                inside_phrase = start <= i < stop
 
-                self.add_forget_decomposition(layer, i, bias[layer, 'f'])
+                self._calc_activations(layer, i, start, inside_phrase)
 
-                self.add_input_decomposition(layer, i, start, stop, bias_always_irrel,
-                                             bias[layer, 'i'], bias[layer, 'g'])
+                self._add_forget_decomposition(layer, i, start)
 
-                self.add_output_decomposition(layer, i, decompose_o, bias[layer, 'o'])
+                self._add_input_decomposition(layer, i, inside_phrase, bias_bias_only_in_phrase)
 
-        self._assert_decomposition()
+                self._add_output_decomposition(layer, i, decompose_o)
 
         scores = self._calc_scores()
 
+        self._validate_decomposition(scores)
+
         return scores
 
-    def calc_activations(self,
-                         layer: int, i: int, start: int, stop: int,
-                         weight: PartialArrayDict) -> None:
+    def _calc_activations(self, layer: int, i: int, start: int, inside_phrase: bool) -> None:
         """ Recalculates the decomposed model activations.
 
         Input is either the word embedding in layer 0, or the beta/gamma
         decomposition of the hidden state in the previous layer.
         """
         if layer == 0:
-            if start <= i < stop:
+            if inside_phrase:
                 rel_input = self.activation_dict[0, 'emb'][0][i]
                 irrel_input = np.zeros(self.model.hidden_size, dtype=np.float32)
             else:
@@ -103,105 +113,103 @@ class ContextualDecomposer(BaseDecomposer):
             rel_input = self.decompositions['relevant_h'][layer - 1][i]
             irrel_input = self.decompositions['irrelevant_h'][layer - 1][i]
 
-        if i > 0:
-            prev_rel_h = self.decompositions['relevant_h'][layer][i - 1]
-            prev_irrel_h = self.decompositions['irrelevant_h'][layer][i - 1]
-        else:
-            if start < 0:
-                prev_rel_h = self.activation_dict[layer, 'ihx'][0, 0]
-                prev_irrel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
-            else:
-                prev_rel_h = np.zeros(self.model.hidden_size, dtype=np.float32)
-                prev_irrel_h = self.activation_dict[layer, 'ihx'][0, 0]
+        prev_rel_h, prev_irrel_h = self._get_prev_cells(layer, i, start, 'h')
 
-        self.activations['rel_i'] = weight[layer, 'hi'] @ prev_rel_h + weight[layer, 'ii'] @ rel_input
-        self.activations['rel_g'] = weight[layer, 'hg'] @ prev_rel_h + weight[layer, 'ig'] @ rel_input
-        self.activations['rel_f'] = weight[layer, 'hf'] @ prev_rel_h + weight[layer, 'if'] @ rel_input
-        self.activations['rel_o'] = weight[layer, 'ho'] @ prev_rel_h + weight[layer, 'io'] @ rel_input
+        w = self.weight
+        self.activations['rel_i'] = w[layer, 'hi'] @ prev_rel_h + w[layer, 'ii'] @ rel_input
+        self.activations['rel_g'] = w[layer, 'hg'] @ prev_rel_h + w[layer, 'ig'] @ rel_input
+        self.activations['rel_f'] = w[layer, 'hf'] @ prev_rel_h + w[layer, 'if'] @ rel_input
+        self.activations['rel_o'] = w[layer, 'ho'] @ prev_rel_h + w[layer, 'io'] @ rel_input
 
-        self.activations['irrel_i'] = weight[layer, 'hi'] @ prev_irrel_h + weight[layer, 'ii'] @ irrel_input
-        self.activations['irrel_g'] = weight[layer, 'hg'] @ prev_irrel_h + weight[layer, 'ig'] @ irrel_input
-        self.activations['irrel_f'] = weight[layer, 'hf'] @ prev_irrel_h + weight[layer, 'if'] @ irrel_input
-        self.activations['irrel_o'] = weight[layer, 'ho'] @ prev_irrel_h + weight[layer, 'io'] @ irrel_input
+        self.activations['irrel_i'] = w[layer, 'hi'] @ prev_irrel_h + w[layer, 'ii'] @ irrel_input
+        self.activations['irrel_g'] = w[layer, 'hg'] @ prev_irrel_h + w[layer, 'ig'] @ irrel_input
+        self.activations['irrel_f'] = w[layer, 'hf'] @ prev_irrel_h + w[layer, 'if'] @ irrel_input
+        self.activations['irrel_o'] = w[layer, 'ho'] @ prev_irrel_h + w[layer, 'io'] @ irrel_input
 
-    def add_forget_decomposition(self, layer: int, i: int, bias_f: np.ndarray) -> None:
+    def _add_forget_decomposition(self, layer: int, i: int, start: int) -> None:
         """ Calculates the forget gate decomposition, Equation (14) of the paper. """
 
         rel_contrib_f, irrel_contrib_f, bias_contrib_f = \
-            decomp_three(self.activations['rel_f'], self.activations['irrel_f'], bias_f, sigmoid)
+            decomp_three(self.activations['rel_f'], self.activations['irrel_f'], 
+                         self.bias[layer, 'f'], sigmoid)
 
-        if i > 0:
-            prev_rel_c = self.decompositions['relevant_c'][layer][i - 1]
-            prev_irrel_c = self.decompositions['irrelevant_c'][layer][i - 1]
-        else:
-            prev_rel_c = np.zeros(self.model.hidden_size, dtype=np.float32)
-            prev_irrel_c = self.activation_dict[layer, 'icx'][0, 0]
+        prev_rel_c, prev_irrel_c = self._get_prev_cells(layer, i, start, 'c')
 
-        self.add_interactions(layer, i,
-                              rel_contrib_f, prev_rel_c,
-                              irrel_contrib_f, prev_irrel_c,
-                              bias_contrib_f)
+        self._add_interactions(layer, i,
+                               rel_contrib_f, prev_rel_c,
+                               irrel_contrib_f, prev_irrel_c,
+                               bias_contrib_f)
 
-    def add_input_decomposition(self,
-                                layer: int, i: int, start: int, stop: int, bias_always_irrel: bool,
-                                bias_i: np.ndarray, bias_g: np.ndarray) -> None:
+    def _add_input_decomposition(self, layer: int, i: int, inside_phrase: bool,
+                                 bias_bias_only_in_phrase: bool) -> None:
         """ Calculates the input gate decomposition, Equation (17) of the paper. """
 
         rel_contrib_i, irrel_contrib_i, bias_contrib_i = \
-            decomp_three(self.activations['rel_i'], self.activations['irrel_i'], bias_i, sigmoid)
+            decomp_three(self.activations['rel_i'], self.activations['irrel_i'], 
+                         self.bias[layer, 'i'], sigmoid)
         rel_contrib_g, irrel_contrib_g, bias_contrib_g = \
-            decomp_three(self.activations['rel_g'], self.activations['irrel_g'], bias_g, np.tanh)
+            decomp_three(self.activations['rel_g'], self.activations['irrel_g'], 
+                         self.bias[layer, 'g'], np.tanh)
 
-        self.add_interactions(layer, i,
-                              rel_contrib_i, rel_contrib_g,
-                              irrel_contrib_i, irrel_contrib_g,
-                              bias_contrib_i, bias_contrib_g)
+        self._add_interactions(layer, i,
+                               rel_contrib_i, rel_contrib_g,
+                               irrel_contrib_i, irrel_contrib_g,
+                               bias_contrib_i, bias_contrib_g,
+                               bias_bias_only_in_phrase=bias_bias_only_in_phrase,
+                               inside_phrase=inside_phrase)
 
-        if start <= i < stop and not bias_always_irrel:
-            self.decompositions['relevant_c'][layer][i] += bias_contrib_i * bias_contrib_g
-        else:
-            self.decompositions['irrelevant_c'][layer][i] += bias_contrib_i * bias_contrib_g
+    def _add_output_decomposition(self, layer: int, i: int, decompose_o: bool) -> None:
+        """ Calculates the output gate decomposition, Equation (23).
 
-    def add_output_decomposition(self,
-                                 layer: int, i: int, decompose_o: bool,
-                                 bias_o: np.ndarray) -> None:
-        """ Calculates the output gate decomposition, Equation (23) of the paper.
-
-        As stated in the paper, output decomposition is not always beneficial
-        and can therefore be toggled off.
+        As stated in the paper, output decomposition is not always
+        beneficial and can therefore be toggled off.
         """
 
-        rel_h, irrel_h = decomp_tanh_two(self.decompositions['relevant_c'][layer][i],
+        rel_c, irrel_c = decomp_tanh_two(self.decompositions['relevant_c'][layer][i],
                                          self.decompositions['irrelevant_c'][layer][i])
         rel_o, irrel_o = self.activations['rel_o'], self.activations['irrel_o']
 
         if decompose_o:
             rel_contrib_o, irrel_contrib_o, bias_contrib_o = \
-                decomp_three(rel_o, irrel_o, bias_o, sigmoid)
+                decomp_three(rel_o, irrel_o, self.bias[layer, 'o'], sigmoid)
 
-            self.add_interactions(layer, i,
-                                  rel_contrib_o, rel_h,
-                                  irrel_contrib_o, irrel_h,
-                                  bias_contrib_o,
-                                  rel_decomp_name='relevant_h', irrel_decomp_name='irrelevant_h')
+            self._add_interactions(layer, i,
+                                   rel_contrib_o, rel_c,
+                                   irrel_contrib_o, irrel_c,
+                                   bias_contrib_o,
+                                   rel_decomp_name='relevant_h', irrel_decomp_name='irrelevant_h')
         else:
-            o = sigmoid(rel_o + irrel_o + bias_o)
-            self.decompositions['relevant_h'][layer][i] = o * rel_h
-            self.decompositions['irrelevant_h'][layer][i] = o * irrel_h
+            o = sigmoid(rel_o + irrel_o + self.bias[layer, 'o'])
+            self.decompositions['relevant_h'][layer][i] = o * rel_c
+            self.decompositions['irrelevant_h'][layer][i] = o * irrel_c
 
-    def add_interactions(self,
-                         layer: int, i: int,
-                         rel_term1: np.ndarray, rel_term2: np.ndarray,
-                         irrel_term1: np.ndarray, irrel_term2: np.ndarray,
-                         bias_term1: np.ndarray, bias_term2: Optional[np.ndarray] = None,
-                         rel_decomp_name: str = 'relevant_c',
-                         irrel_decomp_name: str = 'irrelevant_c') -> None:
+    def _get_prev_cells(self, layer: int, i: int, start: int,
+                        cell_type: str) -> Tuple[np.ndarray, np.ndarray]:
+        if i > 0:
+            prev_rel = self.decompositions[f'relevant_{cell_type}'][layer][i - 1]
+            prev_irrel = self.decompositions[f'irrelevant_{cell_type}'][layer][i - 1]
+        else:
+            if start < 0:
+                prev_rel = self.activation_dict[layer, f'i{cell_type}x'][0, 0]
+                prev_irrel = np.zeros(self.model.hidden_size, dtype=np.float32)
+            else:
+                prev_rel = np.zeros(self.model.hidden_size, dtype=np.float32)
+                prev_irrel = self.activation_dict[layer, f'i{cell_type}x'][0, 0]
+
+        return prev_rel, prev_irrel
+
+    def _add_interactions(self,
+                          layer: int, i: int,
+                          rel_term1: np.ndarray, rel_term2: np.ndarray,
+                          irrel_term1: np.ndarray, irrel_term2: np.ndarray,
+                          bias_term1: np.ndarray, bias_term2: Optional[np.ndarray] = None,
+                          rel_decomp_name: str = 'relevant_c',
+                          irrel_decomp_name: str = 'irrelevant_c',
+                          bias_bias_only_in_phrase: bool = True,
+                          inside_phrase: bool = False) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
-        all_interactions = {'rel-rel', 'rel-b', 'irrel-irrel', 'irrel-b', 'rel-irrel'}
-        irrel_interactions = all_interactions - self.rel_interactions
-
         for decomp_name, interactions in ((rel_decomp_name, self.rel_interactions),
-                                          (irrel_decomp_name, irrel_interactions)):
+                                          (irrel_decomp_name, self.irrel_interactions)):
             for interaction in interactions:
                 if interaction == 'rel-rel':
                     self.decompositions[decomp_name][layer][i] += rel_term1 * rel_term2
@@ -218,50 +226,64 @@ class ContextualDecomposer(BaseDecomposer):
                 elif interaction == 'rel-irrel':
                     self.decompositions[decomp_name][layer][i] += rel_term1 * irrel_term2
                     self.decompositions[decomp_name][layer][i] += rel_term2 * irrel_term1
+                elif interaction == 'b-b':
+                    if bias_term2 is not None and not bias_bias_only_in_phrase:
+                        self.decompositions[decomp_name][layer][i] += bias_term1 * bias_term2
                 else:
                     raise ValueError('Interaction type not understood')
 
-    def _reset_decompositions(self, start: int) -> None:
+        if bias_term2 is not None and bias_bias_only_in_phrase:
+            if inside_phrase:
+                self.decompositions['relevant_c'][layer][i] += bias_term1 * bias_term2
+            else:
+                self.decompositions['irrelevant_c'][layer][i] += bias_term1 * bias_term2
+
+    def _reset_decompositions(self, start: int, slen: int, use_extracted_activations: bool) -> None:
         hidden_size = self.model.hidden_size
         num_layers = self.model.num_layers
 
         self.decompositions = {
-            'relevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'relevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'irrelevant_c': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
-            'irrelevant_h': np.zeros((num_layers, self.slen, hidden_size), dtype=np.float32),
+            'relevant_c': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
+            'relevant_h': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
+            'irrelevant_c': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
+            'irrelevant_h': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
         }
 
         # All indices until the start position of the relevant token won't yield any contribution,
         # so we can directly set the cell/hidden states that have been computed already.
-        # for l in range(num_layers):
-        #     for i in range(start):
-        #         self.decompositions['irrelevant_c'][l][i] = self.activation_dict[(l, 'cx')][0][i+1]
-        #         self.decompositions['irrelevant_h'][l][i] = self.activation_dict[(l, 'hx')][0][i+1]
+        if not use_extracted_activations:
+            return
+        for l in range(num_layers):
+            for i in range(start):
+                self.decompositions['irrelevant_c'][l][i] = self.activation_dict[(l, 'cx')][0][i+1]
+                self.decompositions['irrelevant_h'][l][i] = self.activation_dict[(l, 'hx')][0][i]
 
-    def _get_model_weights(self) -> Tuple[PartialArrayDict, PartialArrayDict]:
-        weight: PartialArrayDict = {}
-        bias: PartialArrayDict = {}
+    def _set_rel_interactions(self, rel_interactions: Optional[List[str]]) -> None:
+        all_interactions = {'rel-rel', 'rel-b', 'irrel-irrel', 'irrel-b', 'rel-irrel', 'b-b'}
 
+        self.rel_interactions = set(rel_interactions or {'rel-rel', 'rel-irrel', 'rel-b'})
+        self.irrel_interactions = all_interactions - self.rel_interactions
+        assert not self.rel_interactions.intersection({'irrel-irrel', 'irrel-b'}), \
+            'irrel-irrel and irrel-b can\'t be part of rel interactions'
+
+    def _set_model_weights(self) -> None:
         for layer in range(self.model.num_layers):
             for name in ['ii', 'if', 'ig', 'io']:
-                weight[layer, name] = self.model.weight[layer][name].detach().numpy()
-                bias[layer, name[1]] = (self.model.bias[layer][f'i{name[1]}'].detach().numpy()
-                                        + self.model.bias[layer][f'h{name[1]}'].detach().numpy())
+                self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
+                self.bias[layer, name[1]] = \
+                    (self.model.bias[layer][f'i{name[1]}'].detach().numpy()
+                     + self.model.bias[layer][f'h{name[1]}'].detach().numpy())
             for name in ['hi', 'hf', 'hg', 'ho']:
-                weight[layer, name] = self.model.weight[layer][name].detach().numpy()
+                self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
 
-        return weight, bias
-
-    def _assert_decomposition(self) -> None:
+    def _validate_decomposition(self, scores: DecomposeArrayDict) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))
         original_score = np.ma.dot(final_hidden_state[0], self.decoder_w.T)
 
-        decomposed_score = (self.decompositions['relevant_h'][-1, -1] +
-                            self.decompositions['irrelevant_h'][-1, -1]) @ self.decoder_w.T
+        decomposed_score = scores['relevant'][-1] + scores['irrelevant'][-1]
 
         # Sanity check: scores + irrel_scores should equal the LSTM's output minus bias
-        assert np.allclose(original_score, decomposed_score, rtol=1e-4), \
+        assert np.allclose(original_score, decomposed_score, rtol=1e-3), \
             f'Decomposed score does not match: {original_score} vs {decomposed_score}'
 
     def _calc_scores(self) -> DecomposeArrayDict:

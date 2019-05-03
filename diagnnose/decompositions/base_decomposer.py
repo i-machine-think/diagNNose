@@ -77,6 +77,7 @@ class BaseDecomposer:
     def _validate_activation_shapes(self) -> None:
         pass
 
+    # TODO: Consider appending init hidden state as well here
     def _append_init_cell_states(self) -> None:
         for layer, name in self.activation_dict:
             if name == 'icx':
