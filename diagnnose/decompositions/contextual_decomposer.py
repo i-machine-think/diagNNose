@@ -318,3 +318,23 @@ def decomp_tanh_two(a: np.ndarray, b: np.ndarray) -> Tuple[np.ndarray, np.ndarra
     abtanh = np.tanh(a + b)
 
     return 0.5 * (atanh + (abtanh - btanh)), 0.5 * (btanh + (abtanh - atanh))
+
+
+def decomp_four(a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray,
+                activation: Callable[[np.ndarray], np.ndarray]
+                ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    abd = activation(a + b + d)
+    acd = activation(a + c + d)
+    bcd = activation(b + c + d)
+    abcd = activation(a + b + c + d)
+
+    ad = activation(a + d)
+    bd = activation(b + d)
+    cd = activation(c + d)
+
+    d_contrib = activation(d)
+    a_contrib = 1 / 6 * (2 * (abcd - bcd) + (abd - bd) + (acd - cd) + 2 * (ad - d_contrib))
+    b_contrib = 1 / 6 * (2 * (abcd - acd) + (abd - ad) + (bcd - cd) + 2 * (bd - d_contrib))
+    c_contrib = 1 / 6 * (2 * (abcd - abd) + (bcd - bd) + (acd - ad) + 2 * (cd - d_contrib))
+
+    return a_contrib, b_contrib, c_contrib, d_contrib
