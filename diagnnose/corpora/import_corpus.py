@@ -59,6 +59,7 @@ def import_corpus_from_path(corpus_path: str,
 def read_raw_corpus(corpus_path: str,
                     separator: str = '\t',
                     header: Optional[List[str]] = None,
+                    header_from_first_line: bool = False,
                     to_lower: bool = False) -> Dict[int, Dict[str, Any]]:
     """ Reads a tsv/csv type file and converts it to a dictionary.
 
@@ -73,6 +74,9 @@ def read_raw_corpus(corpus_path: str,
         Character separator of each attribute in the corpus. Defaults to \t
     header : List[str], optional
         Optional list of attribute names of each column
+    header_from_first_line : bool, optional
+        Optional toggle to use the first line of the corpus as attribute
+        names for the parsed corpus, such as in a csv file.
     to_lower : bool, optional
         Transform entire corpus to lower case, defaults to False.
 
@@ -85,9 +89,11 @@ def read_raw_corpus(corpus_path: str,
         lines = f.read().strip().split('\n')
 
     split_lines = [l.strip().split(separator) for l in lines]
-    if header is None:
+    if header_from_first_line:
         header = split_lines[0]
         split_lines = split_lines[1:]
+    elif header is None:
+        header = ['sen']
 
     init_corpus = {
         i: string_to_dict(header, x, to_lower) for i, x in enumerate(split_lines)
