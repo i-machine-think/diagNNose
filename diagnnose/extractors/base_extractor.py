@@ -100,7 +100,8 @@ class Extractor:
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
 
-        print(f'\nStarting extraction of {len(self.corpus) if cutoff < 0 else cutoff} sentences...')
+        tot_num = len(self.corpus) if cutoff < 0 else cutoff
+        print(f'\nStarting extraction of {tot_num} sentences...')
 
         with ExitStack() as stack:
             self.activation_writer.create_output_files(stack, create_label_file, create_avg_eos)
@@ -110,7 +111,7 @@ class Extractor:
 
             for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items()):
                 if n_sens % print_every == 0 and n_sens > 0:
-                    self._print_time_info(prev_t, start_t, print_every, n_sens)
+                    self._print_time_info(prev_t, start_t, print_every, n_sens, tot_num)
                     prev_t = time()
                 if cutoff == n_sens:
                     break
@@ -155,14 +156,19 @@ class Extractor:
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
     @staticmethod
-    def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int) -> None:
+    def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int,
+                         tot_num: int) -> None:
         speed = 1 / ((time() - prev_t) / print_every)
         duration = time() - start_t
         minutes, seconds = divmod(duration, 60)
 
+        time_left = (tot_num - n_sens) / speed
+        m_left, s_left = divmod(time_left, 60)
+
         print(f'#sens: {n_sens:>4}\t\t'
               f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
-              f'Speed: {speed:.2f}sen/s')
+              f'Speed: {speed:.2f}sen/s\t'
+              f'Time left: {m_left:>3.0f}m {s_left:>2.1f}s')
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
