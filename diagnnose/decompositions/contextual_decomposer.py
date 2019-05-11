@@ -192,7 +192,7 @@ class ContextualDecomposer(BaseDecomposer):
                                    rel_contrib_o, rel_c,
                                    irrel_contrib_o, irrel_c,
                                    bias_contrib_o,
-                                   rel_decomp_name='relevant_h', irrel_decomp_name='irrelevant_h')
+                                   cell_type='h')
         else:
             o = sigmoid(rel_o + irrel_o + self.bias[layer, 'o'])
             self.decompositions['relevant_h'][layer][i] = o * rel_c
@@ -217,19 +217,21 @@ class ContextualDecomposer(BaseDecomposer):
                           rel_gate: np.ndarray, rel_source: np.ndarray,
                           irrel_gate: np.ndarray, irrel_source: np.ndarray,
                           bias_gate: np.ndarray, bias_source: Optional[np.ndarray] = None,
-                          rel_decomp_name: str = 'relevant_c',
-                          irrel_decomp_name: str = 'irrelevant_c',
+                          cell_type: str = 'c',
                           inside_phrase: bool = False) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
+        rel_decomp_name = 'relevant_' + cell_type
+        irrel_decomp_name = 'irrelevant_' + cell_type
+
         for decomp_name, interactions in ((rel_decomp_name, self.rel_interactions),
                                           (irrel_decomp_name, self.irrel_interactions)):
             for interaction in interactions:
                 if interaction == 'rel-rel':
                     self.decompositions[decomp_name][layer][i] += rel_gate * rel_source
                 elif interaction == 'rel-b':
+                    self.decompositions[decomp_name][layer][i] += rel_source * bias_gate
                     if bias_source is not None:
                         self.decompositions[decomp_name][layer][i] += rel_gate * bias_source
-                    self.decompositions[decomp_name][layer][i] += rel_source * bias_gate
                 elif interaction == 'irrel-irrel':
                     self.decompositions[decomp_name][layer][i] += irrel_gate * irrel_source
                 elif interaction == 'irrel-b':
@@ -238,7 +240,7 @@ class ContextualDecomposer(BaseDecomposer):
                     self.decompositions[decomp_name][layer][i] += irrel_source * bias_gate
                 elif interaction == 'rel-irrel':
                     if decomp_name[:3] == 'rel' and self.only_source_rel:
-                        self.decompositions[f'ir{decomp_name}'][layer][i] += rel_gate * irrel_source
+                        self.decompositions[irrel_decomp_name][layer][i] += rel_gate * irrel_source
                         self.decompositions[decomp_name][layer][i] += rel_source * irrel_gate
                     else:
                         self.decompositions[decomp_name][layer][i] += rel_gate * irrel_source
