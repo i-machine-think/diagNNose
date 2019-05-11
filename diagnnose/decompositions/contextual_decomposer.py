@@ -294,9 +294,7 @@ class ContextualDecomposer(BaseDecomposer):
         for layer in range(self.model.num_layers):
             for name in ['ii', 'if', 'ig', 'io']:
                 self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
-                self.bias[layer, name[1]] = \
-                    (self.model.bias[layer][f'i{name[1]}'].detach().numpy()
-                     + self.model.bias[layer][f'h{name[1]}'].detach().numpy())
+                self.bias[layer, name[1]] = self.model.bias[layer][name[1]].detach().numpy()
             for name in ['hi', 'hf', 'hg', 'ho']:
                 self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
 

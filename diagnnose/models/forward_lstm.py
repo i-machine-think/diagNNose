@@ -42,30 +42,19 @@ class ForwardLSTM(LanguageModel):
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
-        NHID = self.hidden_size
-
         # LSTM weights
         for l in range(self.num_layers):
-            self.weight[l] = {
-                'ii': params[f'rnn.weight_ih_l{l}'][0:NHID],
-                'if': params[f'rnn.weight_ih_l{l}'][NHID:2*NHID],
-                'ig': params[f'rnn.weight_ih_l{l}'][2*NHID:3*NHID],
-                'io': params[f'rnn.weight_ih_l{l}'][3*NHID:4*NHID],
-                'hi': params[f'rnn.weight_hh_l{l}'][0:NHID],
-                'hf': params[f'rnn.weight_hh_l{l}'][NHID:2*NHID],
-                'hg': params[f'rnn.weight_hh_l{l}'][2*NHID:3*NHID],
-                'ho': params[f'rnn.weight_hh_l{l}'][3*NHID:4*NHID],
-            }
-            self.bias[l] = {
-                'ii': params[f'rnn.bias_ih_l{l}'][0:NHID],
-                'if': params[f'rnn.bias_ih_l{l}'][NHID:2*NHID],
-                'ig': params[f'rnn.bias_ih_l{l}'][2*NHID:3*NHID],
-                'io': params[f'rnn.bias_ih_l{l}'][3*NHID:4*NHID],
-                'hi': params[f'rnn.bias_hh_l{l}'][0:NHID],
-                'hf': params[f'rnn.bias_hh_l{l}'][NHID:2*NHID],
-                'hg': params[f'rnn.bias_hh_l{l}'][2*NHID:3*NHID],
-                'ho': params[f'rnn.bias_hh_l{l}'][3*NHID:4*NHID],
-            }
+            input_weights = torch.split(params[f'rnn.weight_ih_l{l}'], self.hidden_size)
+            self.weight[l] = dict(zip(('ii', 'if', 'ig', 'io'), input_weights))
+
+            hidden_weights = torch.split(params[f'rnn.weight_hh_l{l}'], self.hidden_size)
+            self.weight[l].update(
+                dict(zip(('hi', 'hf', 'hg', 'ho'), hidden_weights))
+            )
+
+            biases = params[f'rnn.bias_ih_l{l}'] + params[f'rnn.bias_hh_l{l}']
+            split_biases = torch.split(biases, self.hidden_size)
+            self.bias[l] = dict(zip(('i', 'f', 'g', 'o'), split_biases))
 
         # Encoder and decoder weights
         self.encoder = params['encoder.weight']
@@ -82,23 +71,19 @@ class ForwardLSTM(LanguageModel):
                      prev_cx: Tensor) -> ActivationLayer:
         # forget gate
         f_g: Tensor = torch.sigmoid(
-            (self.weight[l]['if'] @ inp + self.bias[l]['if']) +
-            (self.weight[l]['hf'] @ prev_hx + self.bias[l]['hf'])
+            (self.weight[l]['if'] @ inp + self.weight[l]['hf'] @ prev_hx + self.bias[l]['f'])
         )
         # input gate
         i_g: Tensor = torch.sigmoid(
-            (self.weight[l]['ii'] @ inp + self.bias[l]['ii']) +
-            (self.weight[l]['hi'] @ prev_hx + self.bias[l]['hi'])
+            (self.weight[l]['ii'] @ inp + self.weight[l]['hi'] @ prev_hx + self.bias[l]['i'])
         )
         # output gate
         o_g: Tensor = torch.sigmoid(
-            (self.weight[l]['io'] @ inp + self.bias[l]['io']) +
-            (self.weight[l]['ho'] @ prev_hx + self.bias[l]['ho'])
+            (self.weight[l]['io'] @ inp + self.weight[l]['ho'] @ prev_hx + self.bias[l]['o'])
         )
         # intermediate cell state
         c_tilde_g: Tensor = torch.tanh(
-            (self.weight[l]['ig'] @ inp + self.bias[l]['ig']) +
-            (self.weight[l]['hg'] @ prev_hx + self.bias[l]['hg'])
+            (self.weight[l]['ig'] @ inp + self.weight[l]['hg'] @ prev_hx + self.bias[l]['g'])
         )
         # current cell state
         cx: Tensor = f_g * prev_cx + i_g * c_tilde_g
