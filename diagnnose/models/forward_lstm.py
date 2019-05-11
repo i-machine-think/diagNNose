@@ -42,19 +42,14 @@ class ForwardLSTM(LanguageModel):
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
+        self.split_order = ['i', 'f', 'g', 'o']
+
         # LSTM weights
         for l in range(self.num_layers):
-            input_weights = torch.split(params[f'rnn.weight_ih_l{l}'], self.hidden_size)
-            self.weight[l] = dict(zip(('ii', 'if', 'ig', 'io'), input_weights))
+            self.weight[l] = torch.cat((params[f'rnn.weight_hh_l{l}'],
+                                        params[f'rnn.weight_ih_l{l}']), dim=1)
 
-            hidden_weights = torch.split(params[f'rnn.weight_hh_l{l}'], self.hidden_size)
-            self.weight[l].update(
-                dict(zip(('hi', 'hf', 'hg', 'ho'), hidden_weights))
-            )
-
-            biases = params[f'rnn.bias_ih_l{l}'] + params[f'rnn.bias_hh_l{l}']
-            split_biases = torch.split(biases, self.hidden_size)
-            self.bias[l] = dict(zip(('i', 'f', 'g', 'o'), split_biases))
+            self.bias[l] = params[f'rnn.bias_ih_l{l}'] + params[f'rnn.bias_hh_l{l}']
 
         # Encoder and decoder weights
         self.encoder = params['encoder.weight']
@@ -63,31 +58,20 @@ class ForwardLSTM(LanguageModel):
 
         print('Model initialisation finished.')
 
-    # TODO: Do LSTM projections in one step?
     def forward_step(self,
                      l: int,
                      inp: Tensor,
                      prev_hx: Tensor,
                      prev_cx: Tensor) -> ActivationLayer:
-        # forget gate
-        f_g: Tensor = torch.sigmoid(
-            (self.weight[l]['if'] @ inp + self.weight[l]['hf'] @ prev_hx + self.bias[l]['f'])
-        )
-        # input gate
-        i_g: Tensor = torch.sigmoid(
-            (self.weight[l]['ii'] @ inp + self.weight[l]['hi'] @ prev_hx + self.bias[l]['i'])
-        )
-        # output gate
-        o_g: Tensor = torch.sigmoid(
-            (self.weight[l]['io'] @ inp + self.weight[l]['ho'] @ prev_hx + self.bias[l]['o'])
-        )
-        # intermediate cell state
-        c_tilde_g: Tensor = torch.tanh(
-            (self.weight[l]['ig'] @ inp + self.weight[l]['hg'] @ prev_hx + self.bias[l]['g'])
-        )
-        # current cell state
+        proj = self.weight[l] @ torch.cat((prev_hx, inp)) + self.bias[l]
+        split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size)))
+
+        f_g: Tensor = torch.sigmoid(split_proj['f'])
+        i_g: Tensor = torch.sigmoid(split_proj['i'])
+        o_g: Tensor = torch.sigmoid(split_proj['o'])
+        c_tilde_g: Tensor = torch.tanh(split_proj['g'])
+
         cx: Tensor = f_g * prev_cx + i_g * c_tilde_g
-        # hidden state
         hx: Tensor = o_g * torch.tanh(cx)
 
         return {
