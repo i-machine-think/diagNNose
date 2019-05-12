@@ -53,14 +53,11 @@ class Extractor:
         self.corpus = corpus
 
         self.activation_names: ActivationNames = activation_names
-        self.output_dir = trim(output_dir)
-        self.init_lstm_states: InitStates = InitStates(
-            model.num_layers, model.hidden_size, init_lstm_states_path
-        )
+        self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
 
         self.activation_writer = ActivationWriter(output_dir, list(activation_names))
 
-    # TODO: Allow batch input
+    # TODO: Allow batch input + refactor
     def extract(self,
                 cutoff: int = -1,
                 print_every: int = 10,
@@ -167,7 +164,7 @@ class Extractor:
         print(f'#sens: {n_sens:>4}\t\t'
               f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
               f'Speed: {speed:.2f}sen/s\t'
-              f'Time left: {m_left:>3.0f}m {s_left:>2.1f}s')
+              f'~Time left: {m_left:>3.0f}m {s_left:>2.1f}s')
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
@@ -217,21 +214,17 @@ class Extractor:
 
         return sen_activations, extracted_labels, n_extracted
 
-    def _init_sen_activations(self, sen_len: int = 0) -> PartialArrayDict:
+    def _init_sen_activations(self) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """
         return {
-            (layer, name): [] if sen_len == 0 else np.empty((sen_len, self.model.hidden_size))
-            for (layer, name) in self.activation_names
+            (layer, name): [] for (layer, name) in self.activation_names
         }
 
     def _init_avg_eos_activations(self) -> FullActivationDict:
-        init_avg_eos_activations: FullActivationDict = {}
+        init_avg_eos_activations: FullActivationDict = \
+            self.init_lstm_states.create_zero_init_states()
 
         for layer in range(self.model.num_layers):
-            init_avg_eos_activations[layer] = {
-                'hx': torch.zeros(self.model.hidden_size),
-                'cx': torch.zeros(self.model.hidden_size),
-            }
             if (layer, 'hx') not in self.activation_names:
                 self.activation_names.append((layer, 'hx'))
             if (layer, 'cx') not in self.activation_names:

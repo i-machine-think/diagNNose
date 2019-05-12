@@ -21,11 +21,11 @@ def init_argparser() -> ArgumentParser:
     # Required args are not set to be required here as they can come from --config
     from_cmd = parser.add_argument_group('From commandline',
                                          'Specify experiment setup via commandline arguments')
-    from_cmd.add_argument('--model',
+    from_cmd.add_argument('--model_path',
                           help='Path to model parameters')
-    from_cmd.add_argument('--vocab',
+    from_cmd.add_argument('--vocab_path',
                           help='Path to model vocabulary')
-    from_cmd.add_argument('--lm_module',
+    from_cmd.add_argument('--module_path',
                           help='Path to folder containing model module')
     from_cmd.add_argument('--corpus_path',
                           help='Path to labeled corpus')
@@ -69,9 +69,10 @@ def init_argparser() -> ArgumentParser:
 
 
 if __name__ == '__main__':
-    required_args = {'model', 'vocab', 'lm_module', 'corpus_path', 'activation_names', 'output_dir'}
+    required_args = {'model_path', 'vocab_path', 'module_path', 'corpus_path', 'activation_names',
+                     'output_dir'}
     arg_groups = {
-        'model': {'model', 'vocab', 'lm_module', 'device'},
+        'model': {'model_path', 'vocab_path', 'module_path', 'device'},
         'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
         'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     config_object = ConfigSetup(argparser, required_args, arg_groups)
     config_dict = config_object.config_dict
 
-    model: LanguageModel = import_model_from_json(**config_dict['model'])
+    model: LanguageModel = import_model_from_json(config_dict['model'])
     corpus: Corpus = import_corpus_from_path(**config_dict['corpus'])
 
     extractor = Extractor(model, corpus, **config_dict['init_extract'])

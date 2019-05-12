@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Set
 
 import numpy as np
@@ -90,3 +91,12 @@ class C2I(W2I):
             return self._word_char_ids[self.w2i[word]]
         else:
             return self._convert_word_to_char_ids(word)
+
+
+def create_vocab_from_path(vocab_path: str) -> Dict[str, int]:
+    with open(os.path.expanduser(vocab_path), 'r') as vf:
+        vocab_lines = vf.readlines()
+
+    w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
+
+    return w2i

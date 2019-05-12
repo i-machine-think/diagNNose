@@ -49,8 +49,7 @@ class DecomposerFactory:
 
         self.decoder_w, self.decoder_b = self._read_decoder(decoder)
 
-        self.init_cell_state: FullActivationDict = \
-            InitStates(model.num_layers, model.hidden_size, init_lstm_states_path).create()
+        self.init_cell_state: FullActivationDict = InitStates(model, init_lstm_states_path).create()
 
     def create(self,
                sen_index: ActivationKey,

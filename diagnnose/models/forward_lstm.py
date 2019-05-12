@@ -9,26 +9,26 @@ from torch import Tensor
 from diagnnose.typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
 
 from .language_model import LanguageModel
-from .w2i import W2I
+from diagnnose.utils.w2i import create_vocab_from_path, W2I
 
 
 class ForwardLSTM(LanguageModel):
+    """ Defines a default uni-directional n-layer LSTM.
+
+    Allows for extraction of intermediate states and gate activations.
+    """
     def __init__(self,
                  model_path: str,
                  vocab_path: str,
                  module_path: str,
                  device_name: str = 'cpu') -> None:
 
-        super().__init__(model_path, vocab_path, module_path, device_name)
+        super().__init__()
 
         sys.path.append(os.path.expanduser(module_path))
 
         print('Loading pretrained model...')
-        with open(os.path.expanduser(vocab_path), 'r') as vf:
-            vocab_lines = vf.readlines()
-
-        w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
-        self.w2i = W2I(w2i)
+        self.w2i = W2I(create_vocab_from_path(vocab_path))
 
         # Load the pretrained model
         device = torch.device(device_name)
@@ -37,18 +37,21 @@ class ForwardLSTM(LanguageModel):
 
         params = {name: param for name, param in model.named_parameters()}
 
-        self.hidden_size: int = model.rnn.hidden_size
-        self.num_layers: int = model.rnn.num_layers
+        self.num_layers = model.rnn.num_layers
+        self.hidden_size_c = model.rnn.hidden_size
+        self.hidden_size_h = model.rnn.hidden_size
+        self.split_order = ['i', 'f', 'g', 'o']
+
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
-        self.split_order = ['i', 'f', 'g', 'o']
-
         # LSTM weights
         for l in range(self.num_layers):
+            # (4*hidden_size, 2*hidden_size)
             self.weight[l] = torch.cat((params[f'rnn.weight_hh_l{l}'],
                                         params[f'rnn.weight_ih_l{l}']), dim=1)
 
+            # (4*hidden_size,)
             self.bias[l] = params[f'rnn.bias_ih_l{l}'] + params[f'rnn.bias_hh_l{l}']
 
         # Encoder and decoder weights
@@ -63,8 +66,9 @@ class ForwardLSTM(LanguageModel):
                      inp: Tensor,
                      prev_hx: Tensor,
                      prev_cx: Tensor) -> ActivationLayer:
+        # (4*hidden_size,)
         proj = self.weight[l] @ torch.cat((prev_hx, inp)) + self.bias[l]
-        split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size)))
+        split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size_c)))
 
         f_g: Tensor = torch.sigmoid(split_proj['f'])
         i_g: Tensor = torch.sigmoid(split_proj['i'])
