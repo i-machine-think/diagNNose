@@ -72,7 +72,7 @@ if __name__ == '__main__':
     required_args = {'model_type', 'corpus_path', 'activation_names', 'output_dir'}
     arg_groups = {
         'model': {'model_type', 'model_path', 'vocab_path', 'module_path', 'pbtxt_path', 'ckpt_dir',
-                  'device'},
+                  'full_vocab_path', 'device'},
         'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
         'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',

@@ -9,7 +9,7 @@ from torch import Tensor
 from diagnnose.typedefs.activations import NamedArrayDict, FullActivationDict, ParameterDict
 
 from .language_model import LanguageModel
-from diagnnose.utils.w2i import create_vocab_from_path, W2I
+from diagnnose.utils.vocab import create_vocab_from_path, W2I
 
 
 class ForwardLSTM(LanguageModel):

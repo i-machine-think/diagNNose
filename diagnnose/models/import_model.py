@@ -32,8 +32,8 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
 
 
 def import_decoder_from_model(model: LanguageModel,
-                              decoder_w: str = 'w_decoder',
-                              decoder_b: str = 'b_decoder') -> LinearDecoder:
+                              decoder_w: str = 'decoder_w',
+                              decoder_b: str = 'decoder_b') -> LinearDecoder:
     """ Returns the decoding layer of a language model.
 
     Assumed to be a linear layer, that can be accessed by the decoder_w

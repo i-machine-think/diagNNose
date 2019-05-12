@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Set
+from typing import Any, Dict, Set
 
 import numpy as np
 
@@ -37,8 +37,8 @@ class C2I(W2I):
     Taken from: https://github.com/tensorflow/models/tree/master/research/lm_1b
     """
 
-    def __init__(self, w2i: Dict[str, int], max_word_length: int = 50) -> None:
-        super().__init__(w2i)
+    def __init__(self, w2i: Dict[str, int], max_word_length: int = 50, **kwargs: Any) -> None:
+        super().__init__(w2i, **kwargs)
         self._max_word_length = max_word_length
         chars_set: Set[str] = set()
 
