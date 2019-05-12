@@ -6,7 +6,7 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
+from diagnnose.typedefs.activations import NamedArrayDict, FullActivationDict, ParameterDict
 
 from .language_model import LanguageModel
 from diagnnose.utils.w2i import create_vocab_from_path, W2I
@@ -66,7 +66,7 @@ class ForwardLSTM(LanguageModel):
                      l: int,
                      inp: Tensor,
                      prev_hx: Tensor,
-                     prev_cx: Tensor) -> ActivationLayer:
+                     prev_cx: Tensor) -> NamedArrayDict:
         # (4*hidden_size,)
         proj = self.weight[l] @ torch.cat((prev_hx, inp)) + self.bias[l]
         split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size_c)))

@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 
 from diagnnose.models.language_model import LanguageModel
-from diagnnose.typedefs.activations import ActivationName, DecomposeArrayDict, PartialArrayDict
+from diagnnose.typedefs.activations import ActivationName, NamedArrayDict, PartialArrayDict
 from diagnnose.typedefs.classifiers import LinearDecoder
 
 
@@ -40,10 +40,10 @@ class BaseDecomposer:
         self._validate_activation_shapes()
         self._append_init_cell_states()
 
-    def _decompose(self, *arg: Any, **kwargs: Any) -> DecomposeArrayDict:
+    def _decompose(self, *arg: Any, **kwargs: Any) -> NamedArrayDict:
         raise NotImplementedError
 
-    def decompose(self, *arg: Any, append_bias: bool = False, **kwargs: Any) -> DecomposeArrayDict:
+    def decompose(self, *arg: Any, append_bias: bool = False, **kwargs: Any) -> NamedArrayDict:
         decomposition = self._decompose(*arg, **kwargs)
 
         if append_bias:

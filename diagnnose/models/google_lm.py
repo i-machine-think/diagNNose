@@ -11,7 +11,7 @@ from scipy.special import expit as sigmoid
 from tensorflow.python import pywrap_tensorflow
 from torch import Tensor
 
-from diagnnose.typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
+from diagnnose.typedefs.activations import NamedArrayDict, FullActivationDict, ParameterDict
 from diagnnose.utils.w2i import C2I, create_vocab_from_path
 
 from .language_model import LanguageModel
@@ -29,10 +29,10 @@ class GoogleLM(LanguageModel):
 
         self.c2i = C2I(create_vocab_from_path(vocab_path))
 
-        print('Loading pretrained model...')
-
         self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
+        self.cnn_embs: NamedArrayDict = {}
 
+        print('Loading LSTM...')
         lstm_reader = pywrap_tensorflow.NewCheckpointReader(os.path.join(ckpt_dir, 'ckpt-lstm'))
 
         # Projects hidden+input (2*1024) onto cell state dimension (8192)
@@ -64,6 +64,7 @@ class GoogleLM(LanguageModel):
 
     @staticmethod
     def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:
+        print('Loading char CNN...')
         ckpt_file = os.path.join(ckpt_dir, 'ckpt-char-embedding')
 
         with tf.Graph().as_default():
@@ -75,8 +76,7 @@ class GoogleLM(LanguageModel):
 
             t = dict()
             [t['char_inputs_in'], t['all_embs']] = \
-                tf.import_graph_def(gd, {}, ['char_inputs_in:0',
-                                             'all_embs_out:0'], name='')
+                tf.import_graph_def(gd, {}, ['char_inputs_in:0', 'all_embs_out:0'], name='')
 
             sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
             sess.run(f'save/Assign', {'save/Const:0': ckpt_file})
@@ -88,18 +88,23 @@ class GoogleLM(LanguageModel):
         return sess, t
 
     def encode(self, token: str) -> np.ndarray:
+        if token in self.cnn_embs:
+            return self.cnn_embs[token]
+
         input_dict = {
             self.cnn_t['char_inputs_in']: self.c2i.word_to_char_ids(token).reshape(
                 [-1, 1, self.c2i.max_word_length])
         }
+        emb = self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)[0]
+        self.cnn_embs[token] = emb
 
-        return self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)[0]
+        return emb
 
     def forward_step(self,
                      l: int,
                      inp: np.ndarray,
                      prev_hx: np.ndarray,
-                     prev_cx: np.ndarray) -> ActivationLayer:
+                     prev_cx: np.ndarray) -> NamedArrayDict:
         proj = np.concatenate((prev_hx, inp)) @ self.weight[l] + self.bias[l]
         split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
@@ -123,7 +128,6 @@ class GoogleLM(LanguageModel):
     def forward(self,
                 token: str,
                 prev_activations: FullActivationDict) -> Tuple[np.ndarray, FullActivationDict]:
-
         # Look up the embeddings of the input words
         input_ = self.encode(token)
 

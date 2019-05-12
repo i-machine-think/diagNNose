@@ -9,17 +9,14 @@ ActivationNames = List[ActivationName]
 
 ActivationFiles = Dict[ActivationName, BinaryIO]
 
-ActivationLayer = Dict[str, Union[Tensor, np.ndarray]]
+NamedArrayDict = Dict[str, Union[Tensor, np.ndarray]]
 
 # Nested dict with embeddings for each activation
-FullActivationDict = Dict[int, ActivationLayer]
+FullActivationDict = Dict[int, NamedArrayDict]
 
 # Dict with arbitrary number of activations
 PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
-
-# Dictionary mapping decomposition types to numpy arrays
-DecomposeArrayDict = Dict[str, np.ndarray]
 
 ParameterDict = FullActivationDict
 

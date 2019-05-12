@@ -4,7 +4,7 @@ import numpy as np
 from overrides import overrides
 from scipy.special import expit as sigmoid
 
-from diagnnose.typedefs.activations import DecomposeArrayDict, PartialArrayDict
+from diagnnose.typedefs.activations import NamedArrayDict, PartialArrayDict
 
 from .base_decomposer import BaseDecomposer
 
@@ -26,8 +26,8 @@ class ContextualDecomposer(BaseDecomposer):
 
         self.weight: PartialArrayDict = {}
         self.bias: PartialArrayDict = {}
-        self.activations: DecomposeArrayDict = {}
-        self.decompositions: DecomposeArrayDict = {}
+        self.activations: NamedArrayDict = {}
+        self.decompositions: NamedArrayDict = {}
 
         self.rel_interactions: Set[str] = set()
         self.irrel_interactions: Set[str] = set()
@@ -41,7 +41,7 @@ class ContextualDecomposer(BaseDecomposer):
                    input_never_rel: bool = False,
                    use_extracted_activations: bool = False,
                    validate: bool = True,
-                   ) -> DecomposeArrayDict:
+                   ) -> NamedArrayDict:
         """ Main loop for the contextual decomposition.
 
         Parameters
@@ -78,7 +78,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         Returns
         -------
-        scores : DecomposeArrayDict
+        scores : NamedArrayDict
             Dictionary with keys `relevant` and `irrelevant`, containing
             the decomposed scores for the earlier provided decoder.
         """
@@ -298,7 +298,7 @@ class ContextualDecomposer(BaseDecomposer):
             for name in ['hi', 'hf', 'hg', 'ho']:
                 self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
 
-    def _validate_decomposition(self, scores: DecomposeArrayDict) -> None:
+    def _validate_decomposition(self, scores: NamedArrayDict) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))
         original_score = np.ma.dot(final_hidden_state[0], self.decoder_w.T)
 
@@ -308,7 +308,7 @@ class ContextualDecomposer(BaseDecomposer):
         assert np.allclose(original_score, decomposed_score, rtol=1e-3), \
             f'Decomposed score does not match: {original_score} vs {decomposed_score}'
 
-    def _calc_scores(self) -> DecomposeArrayDict:
+    def _calc_scores(self) -> NamedArrayDict:
         return {
             'relevant': self.decompositions['relevant_h'][-1] @ self.decoder_w.T,
             'irrelevant': self.decompositions['irrelevant_h'][-1] @ self.decoder_w.T,

@@ -1,7 +1,7 @@
 import numpy as np
 from overrides import overrides
 
-from diagnnose.typedefs.activations import DecomposeArrayDict
+from diagnnose.typedefs.activations import NamedArrayDict
 
 from .base_decomposer import BaseDecomposer
 
@@ -14,7 +14,7 @@ class CellDecomposer(BaseDecomposer):
     """
 
     @overrides
-    def _decompose(self) -> DecomposeArrayDict:
+    def _decompose(self) -> NamedArrayDict:
         return {
             'beta': self.calc_beta(),
             'gamma': self.calc_gamma(),
