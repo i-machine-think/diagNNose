@@ -11,7 +11,6 @@ from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.corpus import Corpus, CorpusSentence, Labels
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
 from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
-from diagnnose.utils.paths import trim
 
 
 class Extractor:

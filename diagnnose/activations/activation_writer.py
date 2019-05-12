@@ -58,20 +58,20 @@ class ActivationWriter:
         self.activation_files = {
             (layer, name):
                 stack.enter_context(
-                    open(f'{self.output_dir}/{name}_l{layer}.pickle', 'wb')
+                    open(os.path.join(self.output_dir, f'{name}_l{layer}.pickle'), 'wb')
                 )
             for (layer, name) in self.activation_names
         }
         self.activation_ranges_file = stack.enter_context(
-            open(f'{self.output_dir}/ranges.pickle', 'wb')
+            open(os.path.join(self.output_dir, 'ranges.pickle'), 'wb')
         )
         if create_label_file:
             self.label_file = stack.enter_context(
-                open(f'{self.output_dir}/labels.pickle', 'wb')
+                open(os.path.join(self.output_dir, 'labels.pickle'), 'wb')
             )
         if create_avg_eos_file:
             self.avg_eos_file = stack.enter_context(
-                open(f'{self.output_dir}/avg_eos.pickle', 'wb')
+                open(os.path.join(self.output_dir, 'avg_eos.pickle'), 'wb')
             )
 
     def dump_activations(self, activations: PartialArrayDict) -> None:
@@ -119,7 +119,7 @@ class ActivationWriter:
 
         for (layer, name) in self.activation_names:
             activations = activation_reader.read_activations((layer, name))
-            filename = f'{self.output_dir}/{name}_l{layer}.pickle'
+            filename = os.path.join(self.output_dir, f'{name}_l{layer}.pickle')
             if not overwrite:
                 filename = filename.replace('.pickle', '_concat.pickle')
             dump_pickle(activations, filename)
