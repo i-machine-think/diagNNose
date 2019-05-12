@@ -1,13 +1,11 @@
 from typing import Any, Dict, Type
-
+from importlib import import_module
 from diagnnose.typedefs.classifiers import LinearDecoder
 
-from .forward_lstm import ForwardLSTM
 from .language_model import LanguageModel
 
 
-def import_model_from_json(model_config: Dict[str, Any],
-                           model_constructor: Type[LanguageModel] = ForwardLSTM) -> LanguageModel:
+def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     """
     Import a model from a json file.
 
@@ -15,13 +13,21 @@ def import_model_from_json(model_config: Dict[str, Any],
     ----------
     model_config : str
         Dictionary containing the model config attributes.
-    model_constructor: LanguageModel
-        The class that the model is going to be loaded into.
 
     Returns
     --------
     A LanguageModel created from the given files
     """
+    model_type = model_config.pop('model_type')
+
+    module_name = {
+        'ForwardLSTM': 'forward_lstm',
+        'GoogleLM': 'google_lm',
+    }[model_type]
+
+    module = import_module(f'diagnnose.models.{module_name}')
+    model_constructor: Type[LanguageModel] = getattr(module, model_type)
+
     return model_constructor(**model_config)
 
 
