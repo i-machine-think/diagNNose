@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
 
+import numpy as np
 import torch
 
 from diagnnose.models.language_model import LanguageModel
@@ -26,8 +27,12 @@ class InitStates:
         self.num_layers = model.num_layers
         self.hidden_size_c = model.hidden_size_c
         self.hidden_size_h = model.hidden_size_h
+
         self.init_lstm_states_path = init_lstm_states_path
+
         self.batch_size = batch_size
+
+        self.use_np_arrays = model.array_type == 'numpy'
 
     def create(self) -> FullActivationDict:
         """ Set up the initial LM states.
@@ -81,8 +86,12 @@ class InitStates:
             } for l in range(self.num_layers)
         }
 
-    def _create_zero_state(self, size: int) -> torch.Tensor:
+    def _create_zero_state(self, size: int) -> Union[torch.Tensor, np.ndarray]:
         if self.batch_size is not None:
+            if self.use_np_arrays:
+                return np.zeros((self.batch_size, size))
             return torch.zeros((self.batch_size, size))
 
+        if self.use_np_arrays:
+            return np.zeros(size)
         return torch.zeros(size)

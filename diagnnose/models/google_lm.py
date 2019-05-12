@@ -7,29 +7,31 @@ import tensorflow as tf
 import torch
 from google.protobuf import text_format
 from overrides import overrides
+from scipy.special import expit as sigmoid
 from tensorflow.python import pywrap_tensorflow
 from torch import Tensor
 
 from diagnnose.typedefs.activations import ActivationLayer, FullActivationDict, ParameterDict
-from diagnnose.utils.w2i import create_vocab_from_path, C2I
+from diagnnose.utils.w2i import C2I, create_vocab_from_path
 
 from .language_model import LanguageModel
 
 
 class GoogleLM(LanguageModel):
-    def __init__(self, vocab_path: str, pbtxt_file: str, ckpt_dir: str) -> None:
+    def __init__(self, vocab_path: str, pbtxt_path: str, ckpt_dir: str) -> None:
         super().__init__()
 
         self.num_layers = 2
         self.hidden_size_c = 8192
         self.hidden_size_h = 1024
         self.split_order = ['f', 'i', 'o', 'g']
+        self.array_type = 'numpy'
 
         self.c2i = C2I(create_vocab_from_path(vocab_path))
 
         print('Loading pretrained model...')
 
-        self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_file, ckpt_dir)
+        self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
 
         lstm_reader = pywrap_tensorflow.NewCheckpointReader(os.path.join(ckpt_dir, 'ckpt-lstm'))
 
@@ -46,27 +48,27 @@ class GoogleLM(LanguageModel):
             # Model weights are divided into 8 chunks
             # (2048, 32768)
             self.weight[l] = np.concatenate(
-                lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{i}') for i in range(8)
+                [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{i}') for i in range(8)]
             )
             # (32768,)
             self.bias[l] = lstm_reader.get_tensor(f'lstm/lstm_{l}/B')
 
             # (8192, 1024)
             self.weight_P[l] = np.concatenate(
-                lstm_reader.get_tensor(f'lstm/lstm_{l}/W_P_{i}') for i in range(8)
+                [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_P_{i}') for i in range(8)]
             )
             for p in ['F', 'I', 'O']:
-                self.peepholes[0][p] = lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag')
+                self.peepholes[l][p] = lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag')
 
         print('Model initialisation finished.')
 
     @staticmethod
-    def _load_char_cnn(pbtxt_file: str, ckpt_dir: str) -> Any:
+    def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:
         ckpt_file = os.path.join(ckpt_dir, 'ckpt-char-embedding')
 
         with tf.Graph().as_default():
             sys.stderr.write('Recovering graph.\n')
-            with tf.gfile.FastGFile(pbtxt_file, 'r') as f:
+            with tf.gfile.FastGFile(pbtxt_path, 'r') as f:
                 s = f.read()
                 gd = tf.GraphDef()
                 text_format.Merge(s, gd)
@@ -91,25 +93,25 @@ class GoogleLM(LanguageModel):
                 [-1, 1, self.c2i.max_word_length])
         }
 
-        return self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)
+        return self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)[0]
 
     def forward_step(self,
                      l: int,
-                     inp: Tensor,
-                     prev_hx: Tensor,
-                     prev_cx: Tensor) -> ActivationLayer:
-        proj = self.weight[l] @ torch.cat((prev_hx, inp)) + self.bias[l]
-        split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size)))
+                     inp: np.ndarray,
+                     prev_hx: np.ndarray,
+                     prev_cx: np.ndarray) -> ActivationLayer:
+        proj = np.concatenate((prev_hx, inp)) @ self.weight[l] + self.bias[l]
+        split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
-        f_g: Tensor = torch.sigmoid(split_proj['f'] + prev_cx*self.peepholes[l]['F'] + 1)
-        i_g: Tensor = torch.sigmoid(split_proj['i'] + prev_cx*self.peepholes[l]['I'])
-        c_tilde_g: Tensor = torch.tanh(split_proj['g'])
+        f_g: np.ndarray = sigmoid(split_proj['f'] + prev_cx*self.peepholes[l]['F'] + 1)
+        i_g: np.ndarray = sigmoid(split_proj['i'] + prev_cx*self.peepholes[l]['I'])
+        c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
 
-        cx: Tensor = f_g * prev_cx + i_g * c_tilde_g
+        cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g
 
-        o_g: Tensor = torch.sigmoid(split_proj['o'] + cx*self.peepholes[l]['O'])
+        o_g: np.ndarray = sigmoid(split_proj['o'] + cx*self.peepholes[l]['O'])
 
-        hx: Tensor = o_g * torch.tanh(cx)
+        hx: np.ndarray = (o_g * np.tanh(cx)) @ self.weight_P[l]
 
         return {
             'emb': inp,
@@ -120,7 +122,7 @@ class GoogleLM(LanguageModel):
     @overrides
     def forward(self,
                 token: str,
-                prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
+                prev_activations: FullActivationDict) -> Tuple[np.ndarray, FullActivationDict]:
 
         # Look up the embeddings of the input words
         input_ = self.encode(token)

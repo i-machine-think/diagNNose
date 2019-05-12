@@ -9,7 +9,7 @@ ActivationNames = List[ActivationName]
 
 ActivationFiles = Dict[ActivationName, BinaryIO]
 
-ActivationLayer = Dict[str, Tensor]
+ActivationLayer = Dict[str, Union[Tensor, np.ndarray]]
 
 # Nested dict with embeddings for each activation
 FullActivationDict = Dict[int, ActivationLayer]

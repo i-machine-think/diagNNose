@@ -203,9 +203,10 @@ class Extractor:
                     extracted_labels.append(sentence.labels[i])
 
                 for layer, name in self.activation_names:
-                    sen_activations[(layer, name)].append(
-                        activations[layer][name].detach().numpy()
-                    )
+                    activation = activations[layer][name]
+                    if self.model.array_type == 'torch':
+                        activation = activation.detach().numpy()
+                    sen_activations[(layer, name)].append(activation)
 
                 n_extracted += 1
 

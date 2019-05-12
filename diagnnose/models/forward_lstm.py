@@ -41,6 +41,7 @@ class ForwardLSTM(LanguageModel):
         self.hidden_size_c = model.rnn.hidden_size
         self.hidden_size_h = model.rnn.hidden_size
         self.split_order = ['i', 'f', 'g', 'o']
+        self.array_type = 'torch'
 
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
