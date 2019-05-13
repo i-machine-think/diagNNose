@@ -89,9 +89,9 @@ class InitStates:
     def _create_zero_state(self, size: int) -> Union[torch.Tensor, np.ndarray]:
         if self.batch_size is not None:
             if self.use_np_arrays:
-                return np.zeros((self.batch_size, size))
-            return torch.zeros((self.batch_size, size))
+                return np.zeros((self.batch_size, size), dtype=np.float32)
+            return torch.zeros((self.batch_size, size), dtype=np.float32)
 
         if self.use_np_arrays:
-            return np.zeros(size)
-        return torch.zeros(size)
+            return np.zeros(size, dtype=np.float32)
+        return torch.zeros(size, dtype=np.float32)

@@ -124,10 +124,10 @@ class CharCNN:
             return self.cnn_embs[token]
 
         input_dict = {
-            self.cnn_t['char_inputs_in']: self.c2i.word_to_char_ids(token).reshape(
-                [-1, 1, self.c2i.max_word_length])
+            self.cnn_t['char_inputs_in']: self.vocab.word_to_char_ids(token).reshape(
+                [-1, 1, self.vocab.max_word_length])
         }
-        emb = self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)[0]
+        emb = self.cnn_sess.run(self.cnn_t['all_embs'], input_dict)[0].astype(np.float32)
         self.cnn_embs[token] = emb
 
         return emb
@@ -156,24 +156,28 @@ class LSTM:
             # (32768, 2048)
             self.weight[l] = np.concatenate(
                 [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{i}') for i in range(8)]
-            ).T
+            ).astype(np.float32).T
+
             # (32768,)
-            self.bias[l] = lstm_reader.get_tensor(f'lstm/lstm_{l}/B')
+            self.bias[l] = lstm_reader.get_tensor(f'lstm/lstm_{l}/B').astype(np.float32)
 
             # (8192, 1024)
             self.weight_P[l] = np.concatenate(
                 [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_P_{i}') for i in range(8)]
-            )
+            ).astype(np.float32)
+
             for p in ['F', 'I', 'O']:
-                self.peepholes[l, p] = lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag')
+                self.peepholes[l, p.lower()] = \
+                    lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag').astype(np.float32)
 
 
 class SoftMax:
-    def __init__(self, c2i: C2I, full_vocab_path: str, ckpt_dir: str):
-        self.decoder_w = np.zeros((len(c2i), 1024), dtype=np.float32)
-        self.decoder_b = np.zeros(len(c2i), dtype=np.float32)
+    def __init__(self, vocab: C2I, full_vocab_path: str, ckpt_dir: str, hidden_size_h: int) -> None:
+        print('Loading SoftMax...')
+        self.decoder_w = np.zeros((len(vocab), hidden_size_h), dtype=np.float32)
+        self.decoder_b = np.zeros(len(vocab), dtype=np.float32)
 
-        self._load_softmax(c2i, full_vocab_path, ckpt_dir)
+        self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
     def _load_softmax(self, c2i: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
         with open(full_vocab_path) as f:
@@ -185,7 +189,7 @@ class SoftMax:
         # SoftMax is chunked into 8 arrays
         for i in range(8):
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f'ckpt-softmax{i}'))
-            full_sm = sm_reader.get_tensor(f'softmax/W_{i}')
+            full_sm = sm_reader.get_tensor(f'softmax/W_{i}').astype(np.float32)
             for j, w in enumerate(full_vocab[i*100000:(i+1)*100000]):
                 if w in c2i:
                     self.decoder_w[c2i[w]] = full_sm[j]
