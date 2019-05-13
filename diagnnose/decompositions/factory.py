@@ -1,3 +1,4 @@
+from importlib import import_module
 from typing import List, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -24,9 +25,9 @@ class DecomposerFactory:
     ----------
     model : LanguageModel
         LanguageModel for which decomposition will be performed
-    decomposer : Type[BaseDecomposer] | str
-        Either an uninstantiated BaseDecomposer class or a string of the
-        class name ('CellDecomposer' or 'ContextualDecomposer').
+    decomposer : str
+        String of the decomposition class name, either CellDecomposer or
+        ContextualDecomposer
     activations_dir : str
         Path to folder containing extracted activations
     decoder : Union[str, LinearDecoder]
@@ -38,11 +39,10 @@ class DecomposerFactory:
 
     def __init__(self,
                  model: LanguageModel,
-                 decomposer: Union[Type[BaseDecomposer], str],
+                 decomposer: str,
                  activations_dir: str,
                  decoder: Optional[str] = None,
                  init_lstm_states_path: Optional[str] = None) -> None:
-
         self.decomposer_constructor = self._read_decomposer(decomposer)
         self.activation_reader = ActivationReader(activations_dir, store_multiple_activations=True)
         self.model = model
@@ -140,7 +140,9 @@ class DecomposerFactory:
             return np.zeros((batch_size, 1, self.model.hidden_size))
 
         if subsen_index.start == 0 or subsen_index.start is None:
-            init_state = self.init_cell_state[layer][name[1:]].numpy()
+            init_state = self.init_cell_state[layer][name[1:]]
+            if self.model.array_type == 'torch':
+                init_state = init_state.numpy()
             init_state = np.tile(init_state, (batch_size, 1))
         else:
             init_state = activations[:, subsen_index.start - 1]
@@ -179,15 +181,10 @@ class DecomposerFactory:
         return decoder_w, decoder_b
 
     @staticmethod
-    def _read_decomposer(decomposer_constructor: Union[str, Type[BaseDecomposer]]
-                         ) -> Type[BaseDecomposer]:
-        if isinstance(decomposer_constructor, str):
-            # Import Decomposer class from string, assumes module name to be snake case variant
-            # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
-            from importlib import import_module
-            module_name = camel2snake(decomposer_constructor)
-            module = import_module(f'diagnnose.decompositions.{module_name}')
-            decomposer: Type[BaseDecomposer] = getattr(module, decomposer_constructor)
-            return decomposer
-
-        return decomposer_constructor
+    def _read_decomposer(decomposer_constructor: str) -> Type[BaseDecomposer]:
+        # Import Decomposer class from string, assumes module name to be snake case variant
+        # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
+        module_name = camel2snake(decomposer_constructor)
+        module = import_module(f'diagnnose.decompositions.{module_name}')
+        decomposer: Type[BaseDecomposer] = getattr(module, decomposer_constructor)
+        return decomposer
