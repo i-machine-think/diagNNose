@@ -8,6 +8,7 @@ from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
 
 
+# TODO: move this to a general function in /config, as it's mostly duplicated in the other scripts.
 def init_argparser() -> ArgumentParser:
     parser = ArgumentParser()
 
@@ -21,19 +22,32 @@ def init_argparser() -> ArgumentParser:
     # Required args are not set to be required here as they can come from --config
     from_cmd = parser.add_argument_group('From commandline',
                                          'Specify experiment setup via commandline arguments')
+
+    # Gulordava ForwardLSTM args
     from_cmd.add_argument('--model_path',
                           help='Path to model parameters')
     from_cmd.add_argument('--vocab_path',
                           help='Path to model vocabulary')
     from_cmd.add_argument('--module_path',
                           help='Path to folder containing model module')
+    from_cmd.add_argument('--device',
+                          help='(optional) Torch device name on which model will be run.'
+                               'Defaults to cpu.')
+
+    # GoogleLM args
+    from_cmd.add_argument('--pbtxt_path',
+                          help='Path to the .pbtxt file containing the GraphDef model setup.')
+    from_cmd.add_argument('--ckpt_dir',
+                          help='Path to folder containing parameter checkpoint files.')
+    from_cmd.add_argument('--corpus_vocab_path',
+                          help='Path to the corpus vocabulary. This allows for only a subset of the'
+                               'model softmax to be loaded in.')
+    from_cmd.add_argument('--full_vocab_path',
+                          help='Path to the full model vocabulary of 800k tokens.')
+
+    # Corpus args
     from_cmd.add_argument('--corpus_path',
                           help='Path to labeled corpus')
-    # TODO: Provide explanation of activation names
-    from_cmd.add_argument('--activation_names',
-                          help='Activations to be extracted', nargs='*')
-    from_cmd.add_argument('--output_dir',
-                          help='Path to folder to which extracted embeddings will be written.')
     from_cmd.add_argument('--corpus_header', nargs='*',
                           help='(optional) List of corpus attribute names.'
                                'If not provided first line is used as header.')
@@ -42,9 +56,13 @@ def init_argparser() -> ArgumentParser:
     from_cmd.add_argument('--from_dict', type=bool,
                           help='(optional) Set to true to load in pickled corpus dictionary, '
                                'instead of a raw file.')
-    from_cmd.add_argument('--device',
-                          help='(optional) Torch device name on which model will be run.'
-                               'Defaults to cpu.')
+
+    # Extraction args
+    # TODO: Provide explanation of activation names
+    from_cmd.add_argument('--activation_names',
+                          help='Activations to be extracted', nargs='*')
+    from_cmd.add_argument('--output_dir',
+                          help='Path to folder to which extracted embeddings will be written.')
     from_cmd.add_argument('--init_lstm_states_path',
                           help='(optional) Location of initial lstm states of the model. '
                                'If no path is provided zero-initialized states will be used at the'
@@ -72,7 +90,7 @@ if __name__ == '__main__':
     required_args = {'model_type', 'corpus_path', 'activation_names', 'output_dir'}
     arg_groups = {
         'model': {'model_type', 'model_path', 'vocab_path', 'module_path', 'pbtxt_path', 'ckpt_dir',
-                  'full_vocab_path', 'device'},
+                  'corpus_vocab_path', 'full_vocab_path', 'device'},
         'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
         'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',
