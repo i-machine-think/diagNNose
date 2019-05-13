@@ -28,7 +28,7 @@ class ForwardLSTM(LanguageModel):
         sys.path.append(os.path.expanduser(module_path))
 
         print('Loading pretrained model...')
-        self.w2i = W2I(create_vocab_from_path(vocab_path))
+        self.vocab = W2I(create_vocab_from_path(vocab_path))
 
         # Load the pretrained model
         device = torch.device(device_name)
@@ -91,7 +91,7 @@ class ForwardLSTM(LanguageModel):
                 prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
 
         # Look up the embeddings of the input words
-        input_ = self.encoder[self.w2i[token]]
+        input_ = self.encoder[self.vocab[token]]
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}

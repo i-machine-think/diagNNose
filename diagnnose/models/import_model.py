@@ -48,7 +48,11 @@ def import_decoder_from_model(model: LanguageModel,
     decoder_b : str
         Attribute name of the decoder bias in the LM.
     """
-    w = getattr(model, decoder_w).data.numpy()
-    b = getattr(model, decoder_b).data.numpy()
+    w = getattr(model, decoder_w)
+    b = getattr(model, decoder_b)
+
+    if model.array_type == 'torch':
+        w = w.data.numpy()
+        b = b.data.numpy()
 
     return w, b

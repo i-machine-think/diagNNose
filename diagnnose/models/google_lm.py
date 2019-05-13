@@ -18,7 +18,10 @@ from .language_model import LanguageModel
 
 class GoogleLM(LanguageModel):
     def __init__(self,
-                 vocab_path: str, pbtxt_path: str, ckpt_dir: str, full_vocab_path: str) -> None:
+                 corpus_vocab_path: str,
+                 pbtxt_path: str,
+                 ckpt_dir: str,
+                 full_vocab_path: str) -> None:
         super().__init__()
 
         self.num_layers = 2
@@ -26,14 +29,31 @@ class GoogleLM(LanguageModel):
         self.hidden_size_h = 1024
         self.split_order = ['f', 'i', 'o', 'g']
         self.array_type = 'numpy'
+        self.forget_offset = 1
 
-        self.c2i = C2I(create_vocab_from_path(vocab_path), unk_token='<UNK>', eos_token='<EOS>')
+        vocab = C2I(create_vocab_from_path(corpus_vocab_path), unk_token='<UNK>', eos_token='<EOS>')
 
-        self.char_cnn = CharCNN(pbtxt_path, ckpt_dir, self.c2i)
+        self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
-        self.sm = SoftMax(self.c2i, full_vocab_path, ckpt_dir)
+        self.sm = SoftMax(vocab, full_vocab_path, ckpt_dir, self.hidden_size_h)
 
         print('Model initialisation finished.')
+
+    @property
+    def vocab(self) -> C2I:
+        return self.encoder.vocab
+
+    @property
+    def weight(self) -> ParameterDict:
+        return self.lstm.weight
+
+    @property
+    def bias(self) -> ParameterDict:
+        return self.lstm.bias
+
+    @property
+    def peepholes(self) -> PartialArrayDict:
+        return self.lstm.peepholes
 
     @property
     def decoder_w(self) -> np.ndarray:
@@ -51,13 +71,19 @@ class GoogleLM(LanguageModel):
         proj = self.lstm.weight[l] @ np.concatenate((prev_hx, inp)) + self.lstm.bias[l]
         split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
-        f_g: np.ndarray = sigmoid(split_proj['f'] + prev_cx*self.lstm.peepholes[l, 'F'] + 1)
-        i_g: np.ndarray = sigmoid(split_proj['i'] + prev_cx*self.lstm.peepholes[l, 'I'])
+        f_g: np.ndarray = sigmoid(split_proj['f']
+                                  + prev_cx*self.lstm.peepholes[l, 'f']
+                                  + self.forget_offset)
+        i_g: np.ndarray = sigmoid(split_proj['i']
+                                  + prev_cx*self.lstm.peepholes[l, 'i']
+                                  )
         c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
 
         cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g
 
-        o_g: np.ndarray = sigmoid(split_proj['o'] + cx*self.lstm.peepholes[l, 'O'])
+        o_g: np.ndarray = sigmoid(split_proj['o']
+                                  + cx*self.lstm.peepholes[l, 'o']
+                                  )
 
         hx: np.ndarray = (o_g * np.tanh(cx)) @ self.lstm.weight_P[l]
 
@@ -71,8 +97,8 @@ class GoogleLM(LanguageModel):
     def forward(self,
                 token: str,
                 prev_activations: FullActivationDict) -> Tuple[np.ndarray, FullActivationDict]:
-        # Look up the embeddings of the input words
-        input_ = self.char_cnn.encode(token)
+        # Create the embeddings of the input words
+        input_ = self.encoder.encode(token)
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
@@ -82,18 +108,18 @@ class GoogleLM(LanguageModel):
             activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
             input_ = activations[l]['hx']
 
-        out: np.ndarray = self.decoder_w @ input_ + self.decoder_b
+        out: np.ndarray = None # self.decoder_w @ input_ + self.decoder_b
 
         return out, activations
 
 
 class CharCNN:
-    def __init__(self, pbtxt_path: str, ckpt_dir: str, c2i: C2I) -> None:
+    def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I) -> None:
         print('Loading char CNN...')
 
         self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
         self.cnn_embs: NamedArrayDict = {}
-        self.c2i = c2i
+        self.vocab = vocab
 
     @staticmethod
     def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:

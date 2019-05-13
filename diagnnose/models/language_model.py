@@ -18,6 +18,7 @@ class LanguageModel(ABC, nn.Module):
     @abstractmethod
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__()
+        self.forget_offset = 0
 
     @overrides
     @abstractmethod
