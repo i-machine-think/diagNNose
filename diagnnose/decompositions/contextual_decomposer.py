@@ -133,8 +133,8 @@ class ContextualDecomposer(BaseDecomposer):
         prev_rel_h, prev_irrel_h = self._get_prev_cells(layer, i, start, 'h')
 
         # Weights are stored as 1 big array
-        rel_proj = self.weight[layer] @ np.concatenate((prev_rel_h, rel_input))
-        irrel_proj = self.weight[layer] @ np.concatenate((prev_irrel_h, irrel_input))
+        rel_proj = self.model.weight[layer] @ np.concatenate((prev_rel_h, rel_input))
+        irrel_proj = self.model.weight[layer] @ np.concatenate((prev_irrel_h, irrel_input))
 
         rel_names = map(lambda x: f'rel_{x}', self.model.split_order)
         self.activations.update(
@@ -145,12 +145,18 @@ class ContextualDecomposer(BaseDecomposer):
             dict(zip(irrel_names, np.split(irrel_proj, 4)))
         )
 
+        if hasattr(self.model, 'peepholes'):
+            prev_rel_c, prev_irrel_c = self._get_prev_cells(layer, i, start, 'c')
+            for p in ['f', 'i']:
+                self.activations[f'rel_{p}'] += prev_rel_c * self.model.peepholes[layer, p]
+                self.activations[f'irrel_{p}'] += prev_irrel_c * self.model.peepholes[layer, p]
+
     def _add_forget_decomposition(self, layer: int, i: int, start: int) -> None:
         """ Calculates the forget gate decomposition, Equation (14) of the paper. """
 
         rel_contrib_f, irrel_contrib_f, bias_contrib_f = \
             decomp_three(self.activations['rel_f'], self.activations['irrel_f'],
-                         self.bias[layer]['f'], sigmoid)
+                         self.bias[layer]['f']+self.model.forget_offset, sigmoid)
 
         prev_rel_c, prev_irrel_c = self._get_prev_cells(layer, i, start, 'c')
 
@@ -181,24 +187,36 @@ class ContextualDecomposer(BaseDecomposer):
         As stated in the paper, output decomposition is not always
         beneficial and can therefore be toggled off.
         """
+        rel_c = self.decompositions['relevant_c'][layer][i]
+        irrel_c = self.decompositions['irrelevant_c'][layer][i]
 
-        rel_c, irrel_c = decomp_tanh_two(self.decompositions['relevant_c'][layer][i],
-                                         self.decompositions['irrelevant_c'][layer][i])
+        new_rel_h, new_irrel_h = decomp_tanh_two(rel_c, irrel_c)
         rel_o, irrel_o = self.activations['rel_o'], self.activations['irrel_o']
+
+        if hasattr(self.model, 'peepholes'):
+            rel_o += rel_c * self.model.peepholes[layer, 'o']
+            irrel_o += irrel_c * self.model.peepholes[layer, 'o']
 
         if decompose_o:
             rel_contrib_o, irrel_contrib_o, bias_contrib_o = \
                 decomp_three(rel_o, irrel_o, self.bias[layer]['o'], sigmoid)
 
             self._add_interactions(layer, i,
-                                   rel_contrib_o, rel_c,
-                                   irrel_contrib_o, irrel_c,
+                                   rel_contrib_o, new_rel_h,
+                                   irrel_contrib_o, new_irrel_h,
                                    bias_contrib_o,
                                    cell_type='h')
         else:
             o = sigmoid(rel_o + irrel_o + self.bias[layer]['o'])
-            self.decompositions['relevant_h'][layer][i] = o * rel_c
-            self.decompositions['irrelevant_h'][layer][i] = o * irrel_c
+            new_rel_h *= o
+            new_irrel_h *= o
+
+            if self.model.hidden_size_h != self.model.hidden_size_c:
+                new_rel_h = np.ma.dot(new_rel_h, self.model.lstm.weight_P[layer])
+                new_irrel_h = np.ma.dot(new_irrel_h, self.model.lstm.weight_P[layer])
+
+            self.decompositions['relevant_h'][layer][i] = new_rel_h
+            self.decompositions['irrelevant_h'][layer][i] = new_irrel_h
 
     def _get_prev_cells(self, layer: int, i: int, start: int,
                         cell_type: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -297,11 +315,10 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _set_model_weights(self) -> None:
         for layer in range(self.model.num_layers):
-            self.weight[layer] = self.model.weight[layer]
             bias = self.model.bias[layer]
 
             if self.model.array_type == 'torch':
-                self.weight[layer] = self.weight[layer].detach().numpy()
+                self.model.weight[layer] = self.model.weight[layer].detach().numpy()
                 bias = bias.detach().numpy()
 
             self.bias[layer] = dict(zip(self.model.split_order, np.split(bias, 4)))
