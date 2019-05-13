@@ -48,7 +48,7 @@ class ForwardLSTM(LanguageModel):
 
         # LSTM weights
         for l in range(self.num_layers):
-            # (4*hidden_size, 2*hidden_size)
+            # (2*hidden_size, 4*hidden_size)
             self.weight[l] = torch.cat((params[f'rnn.weight_hh_l{l}'],
                                         params[f'rnn.weight_ih_l{l}']), dim=1)
 
@@ -57,8 +57,8 @@ class ForwardLSTM(LanguageModel):
 
         # Encoder and decoder weights
         self.encoder = params['encoder.weight']
-        self.w_decoder = params['decoder.weight']
-        self.b_decoder = params['decoder.bias']
+        self.decoder_w = params['decoder.weight']
+        self.decoder_b = params['decoder.bias']
 
         print('Model initialisation finished.')
 
@@ -101,6 +101,6 @@ class ForwardLSTM(LanguageModel):
             activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
             input_ = activations[l]['hx']
 
-        out: Tensor = self.w_decoder @ input_ + self.b_decoder
+        out: Tensor = self.decoder_w @ input_ + self.decoder_b
 
         return out, activations

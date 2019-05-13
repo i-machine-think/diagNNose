@@ -4,7 +4,7 @@ import numpy as np
 from overrides import overrides
 from scipy.special import expit as sigmoid
 
-from diagnnose.typedefs.activations import NamedArrayDict, PartialArrayDict
+from diagnnose.typedefs.activations import FullActivationDict, NamedArrayDict, ParameterDict
 
 from .base_decomposer import BaseDecomposer
 
@@ -24,8 +24,8 @@ class ContextualDecomposer(BaseDecomposer):
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
 
-        self.weight: PartialArrayDict = {}
-        self.bias: PartialArrayDict = {}
+        self.weight: ParameterDict = {}
+        self.bias: FullActivationDict = {l: {} for l in range(self.model.num_layers)}
         self.activations: NamedArrayDict = {}
         self.decompositions: NamedArrayDict = {}
 
@@ -122,9 +122,9 @@ class ContextualDecomposer(BaseDecomposer):
         if layer == 0:
             if inside_phrase and not input_never_rel:
                 rel_input = self.activation_dict[0, 'emb'][0][i]
-                irrel_input = np.zeros(self.model.hidden_size, dtype=np.float32)
+                irrel_input = np.zeros(self.model.hidden_size_h, dtype=np.float32)
             else:
-                rel_input = np.zeros(self.model.hidden_size, dtype=np.float32)
+                rel_input = np.zeros(self.model.hidden_size_h, dtype=np.float32)
                 irrel_input = self.activation_dict[0, 'emb'][0][i]
         else:
             rel_input = self.decompositions['relevant_h'][layer - 1][i]
@@ -132,23 +132,25 @@ class ContextualDecomposer(BaseDecomposer):
 
         prev_rel_h, prev_irrel_h = self._get_prev_cells(layer, i, start, 'h')
 
-        w = self.weight
-        self.activations['rel_i'] = w[layer, 'hi'] @ prev_rel_h + w[layer, 'ii'] @ rel_input
-        self.activations['rel_g'] = w[layer, 'hg'] @ prev_rel_h + w[layer, 'ig'] @ rel_input
-        self.activations['rel_f'] = w[layer, 'hf'] @ prev_rel_h + w[layer, 'if'] @ rel_input
-        self.activations['rel_o'] = w[layer, 'ho'] @ prev_rel_h + w[layer, 'io'] @ rel_input
+        # Weights are stored as 1 big array
+        rel_proj = self.weight[layer] @ np.concatenate((prev_rel_h, rel_input))
+        irrel_proj = self.weight[layer] @ np.concatenate((prev_irrel_h, irrel_input))
 
-        self.activations['irrel_i'] = w[layer, 'hi'] @ prev_irrel_h + w[layer, 'ii'] @ irrel_input
-        self.activations['irrel_g'] = w[layer, 'hg'] @ prev_irrel_h + w[layer, 'ig'] @ irrel_input
-        self.activations['irrel_f'] = w[layer, 'hf'] @ prev_irrel_h + w[layer, 'if'] @ irrel_input
-        self.activations['irrel_o'] = w[layer, 'ho'] @ prev_irrel_h + w[layer, 'io'] @ irrel_input
+        rel_names = map(lambda x: f'rel_{x}', self.model.split_order)
+        self.activations.update(
+            dict(zip(rel_names, np.split(rel_proj, 4)))
+        )
+        irrel_names = map(lambda x: f'irrel_{x}', self.model.split_order)
+        self.activations.update(
+            dict(zip(irrel_names, np.split(irrel_proj, 4)))
+        )
 
     def _add_forget_decomposition(self, layer: int, i: int, start: int) -> None:
         """ Calculates the forget gate decomposition, Equation (14) of the paper. """
 
         rel_contrib_f, irrel_contrib_f, bias_contrib_f = \
             decomp_three(self.activations['rel_f'], self.activations['irrel_f'],
-                         self.bias[layer, 'f'], sigmoid)
+                         self.bias[layer]['f'], sigmoid)
 
         prev_rel_c, prev_irrel_c = self._get_prev_cells(layer, i, start, 'c')
 
@@ -162,10 +164,10 @@ class ContextualDecomposer(BaseDecomposer):
 
         rel_contrib_i, irrel_contrib_i, bias_contrib_i = \
             decomp_three(self.activations['rel_i'], self.activations['irrel_i'],
-                         self.bias[layer, 'i'], sigmoid)
+                         self.bias[layer]['i'], sigmoid)
         rel_contrib_g, irrel_contrib_g, bias_contrib_g = \
             decomp_three(self.activations['rel_g'], self.activations['irrel_g'],
-                         self.bias[layer, 'g'], np.tanh)
+                         self.bias[layer]['g'], np.tanh)
 
         self._add_interactions(layer, i,
                                rel_contrib_i, rel_contrib_g,
@@ -186,7 +188,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         if decompose_o:
             rel_contrib_o, irrel_contrib_o, bias_contrib_o = \
-                decomp_three(rel_o, irrel_o, self.bias[layer, 'o'], sigmoid)
+                decomp_three(rel_o, irrel_o, self.bias[layer]['o'], sigmoid)
 
             self._add_interactions(layer, i,
                                    rel_contrib_o, rel_c,
@@ -194,21 +196,23 @@ class ContextualDecomposer(BaseDecomposer):
                                    bias_contrib_o,
                                    cell_type='h')
         else:
-            o = sigmoid(rel_o + irrel_o + self.bias[layer, 'o'])
+            o = sigmoid(rel_o + irrel_o + self.bias[layer]['o'])
             self.decompositions['relevant_h'][layer][i] = o * rel_c
             self.decompositions['irrelevant_h'][layer][i] = o * irrel_c
 
     def _get_prev_cells(self, layer: int, i: int, start: int,
                         cell_type: str) -> Tuple[np.ndarray, np.ndarray]:
+        hidden_size = self.model.hidden_size_c if cell_type == 'c' else self.model.hidden_size_h
+
         if i > 0:
             prev_rel = self.decompositions[f'relevant_{cell_type}'][layer][i - 1]
             prev_irrel = self.decompositions[f'irrelevant_{cell_type}'][layer][i - 1]
         else:
             if start < 0:
                 prev_rel = self.activation_dict[layer, f'i{cell_type}x'][0, 0]
-                prev_irrel = np.zeros(self.model.hidden_size, dtype=np.float32)
+                prev_irrel = np.zeros(hidden_size, dtype=np.float32)
             else:
-                prev_rel = np.zeros(self.model.hidden_size, dtype=np.float32)
+                prev_rel = np.zeros(hidden_size, dtype=np.float32)
                 prev_irrel = self.activation_dict[layer, f'i{cell_type}x'][0, 0]
 
         return prev_rel, prev_irrel
@@ -263,14 +267,15 @@ class ContextualDecomposer(BaseDecomposer):
                 self.decompositions['irrelevant_c'][layer][i] += bias_product
 
     def _reset_decompositions(self, start: int, slen: int, use_extracted_activations: bool) -> None:
-        hidden_size = self.model.hidden_size
+        hidden_size_c = self.model.hidden_size_c
+        hidden_size_h = self.model.hidden_size_h
         num_layers = self.model.num_layers
 
         self.decompositions = {
-            'relevant_c': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
-            'relevant_h': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
-            'irrelevant_c': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
-            'irrelevant_h': np.zeros((num_layers, slen, hidden_size), dtype=np.float32),
+            'relevant_c': np.zeros((num_layers, slen, hidden_size_c), dtype=np.float32),
+            'relevant_h': np.zeros((num_layers, slen, hidden_size_h), dtype=np.float32),
+            'irrelevant_c': np.zeros((num_layers, slen, hidden_size_c), dtype=np.float32),
+            'irrelevant_h': np.zeros((num_layers, slen, hidden_size_h), dtype=np.float32),
         }
 
         # All indices until the start position of the relevant token won't yield any contribution,
@@ -292,11 +297,14 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _set_model_weights(self) -> None:
         for layer in range(self.model.num_layers):
-            for name in ['ii', 'if', 'ig', 'io']:
-                self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
-                self.bias[layer, name[1]] = self.model.bias[layer][name[1]].detach().numpy()
-            for name in ['hi', 'hf', 'hg', 'ho']:
-                self.weight[layer, name] = self.model.weight[layer][name].detach().numpy()
+            self.weight[layer] = self.model.weight[layer]
+            bias = self.model.bias[layer]
+
+            if self.model.array_type == 'torch':
+                self.weight[layer] = self.weight[layer].detach().numpy()
+                bias = bias.detach().numpy()
+
+            self.bias[layer] = dict(zip(self.model.split_order, np.split(bias, 4)))
 
     def _validate_decomposition(self, scores: NamedArrayDict) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, 'hx'))

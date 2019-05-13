@@ -25,11 +25,11 @@ def init_argparser() -> ArgumentParser:
     from_cmd.add_argument('--decomposer',
                           help='Class name of decomposer constructor. As of now either '
                                'CellDecomposer or ContextualDecomposer')
-    from_cmd.add_argument('--model',
+    from_cmd.add_argument('--model_path',
                           help='Path to model parameters')
-    from_cmd.add_argument('--vocab',
+    from_cmd.add_argument('--vocab_path',
                           help='Path to model vocabulary')
-    from_cmd.add_argument('--lm_module',
+    from_cmd.add_argument('--module_path',
                           help='Path to folder containing model module')
     from_cmd.add_argument('--init_lstm_states_path',
                           help='(optional) Location of initial lstm states of the model. '
@@ -40,20 +40,20 @@ def init_argparser() -> ArgumentParser:
 
 
 if __name__ == '__main__':
-    required_args = {'activations_dir', 'model', 'vocab', 'lm_module'}
+    required_args = {'model_type', 'model_path', 'vocab_path', 'module_path', 'activations_dir'}
     arg_groups = {
         'decompose': {'decomposer', 'activations_dir', 'num_layers', 'hidden_size',
                       'init_lstm_states_path'},
-        'decoder': {'model', 'vocab', 'lm_module'},
+        'decoder': {'model_type', 'model_path', 'vocab_path', 'module_path'},
     }
     argparser = init_argparser()
 
     config_object = ConfigSetup(argparser, required_args, arg_groups)
     config_dict = config_object.config_dict
 
-    model = import_model_from_json(**config_dict['decoder'])
+    model = import_model_from_json(config_dict['decoder'])
 
     constructor = DecomposerFactory(model, **config_dict['decompose'])
     decomposer = constructor.create(64, slice(0, 6, 1), classes=[model.w2i['is'], model.w2i['are']])
-    cd = decomposer.decompose(0, 1, ['rel-rel'])
+    cd = decomposer.decompose(0, 1, ['rel-rel', 'rel-b'])
     print(cd['relevant'], cd['irrelevant'])

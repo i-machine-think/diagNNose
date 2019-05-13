@@ -9,8 +9,9 @@ from overrides import overrides
 from scipy.special import expit as sigmoid
 from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
-from diagnnose.typedefs.activations import FullActivationDict, NamedArrayDict, ParameterDict
-from diagnnose.utils.vocab import C2I, create_vocab_from_path, W2I
+from diagnnose.typedefs.activations import (
+    FullActivationDict, NamedArrayDict, ParameterDict, PartialArrayDict)
+from diagnnose.utils.vocab import C2I, create_vocab_from_path
 
 from .language_model import LanguageModel
 
@@ -47,16 +48,16 @@ class GoogleLM(LanguageModel):
                      inp: np.ndarray,
                      prev_hx: np.ndarray,
                      prev_cx: np.ndarray) -> NamedArrayDict:
-        proj = np.concatenate((prev_hx, inp)) @ self.lstm.weight[l] + self.lstm.bias[l]
+        proj = self.lstm.weight[l] @ np.concatenate((prev_hx, inp)) + self.lstm.bias[l]
         split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
-        f_g: np.ndarray = sigmoid(split_proj['f'] + prev_cx*self.lstm.peepholes[l]['F'] + 1)
-        i_g: np.ndarray = sigmoid(split_proj['i'] + prev_cx*self.lstm.peepholes[l]['I'])
+        f_g: np.ndarray = sigmoid(split_proj['f'] + prev_cx*self.lstm.peepholes[l, 'F'] + 1)
+        i_g: np.ndarray = sigmoid(split_proj['i'] + prev_cx*self.lstm.peepholes[l, 'I'])
         c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
 
         cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g
 
-        o_g: np.ndarray = sigmoid(split_proj['o'] + cx*self.lstm.peepholes[l]['O'])
+        o_g: np.ndarray = sigmoid(split_proj['o'] + cx*self.lstm.peepholes[l, 'O'])
 
         hx: np.ndarray = (o_g * np.tanh(cx)) @ self.lstm.weight_P[l]
 
@@ -143,7 +144,7 @@ class LSTM:
         # Projects cell state dimension (8192) back to hidden dimension (1024)
         self.weight_P: ParameterDict = {}
         # The 3 peepholes are weighted by a diagonal matrix
-        self.peepholes: ParameterDict = {0: {}, 1: {}}
+        self.peepholes: PartialArrayDict = {}
 
         self._load_lstm(ckpt_dir)
 
@@ -152,10 +153,10 @@ class LSTM:
 
         for l in range(2):
             # Model weights are divided into 8 chunks
-            # (2048, 32768)
+            # (32768, 2048)
             self.weight[l] = np.concatenate(
                 [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{i}') for i in range(8)]
-            )
+            ).T
             # (32768,)
             self.bias[l] = lstm_reader.get_tensor(f'lstm/lstm_{l}/B')
 
@@ -164,7 +165,7 @@ class LSTM:
                 [lstm_reader.get_tensor(f'lstm/lstm_{l}/W_P_{i}') for i in range(8)]
             )
             for p in ['F', 'I', 'O']:
-                self.peepholes[l][p] = lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag')
+                self.peepholes[l, p] = lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag')
 
 
 class SoftMax:
