@@ -6,7 +6,7 @@ from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model_from_json
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
-
+from diagnnose.activations.activation_writer import ActivationWriter
 
 # TODO: move this to a general function in /config, as it's mostly duplicated in the other scripts.
 def init_argparser() -> ArgumentParser:
@@ -50,9 +50,13 @@ def init_argparser() -> ArgumentParser:
                           help='Path to labeled corpus')
     from_cmd.add_argument('--corpus_header', nargs='*',
                           help='(optional) List of corpus attribute names.'
-                               'If not provided first line is used as header.')
+                               'If not provided all lines will be considered to be sentences, '
+                               'with the attribute name "sen".')
     from_cmd.add_argument('--to_lower', type=bool,
                           help='(optional) Convert corpus to lowercase, defaults to False.')
+    from_cmd.add_argument('--header_from_first_line', type=bool,
+                          help='(optional) Use the first line of the corpus as the attribute '
+                               'names of the corpus. Defaults to False.')
     from_cmd.add_argument('--from_dict', type=bool,
                           help='(optional) Set to true to load in pickled corpus dictionary, '
                                'instead of a raw file.')
@@ -91,7 +95,8 @@ if __name__ == '__main__':
     arg_groups = {
         'model': {'model_type', 'model_path', 'vocab_path', 'module_path', 'pbtxt_path', 'ckpt_dir',
                   'corpus_vocab_path', 'full_vocab_path', 'device'},
-        'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict'},
+        'corpus': {'corpus_path', 'corpus_header', 'to_lower', 'from_dict',
+                   'header_from_first_line'},
         'init_extract': {'activation_names', 'output_dir', 'init_lstm_states_path'},
         'extract': {'cutoff', 'print_every', 'dynamic_dumping', 'create_label_file',
                     'create_avg_eos'},

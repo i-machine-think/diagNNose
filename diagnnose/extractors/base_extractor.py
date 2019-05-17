@@ -63,7 +63,7 @@ class Extractor:
                 print_every: int = 10,
                 dynamic_dumping: bool = True,
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
-                create_label_file: bool = True,
+                create_label_file: bool = False,
                 create_avg_eos: bool = False) -> None:
         """ Extracts embeddings from a labeled corpus.
 
@@ -81,11 +81,11 @@ class Extractor:
         dynamic_dumping : bool, optional
             Dump files dynamically, i.e. once per sentence, or dump
             all files at the end of extraction. Defaults to True.
-        selection_func: Callable
+        selection_func : Callable
             Function which determines if activations for a token should
             be extracted or not.
         create_label_file : bool, optional
-            Indicates whether to create a label file, defaults to True.
+            Indicates whether to create a label file, defaults to False.
         create_avg_eos : bool, optional
             Toggle to save average end of sentence activations. Will be
             stored in in `self.output_dir`.
@@ -128,6 +128,7 @@ class Extractor:
                 activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
                 tot_extracted += n_extracted
 
+            del self.model
             self.activation_writer.dump_activation_ranges(activation_ranges)
             if extracted_labels:
                 self.activation_writer.dump_labels(extracted_labels)
@@ -195,7 +196,7 @@ class Extractor:
         activations: FullActivationDict = self.init_lstm_states.create()
 
         for i, token in enumerate(sentence.sen):
-            _out, activations = self.model(token, activations)
+            _out, activations = self.model(token, activations, compute_out=False)
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
@@ -233,13 +234,16 @@ class Extractor:
 
         return init_avg_eos_activations
 
-    @staticmethod
-    def _update_avg_eos_activations(prev_activations: FullActivationDict,
+    def _update_avg_eos_activations(self,
+                                    prev_activations: FullActivationDict,
                                     new_activations: PartialArrayDict) -> None:
         for layer in prev_activations.keys():
             for name in prev_activations[layer].keys():
                 eos_activation = new_activations[(layer, name)][-1]
-                prev_activations[layer][name] += torch.from_numpy(eos_activation)
+                if self.model.array_type == 'torch':
+                    prev_activations[layer][name] += torch.from_numpy(eos_activation)
+                else:
+                    prev_activations[layer][name] += eos_activation
 
     @staticmethod
     def _normalize_avg_eos_activations(avg_eos_activations: FullActivationDict,
