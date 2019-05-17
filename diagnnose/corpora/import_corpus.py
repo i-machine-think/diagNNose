@@ -8,7 +8,8 @@ from diagnnose.utils.paths import load_pickle
 def import_corpus_from_path(corpus_path: str,
                             from_dict: bool = False,
                             corpus_header: Optional[List[str]] = None,
-                            to_lower: bool = False) -> Corpus:
+                            to_lower: bool = False,
+                            header_from_first_line: bool = False) -> Corpus:
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
@@ -25,7 +26,12 @@ def import_corpus_from_path(corpus_path: str,
     from_dict : bool, optional
         Indicates whether to load a pickled dict. Defaults to False.
     corpus_header : List[str], optional
-        Optional list of attribute names of each column
+        Optional list of attribute names of each column, if not provided
+        all lines will be considered to be sentences,  with the
+        attribute name "sen".
+    header_from_first_line : bool, optional
+        Use the first line of the corpus as the attribute names of the
+        corpus.
     to_lower : bool, optional
         Transform entire corpus to lower case, defaults to False.
 
@@ -39,7 +45,10 @@ def import_corpus_from_path(corpus_path: str,
     if from_dict:
         init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
     else:
-        init_corpus = read_raw_corpus(corpus_path, header=corpus_header, to_lower=to_lower)
+        init_corpus = read_raw_corpus(corpus_path,
+                                      header=corpus_header,
+                                      to_lower=to_lower,
+                                      header_from_first_line=header_from_first_line)
 
     for key, item in init_corpus.items():
         assert 'sen' in item.keys() or 'sent' in item.keys(), \
