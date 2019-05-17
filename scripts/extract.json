@@ -1,11 +1,16 @@
 {
-  "model": "model/model.pt",
-  "vocab": "model/vocab.txt",
-  "lm_module": "model/",
-  "corpus_path": "data/mini_corpus.pickle",
-  "from_dict": true,
+  "model": "../lm_data/models/gulordava/model.pt",
+  "vocab": "../lm_data/models/gulordava/vocab.txt",
+  "lm_module": "../lm_data/models/gulordava/",
+  "corpus_path": "../lm_data/corpora/Number_and_syntax_units_in_LSTM_LMs/datasets/NA_tasks/nounpp.txt",
+  "corpus_header": ["sen", "type", "correct", "idx"],
+  "to_lower": false,
   "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
-  "output_dir": "extracted",
-  "print_every": 50,
-  "cutoff": 5
+  "init_lstm_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle",
+  "output_dir": "../lm_data/activations/extracted/lakretz_init_nolower",
+  "print_every": 10,
+  "cutoff": -1,
+  "dynamic_dumping": true,
+  "create_avg_eos": true,
+  "create_label_file": false
 }
