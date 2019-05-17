@@ -123,3 +123,4 @@ class ActivationWriter:
             if not overwrite:
                 filename = filename.replace('.pickle', '_concat.pickle')
             dump_pickle(activations, filename)
+            del activations

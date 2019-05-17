@@ -90,8 +90,8 @@ class InitStates:
         if self.batch_size is not None:
             if self.use_np_arrays:
                 return np.zeros((self.batch_size, size), dtype=np.float32)
-            return torch.zeros((self.batch_size, size), dtype=np.float32)
+            return torch.zeros((self.batch_size, size))
 
         if self.use_np_arrays:
             return np.zeros(size, dtype=np.float32)
-        return torch.zeros(size, dtype=np.float32)
+        return torch.zeros(size)

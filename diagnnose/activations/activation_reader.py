@@ -194,6 +194,10 @@ class ActivationReader:
                     activation_name: activations
                 }
 
+    @activations.deleter
+    def activations(self) -> None:
+        del self._activations
+
     def read_activations(self, activation_name: ActivationName) -> np.ndarray:
         """ Reads the pickled activations of activation_name
 
