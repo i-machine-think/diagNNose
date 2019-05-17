@@ -6,3 +6,5 @@ ConfigDict = Dict[str, ArgDict]
 ArgsDisjunction = Tuple['RequiredArgs', 'RequiredArgs']
 
 RequiredArgs = Set[Union[str, ArgsDisjunction]]
+
+ArgDescriptions = Dict[str, Dict[str, Dict[str, Any]]]

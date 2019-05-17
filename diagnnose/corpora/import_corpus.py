@@ -1,12 +1,9 @@
-import os
 from typing import Any, Dict, List, Optional
 
 from diagnnose.typedefs.corpus import Corpus, CorpusSentence
-from diagnnose.utils.paths import load_pickle
 
 
 def import_corpus_from_path(corpus_path: str,
-                            from_dict: bool = False,
                             corpus_header: Optional[List[str]] = None,
                             to_lower: bool = False,
                             header_from_first_line: bool = False) -> Corpus:
@@ -23,8 +20,6 @@ def import_corpus_from_path(corpus_path: str,
     ----------
     corpus_path : str
         Path to corpus file
-    from_dict : bool, optional
-        Indicates whether to load a pickled dict. Defaults to False.
     corpus_header : List[str], optional
         Optional list of attribute names of each column, if not provided
         all lines will be considered to be sentences,  with the
@@ -42,13 +37,10 @@ def import_corpus_from_path(corpus_path: str,
     """
     corpus = {}
 
-    if from_dict:
-        init_corpus: Dict[int, Dict[str, Any]] = load_pickle(os.path.expanduser(corpus_path))
-    else:
-        init_corpus = read_raw_corpus(corpus_path,
-                                      header=corpus_header,
-                                      to_lower=to_lower,
-                                      header_from_first_line=header_from_first_line)
+    init_corpus = read_raw_corpus(corpus_path,
+                                  header=corpus_header,
+                                  to_lower=to_lower,
+                                  header_from_first_line=header_from_first_line)
 
     for key, item in init_corpus.items():
         assert 'sen' in item.keys() or 'sent' in item.keys(), \

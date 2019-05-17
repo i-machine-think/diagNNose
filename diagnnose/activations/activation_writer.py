@@ -10,7 +10,7 @@ from diagnnose.typedefs.activations import (
     ActivationFiles, ActivationNames, FullActivationDict, PartialArrayDict)
 from diagnnose.typedefs.corpus import Labels
 from diagnnose.typedefs.extraction import ActivationRanges
-from diagnnose.utils.paths import dump_pickle, trim
+from diagnnose.utils.paths import dump_pickle
 
 from .activation_reader import ActivationReader
 
@@ -20,14 +20,14 @@ class ActivationWriter:
 
     Parameters
     ----------
-    output_dir : str, optional
+    activations_dir : str, optional
         Directory to which activations will be written
-    activation_names : List[tuple[int, str]]
-        List of (layer, activation_name) tuples
 
     Attributes
     ----------
-    output_dir : str
+    activations_dir : str
+    activation_names : List[tuple[int, str]]
+        List of (layer, activation_name) tuples
     activation_files : ActivationFiles
         Dict of files to which activations will be written.
     label_file: Optional[BinaryIO]
@@ -35,10 +35,10 @@ class ActivationWriter:
     avg_eos_file: Optional[BinaryIO]
         File to which avg end of sentence activations will be written
     """
-    def __init__(self, output_dir: str, activation_names: ActivationNames) -> None:
-        self.output_dir = trim(output_dir)
-        self.activation_names = activation_names
+    def __init__(self, activations_dir: str) -> None:
+        self.activations_dir = activations_dir
 
+        self.activation_names: ActivationNames = []
         self.activation_files: ActivationFiles = {}
         self.activation_ranges_file: Optional[BinaryIO] = None
         self.label_file: Optional[BinaryIO] = None
@@ -46,32 +46,35 @@ class ActivationWriter:
 
     def create_output_files(self,
                             stack: ExitStack,
+                            activation_names: ActivationNames,
                             create_label_file: bool = True,
                             create_avg_eos_file: bool = False) -> None:
         """ Opens a file for each to-be-extracted activation. """
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+        self.activation_names = activation_names
+
+        if not os.path.exists(self.activations_dir):
+            os.makedirs(self.activations_dir)
         # check if output directory is empty
-        if os.listdir(self.output_dir):
-            warnings.warn("Output directory %s is not empty" % self.output_dir)
+        if os.listdir(self.activations_dir):
+            warnings.warn("Output directory %s is not empty" % self.activations_dir)
 
         self.activation_files = {
             (layer, name):
                 stack.enter_context(
-                    open(os.path.join(self.output_dir, f'{name}_l{layer}.pickle'), 'wb')
+                    open(os.path.join(self.activations_dir, f'{name}_l{layer}.pickle'), 'wb')
                 )
             for (layer, name) in self.activation_names
         }
         self.activation_ranges_file = stack.enter_context(
-            open(os.path.join(self.output_dir, 'ranges.pickle'), 'wb')
+            open(os.path.join(self.activations_dir, 'ranges.pickle'), 'wb')
         )
         if create_label_file:
             self.label_file = stack.enter_context(
-                open(os.path.join(self.output_dir, 'labels.pickle'), 'wb')
+                open(os.path.join(self.activations_dir, 'labels.pickle'), 'wb')
             )
         if create_avg_eos_file:
             self.avg_eos_file = stack.enter_context(
-                open(os.path.join(self.output_dir, 'avg_eos.pickle'), 'wb')
+                open(os.path.join(self.activations_dir, 'avg_eos.pickle'), 'wb')
             )
 
     def dump_activations(self, activations: PartialArrayDict) -> None:
@@ -115,11 +118,11 @@ class ActivationWriter:
             Set to True to overwrite the file containing the sequential
             pickle dump, otherwise creates a new file. Defaults to True.
         """
-        activation_reader = ActivationReader(self.output_dir)
+        activation_reader = ActivationReader(self.activations_dir)
 
         for (layer, name) in self.activation_names:
             activations = activation_reader.read_activations((layer, name))
-            filename = os.path.join(self.output_dir, f'{name}_l{layer}.pickle')
+            filename = os.path.join(self.activations_dir, f'{name}_l{layer}.pickle')
             if not overwrite:
                 filename = filename.replace('.pickle', '_concat.pickle')
             dump_pickle(activations, filename)

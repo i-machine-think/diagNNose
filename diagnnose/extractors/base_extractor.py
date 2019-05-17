@@ -25,9 +25,7 @@ class Extractor:
         Language model that inherits from LanguageModel.
     corpus : Corpus
         Corpus containing the labels for each sentence.
-    activation_names : List[tuple[int, str]]
-        List of (layer, activation_name) tuples
-    output_dir : str
+    activations_dir : str
         Directory to which activations will be written
     init_lstm_states_path: str, optional
         Path to pickled initial embeddings
@@ -37,7 +35,7 @@ class Extractor:
     model : LanguageModel
     corpus : Corpus
     activation_names : List[tuple[int, str]]
-    output_dir: str
+    activations_dir: str
     init_lstm_states : FullActivationDict
         Initial embeddings that are loaded from file or set to zero.
     activation_writer : ActivationWriter
@@ -46,19 +44,19 @@ class Extractor:
     def __init__(self,
                  model: LanguageModel,
                  corpus: Corpus,
-                 activation_names: ActivationNames,
-                 output_dir: str,
+                 activations_dir: str,
                  init_lstm_states_path: Optional[str] = None) -> None:
         self.model = model
         self.corpus = corpus
 
-        self.activation_names: ActivationNames = activation_names
+        self.activation_names: ActivationNames = []
         self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
 
-        self.activation_writer = ActivationWriter(output_dir, list(activation_names))
+        self.activation_writer = ActivationWriter(activations_dir)
 
     # TODO: Allow batch input + refactor
     def extract(self,
+                activation_names: ActivationNames,
                 cutoff: int = -1,
                 print_every: int = 10,
                 dynamic_dumping: bool = True,
@@ -72,6 +70,8 @@ class Extractor:
 
         Parameters
         ----------
+        activation_names : List[tuple[int, str]]
+            List of (layer, activation_name) tuples
         cutoff: int, optional
             How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
@@ -90,6 +90,8 @@ class Extractor:
             Toggle to save average end of sentence activations. Will be
             stored in in `self.output_dir`.
         """
+        self.activation_names = activation_names
+
         start_t = prev_t = time()
         tot_extracted = n_sens = 0
 
@@ -100,7 +102,9 @@ class Extractor:
         print(f'\nStarting extraction of {tot_num} sentences...')
 
         with ExitStack() as stack:
-            self.activation_writer.create_output_files(stack, create_label_file, create_avg_eos)
+            self.activation_writer.create_output_files(
+                stack, activation_names, create_label_file, create_avg_eos
+            )
 
             extracted_labels: Labels = []
             avg_eos_states = self._init_avg_eos_activations()

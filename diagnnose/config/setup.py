@@ -4,7 +4,7 @@ from pprint import pprint
 from typing import Dict, Set
 
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs, ArgsDisjunction
-
+from .arg_parser import create_arg_descriptions
 
 class ConfigSetup:
     """ Sets up the configuration for extraction.
@@ -21,10 +21,10 @@ class ConfigSetup:
     required_args : RequiredArgs
         Set of arguments that should be at least provided in either the
         config file or as commandline argument.
-    arg_groups : Dict[str, Set[str]]
-        Dictionary that maps various groups to the arguments that belong
-        to that group. This makes it easier to quickly pass different
-        arguments to different parts of a module.
+    arg_groups : Set[str]
+        Set of strings defining the arg groups related to this config.
+        The args of a group are defined in arg_parser.py. This makes it
+        easier to quickly pass different args to the parts of a module.
 
     Attributes
     ----------
@@ -34,7 +34,7 @@ class ConfigSetup:
     def __init__(self,
                  argparser: ArgumentParser,
                  required_args: RequiredArgs,
-                 arg_groups: Dict[str, Set[str]]) -> None:
+                 arg_groups: Set[str]) -> None:
 
         self.argparser = argparser
         self.required_args = required_args
@@ -80,6 +80,7 @@ class ConfigSetup:
                 args_present = self._validate_args_disjunction(arg, arg_dict, init_arg_dict)
                 assert args_present, self.argparser.error(f'--{arg} should be provided')
 
+    # TODO: consider removing this, too much overhead without actual use
     def _validate_args_disjunction(self,
                                    args_disjunction: ArgsDisjunction,
                                    arg_dict: ArgDict,
@@ -128,7 +129,10 @@ class ConfigSetup:
         provided_args = arg_dict.keys()
 
         config_dict = {}
-        for group, args in self.arg_groups.items():
-            config_dict[group] = {k: arg_dict[k] for k in args & provided_args}
+        arg_descriptions = create_arg_descriptions()
+        for group in self.arg_groups:
+            config_dict[group] = {
+                k: arg_dict[k] for k in arg_descriptions[group].keys() & provided_args
+            }
 
         return config_dict
