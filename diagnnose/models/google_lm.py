@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -31,7 +31,7 @@ class GoogleLM(LanguageModel):
         self.array_type = 'numpy'
         self.forget_offset = 1
 
-        vocab = C2I(create_vocab_from_path(corpus_vocab_path), unk_token='<UNK>', eos_token='<EOS>')
+        vocab = C2I(create_vocab_from_path(corpus_vocab_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
@@ -224,3 +224,9 @@ class SoftMax:
                 if w in c2i:
                     self.decoder_w[c2i[w]] = full_sm[j]
                     self.decoder_b[c2i[w]] = full_bias[j+(i*100000)]
+                if w == '</S>':
+                    self.decoder_w[c2i[c2i.eos_token]] = full_sm[j]
+                    self.decoder_w[c2i[c2i.eos_token]] = full_bias[j+(i*100000)]
+                if w == '<UNK>':
+                    self.decoder_w[c2i[c2i.unk_token]] = full_sm[j]
+                    self.decoder_w[c2i[c2i.unk_token]] = full_bias[j+(i*100000)]
