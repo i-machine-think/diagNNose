@@ -96,7 +96,8 @@ class GoogleLM(LanguageModel):
     @overrides
     def forward(self,
                 token: str,
-                prev_activations: FullActivationDict) -> Tuple[np.ndarray, FullActivationDict]:
+                prev_activations: FullActivationDict,
+                compute_out: bool = True) -> Tuple[Optional[np.ndarray], FullActivationDict]:
         # Create the embeddings of the input words
         input_ = self.encoder.encode(token)
 
@@ -108,14 +109,17 @@ class GoogleLM(LanguageModel):
             activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
             input_ = activations[l]['hx']
 
-        out: np.ndarray = None # self.decoder_w @ input_ + self.decoder_b
+        if compute_out:
+            out = self.decoder_w @ input_ + self.decoder_b
+        else:
+            out = None
 
         return out, activations
 
 
 class CharCNN:
     def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I) -> None:
-        print('Loading char CNN...')
+        print('Loading CharCNN...')
 
         self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
         self.cnn_embs: NamedArrayDict = {}

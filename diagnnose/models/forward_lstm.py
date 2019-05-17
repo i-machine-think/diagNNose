@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 from overrides import overrides
@@ -88,7 +88,8 @@ class ForwardLSTM(LanguageModel):
     @overrides
     def forward(self,
                 token: str,
-                prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
+                prev_activations: FullActivationDict,
+                compute_out: bool = True) -> Tuple[Optional[Tensor], FullActivationDict]:
 
         # Look up the embeddings of the input words
         input_ = self.encoder[self.vocab[token]]
@@ -101,6 +102,9 @@ class ForwardLSTM(LanguageModel):
             activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
             input_ = activations[l]['hx']
 
-        out: Tensor = self.decoder_w @ input_ + self.decoder_b
+        if compute_out:
+            out = self.decoder_w @ input_ + self.decoder_b
+        else:
+            out = None
 
         return out, activations
