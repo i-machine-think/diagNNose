@@ -9,8 +9,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         'model': {
             'model_type': {
                 'required': True,
-                'help': 'Language model type, as of now either '
-                        'ForwardLSTM or GoogleLM.'
+                'help': '(required) Language model type, as of now either ForwardLSTM or GoogleLM.'
             }
         }
     }
@@ -51,7 +50,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions['corpus'] = {
         'corpus_path': {
             'required': True,
-            'help': 'Path to a corpus file.'
+            'help': '(required) Path to a corpus file.'
         },
         'corpus_header': {
             'nargs': '*',
@@ -73,7 +72,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         # TODO: Provide explanation of activation names
         'activations_dir': {
             'required': True,
-            'help': 'Path to folder to which extracted embeddings will be written.'
+            'help': '(required) Path to folder to which extracted embeddings will be written.'
         },
         'init_lstm_states_path': {
             'help': '(optional) Location of initial lstm states of the model. '
@@ -85,7 +84,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         'activation_names': {
             'required': True,
             'nargs': '*',
-            'help': 'List of activation names to be extracted.'
+            'help': '(required) List of activation names to be extracted.'
         },
         'dynamic_dumping': {
             'type': bool,
@@ -116,7 +115,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions['decompose'] = {
         'decomposer': {
             'required': True,
-            'help': 'Class name of decomposer constructor. As of now either '
+            'help': '(required) Class name of decomposer constructor. As of now either '
                     'CellDecomposer or ContextualDecomposer'
         }
     }
