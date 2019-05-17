@@ -1,6 +1,7 @@
 from typing import Any, Callable, List, Optional, Set, Tuple
 
 import numpy as np
+import torch
 from overrides import overrides
 from scipy.special import expit as sigmoid
 
@@ -38,8 +39,10 @@ class ContextualDecomposer(BaseDecomposer):
                    decompose_o: bool = False,
                    bias_bias_only_in_phrase: bool = True,
                    only_source_rel: bool = False,
+                   only_source_rel_b: bool = False,
                    input_never_rel: bool = False,
-                   use_extracted_activations: bool = False,
+                   use_extracted_activations: bool = True,
+                   only_return_dec: bool = False,
                    validate: bool = True,
                    ) -> NamedArrayDict:
         """ Main loop for the contextual decomposition.
@@ -66,13 +69,20 @@ class ContextualDecomposer(BaseDecomposer):
             Relates to rel-irrel interactions. If set to true, only
             irrel_gate-rel_source interactions will be added to rel,
             similar to LRP (Arras et al., 2017).
+        only_source_rel : bool, optional
+            Relates to rel-b interactions. If set to true, only
+            b-rel_source interactions will be added to rel,
+            similar to LRP (Arras et al., 2017).
         input_never_rel : bool, optional
             Never add the Wx input to the rel part, useful when only
             investigating the model biases. Defaults to False.
         use_extracted_activations : bool, optional
             Allows previously extracted activations to be used to avoid
             unnecessary recomputations of those activations.
-            Defaults to False.
+            Defaults to True.
+        only_return_dec : bool, optional
+            Only returns the decomposed cell states, without calculating
+            the corresponding decoder scores. Defaults to False.
         validate : bool, optional
             Toggles decomposition validation, defaults to True.
 
@@ -92,6 +102,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         self.bias_bias_only_in_phrase = bias_bias_only_in_phrase
         self.only_source_rel = only_source_rel
+        self.only_source_rel_b = only_source_rel_b
 
         for layer in range(self.model.num_layers):
             for i in range(start_index, slen):
@@ -104,6 +115,9 @@ class ContextualDecomposer(BaseDecomposer):
                 self._add_input_decomposition(layer, i, inside_phrase)
 
                 self._add_output_decomposition(layer, i, decompose_o)
+
+        if only_return_dec:
+            return self.decompositions
 
         scores = self._calc_scores()
 
@@ -242,37 +256,40 @@ class ContextualDecomposer(BaseDecomposer):
                           cell_type: str = 'c',
                           inside_phrase: bool = False) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
-        rel_decomp_name = 'relevant_' + cell_type
-        irrel_decomp_name = 'irrelevant_' + cell_type
+        rel_cd_name = f'relevant_{cell_type}'
+        irrel_cd_name = f'irrelevant_{cell_type}'
 
-        for decomp_name, interactions in ((rel_decomp_name, self.rel_interactions),
-                                          (irrel_decomp_name, self.irrel_interactions)):
+        for decomp_name, interactions in ((rel_cd_name, self.rel_interactions),
+                                          (irrel_cd_name, self.irrel_interactions)):
             for interaction in interactions:
                 if interaction == 'rel-rel':
                     self.decompositions[decomp_name][layer][i] += rel_gate * rel_source
                 elif interaction == 'rel-b':
-                    self.decompositions[decomp_name][layer][i] += rel_source * bias_gate
+                    self.decompositions[decomp_name][layer][i] += bias_gate * rel_source
                     if bias_source is not None:
-                        self.decompositions[decomp_name][layer][i] += rel_gate * bias_source
+                        if self.only_source_rel_b:
+                            self.decompositions[irrel_cd_name][layer][i] += rel_gate * bias_source
+                        else:
+                            self.decompositions[decomp_name][layer][i] += rel_gate * bias_source
                 elif interaction == 'irrel-irrel':
                     self.decompositions[decomp_name][layer][i] += irrel_gate * irrel_source
                 elif interaction == 'irrel-b':
                     if bias_source is not None:
                         self.decompositions[decomp_name][layer][i] += irrel_gate * bias_source
-                    self.decompositions[decomp_name][layer][i] += irrel_source * bias_gate
+                    self.decompositions[decomp_name][layer][i] += bias_gate * irrel_source
                 elif interaction == 'rel-irrel':
                     if decomp_name[:3] == 'rel' and self.only_source_rel:
-                        self.decompositions[irrel_decomp_name][layer][i] += rel_gate * irrel_source
-                        self.decompositions[decomp_name][layer][i] += rel_source * irrel_gate
+                        self.decompositions[irrel_cd_name][layer][i] += rel_gate * irrel_source
+                        self.decompositions[decomp_name][layer][i] += irrel_gate * rel_source
                     else:
                         self.decompositions[decomp_name][layer][i] += rel_gate * irrel_source
-                        self.decompositions[decomp_name][layer][i] += rel_source * irrel_gate
+                        self.decompositions[decomp_name][layer][i] += irrel_gate * rel_source
                 elif interaction == 'b-b':
                     if bias_source is not None:
                         self._add_bias_bias(layer, i, bias_gate * bias_source, decomp_name,
                                             inside_phrase)
                 else:
-                    raise ValueError('Interaction type not understood')
+                    raise ValueError(f'Interaction type not understood: {interaction}')
 
     def _add_bias_bias(self, layer: int, i: int, bias_product: np.ndarray, decomp_name: str,
                        inside_phrase: bool) -> None:
@@ -317,8 +334,9 @@ class ContextualDecomposer(BaseDecomposer):
         for layer in range(self.model.num_layers):
             bias = self.model.bias[layer]
 
-            if self.model.array_type == 'torch':
+            if isinstance(self.model.weight[layer], torch.Tensor):
                 self.model.weight[layer] = self.model.weight[layer].detach().numpy()
+            if isinstance(bias, torch.Tensor):
                 bias = bias.detach().numpy()
 
             self.bias[layer] = dict(zip(self.model.split_order, np.split(bias, 4)))

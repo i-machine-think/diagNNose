@@ -43,7 +43,12 @@ class DecomposerFactory:
                  activations_dir: str,
                  decoder: Optional[str] = None,
                  init_lstm_states_path: Optional[str] = None) -> None:
-        self.decomposer_constructor = self._read_decomposer(decomposer)
+        # Import Decomposer class from string, assumes module name to be snake case variant
+        # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
+        module_name = camel2snake(decomposer)
+        module = import_module(f'diagnnose.decompositions.{module_name}')
+        self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
+
         self.activation_reader = ActivationReader(activations_dir, store_multiple_activations=True)
         self.model = model
 
@@ -136,8 +141,10 @@ class DecomposerFactory:
 
         batch_size = activations.shape[0]
 
-        if name[0] == '0':
-            return np.zeros((batch_size, 1, self.model.hidden_size))
+        if name == '0cx':
+            return np.zeros((batch_size, 1, self.model.hidden_size_c))
+        elif name == '0hx':
+            return np.zeros((batch_size, 1, self.model.hidden_size_h))
 
         if subsen_index.start == 0 or subsen_index.start is None:
             init_state = self.init_cell_state[layer][name[1:]]
@@ -179,12 +186,3 @@ class DecomposerFactory:
             decoder_w, decoder_b = import_decoder_from_model(self.model)
 
         return decoder_w, decoder_b
-
-    @staticmethod
-    def _read_decomposer(decomposer_constructor: str) -> Type[BaseDecomposer]:
-        # Import Decomposer class from string, assumes module name to be snake case variant
-        # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
-        module_name = camel2snake(decomposer_constructor)
-        module = import_module(f'diagnnose.decompositions.{module_name}')
-        decomposer: Type[BaseDecomposer] = getattr(module, decomposer_constructor)
-        return decomposer
