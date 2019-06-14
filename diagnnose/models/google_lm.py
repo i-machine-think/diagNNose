@@ -18,20 +18,22 @@ from .language_model import LanguageModel
 
 class GoogleLM(LanguageModel):
     def __init__(self,
-                 corpus_vocab_path: str,
                  pbtxt_path: str,
                  ckpt_dir: str,
-                 full_vocab_path: str) -> None:
+                 full_vocab_path: str,
+                 corpus_vocab_path: Optional[str] = None) -> None:
         super().__init__()
 
         self.num_layers = 2
         self.hidden_size_c = 8192
         self.hidden_size_h = 1024
         self.split_order = ['f', 'i', 'o', 'g']
+        # TODO: port this model to pytorch, this is a torch lib after all...
         self.array_type = 'numpy'
         self.forget_offset = 1
 
-        vocab = C2I(create_vocab_from_path(corpus_vocab_path))
+        vocab_path = corpus_vocab_path if corpus_vocab_path is not None else full_vocab_path
+        vocab = C2I(create_vocab_from_path(vocab_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
@@ -209,7 +211,7 @@ class SoftMax:
 
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
-    def _load_softmax(self, c2i: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
+    def _load_softmax(self, vocab: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
         with open(full_vocab_path) as f:
             full_vocab: List[str] = f.read().strip().split('\n')
 
@@ -221,12 +223,12 @@ class SoftMax:
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f'ckpt-softmax{i}'))
             full_sm = sm_reader.get_tensor(f'softmax/W_{i}').astype(np.float32)
             for j, w in enumerate(full_vocab[i*100000:(i+1)*100000]):
-                if w in c2i:
-                    self.decoder_w[c2i[w]] = full_sm[j]
-                    self.decoder_b[c2i[w]] = full_bias[j+(i*100000)]
+                if w in vocab:
+                    self.decoder_w[vocab[w]] = full_sm[j]
+                    self.decoder_b[vocab[w]] = full_bias[j+(i*100000)]
                 if w == '</S>':
-                    self.decoder_w[c2i[c2i.eos_token]] = full_sm[j]
-                    self.decoder_w[c2i[c2i.eos_token]] = full_bias[j+(i*100000)]
+                    self.decoder_w[vocab[vocab.eos_token]] = full_sm[j]
+                    self.decoder_w[vocab[vocab.eos_token]] = full_bias[j+(i*100000)]
                 if w == '<UNK>':
-                    self.decoder_w[c2i[c2i.unk_token]] = full_sm[j]
-                    self.decoder_w[c2i[c2i.unk_token]] = full_bias[j+(i*100000)]
+                    self.decoder_w[vocab[vocab.unk_token]] = full_sm[j]
+                    self.decoder_w[vocab[vocab.unk_token]] = full_bias[j+(i*100000)]
