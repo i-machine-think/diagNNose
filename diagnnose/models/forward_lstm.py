@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Optional, Tuple
 
 import torch
@@ -20,45 +19,46 @@ class ForwardLSTM(LanguageModel):
     def __init__(self,
                  model_path: str,
                  vocab_path: str,
-                 module_path: str,
-                 device_name: str = 'cpu') -> None:
+                 device: str = 'cpu') -> None:
 
         super().__init__()
-
-        sys.path.append(os.path.expanduser(module_path))
 
         print('Loading pretrained model...')
         self.vocab = W2I(create_vocab_from_path(vocab_path))
 
         # Load the pretrained model
-        device = torch.device(device_name)
         with open(os.path.expanduser(model_path), 'rb') as mf:
-            model = torch.load(mf, map_location=device)
-
-        params = {name: param for name, param in model.named_parameters()}
-
-        self.num_layers = model.rnn.num_layers
-        self.hidden_size_c = model.rnn.hidden_size
-        self.hidden_size_h = model.rnn.hidden_size
-        self.split_order = ['i', 'f', 'g', 'o']
-        self.array_type = 'torch'
+            state_dict = torch.load(mf, map_location=device)
 
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
+        self.num_layers = 0
+        while f'rnn.weight_hh_l{self.num_layers}' in state_dict:
+            self.num_layers += 1
+
         # LSTM weights
         for l in range(self.num_layers):
             # (2*hidden_size, 4*hidden_size)
-            self.weight[l] = torch.cat((params[f'rnn.weight_hh_l{l}'],
-                                        params[f'rnn.weight_ih_l{l}']), dim=1)
+            self.weight[l] = torch.cat((state_dict[f'rnn.weight_hh_l{l}'],
+                                        state_dict[f'rnn.weight_ih_l{l}']), dim=1)
 
-            # (4*hidden_size,)
-            self.bias[l] = params[f'rnn.bias_ih_l{l}'] + params[f'rnn.bias_hh_l{l}']
+            if f'rnn.bias_ih_l{l}' in state_dict:
+                # (4*hidden_size,)
+                self.bias[l] = state_dict[f'rnn.bias_ih_l{l}'] + state_dict[f'rnn.bias_hh_l{l}']
+
+        self.hidden_size_c = state_dict[f'rnn.weight_hh_l0'].size(1)
+        self.hidden_size_h = state_dict[f'rnn.weight_hh_l0'].size(1)
+        self.split_order = ['i', 'f', 'g', 'o']
+        self.array_type = 'torch'
 
         # Encoder and decoder weights
-        self.encoder = params['encoder.weight']
-        self.decoder_w = params['decoder.weight']
-        self.decoder_b = params['decoder.bias']
+        self.encoder = state_dict['encoder.weight']
+        self.decoder_w = state_dict['decoder.weight']
+        if 'decoder.bias' in state_dict:
+            self.decoder_b = state_dict['decoder.bias']
+        else:
+            self.decoder_b = None
 
         print('Model initialisation finished.')
 
@@ -68,7 +68,9 @@ class ForwardLSTM(LanguageModel):
                      prev_hx: Tensor,
                      prev_cx: Tensor) -> NamedArrayDict:
         # (4*hidden_size,)
-        proj = self.weight[l] @ torch.cat((prev_hx, inp)) + self.bias[l]
+        proj = self.weight[l] @ torch.cat((prev_hx, inp))
+        if l in self.bias:
+            proj += self.bias[l]
         split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size_c)))
 
         f_g: Tensor = torch.sigmoid(split_proj['f'])
@@ -103,7 +105,9 @@ class ForwardLSTM(LanguageModel):
             input_ = activations[l]['hx']
 
         if compute_out:
-            out = self.decoder_w @ input_ + self.decoder_b
+            out = self.decoder_w @ input_
+            if self.decoder_b is not None:
+                out += self.decoder_b
         else:
             out = None
 
