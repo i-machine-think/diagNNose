@@ -13,14 +13,12 @@ class DataLoader:
     ----------
     activations_dir : str
         Directory containing the extracted activations
-    label_path : str, optional
-        Path to pickle file containing the labels. Defaults to
-        labels.pickle in activations_dir if no path has been provided.
+    corpus : Corpus
+        Corpus containing the labels for each sentence.
 
     Attributes
     ----------
     activations_dir : str
-    label_path : str
     labels : Optional[np.ndarray]
         Numpy array containing the extracted labels. Accessed by the
         property self.labels.
@@ -28,30 +26,14 @@ class DataLoader:
 
     def __init__(self,
                  activations_dir: str,
-                 label_path: Optional[str] = None) -> None:
+                 corpus: Corpus) -> None:
 
-        self.activations_dir = trim(activations_dir)
         self.activation_reader = ActivationReader(activations_dir)
 
-        if label_path is None:
-            label_path = f'{self.activations_dir}/labels.pickle'
-        self.label_path = label_path
-
-        self._labels = None
-        self._data_len = -1
-
-    @property
-    def labels(self) -> np.ndarray:
-        if self._labels is None:
-            self._labels = load_pickle(self.label_path)
-        return self._labels
-
-    @property
-    def data_len(self) -> int:
-        """ data_len is defined based on the number of labels """
-        if self._data_len == -1:
-            self._data_len = len(self.labels)
-        return self._data_len
+        self.labels = np.fromiter(
+            (l for s in corpus.values() for l in s.labels), dtype=np.int
+        )
+        self.data_len = len(self.activation_reader)
 
     def create_data_split(self,
                           activation_name: ActivationName,
@@ -72,7 +54,7 @@ class DataLoader:
 
         if data_subset_size != -1:
             assert 0 < data_subset_size <= self.data_len, \
-                "Size of subset must be positive and not bigger than the whole data set."
+                "Size of subset must not be bigger than the full data set."
 
         activations = self.activation_reader.read_activations(activation_name)
 

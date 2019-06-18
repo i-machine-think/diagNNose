@@ -166,6 +166,9 @@ class ActivationReader:
 
         return indices
 
+    def __len__(self) -> int:
+        return self.data_len
+
     @property
     def data_len(self) -> int:
         """ data_len is defined based on the activation range of the last sentence """
