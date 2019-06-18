@@ -8,7 +8,7 @@ import torch
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel
-from diagnnose.typedefs.corpus import Corpus, CorpusSentence, Labels
+from diagnnose.typedefs.corpus import Corpus, CorpusSentence
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
 from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 
@@ -24,7 +24,7 @@ class Extractor:
     model : LanguageModel
         Language model that inherits from LanguageModel.
     corpus : Corpus
-        Corpus containing the labels for each sentence.
+        Corpus containing sentences to be extracted.
     activations_dir : str
         Directory to which activations will be written
     init_lstm_states_path: str, optional
@@ -63,7 +63,7 @@ class Extractor:
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
                 create_avg_eos: bool = False,
                 only_dump_avg_eos: bool = False) -> None:
-        """ Extracts embeddings from a labeled corpus.
+        """ Extracts embeddings from a corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
         File writing is done directly per sentence, to lessen RAM usage.
@@ -116,7 +116,7 @@ class Extractor:
                 if cutoff == n_sens:
                     break
 
-                sen_activations, sen_extracted_labels, n_extracted = \
+                sen_activations, n_extracted = \
                     self._extract_sentence(labeled_sentence, selection_func)
 
                 if not only_dump_avg_eos:
@@ -172,7 +172,7 @@ class Extractor:
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
-                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, List, int]:
+                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, int]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -188,12 +188,11 @@ class Extractor:
         sen_activations : PartialArrayDict
             Extracted activations for this sentence. Activations are
             converted to numpy arrays.
-        extracted_labels : Labels
-            List of labels corresponding to the extracted activations.
+        n_extracted : Labels
+            Number of extracted activations.
         """
 
         sen_activations: PartialArrayDict = self._init_sen_activations()
-        extracted_labels: Labels = []
         n_extracted = 0
 
         activations: FullActivationDict = self.init_lstm_states.create()
@@ -203,9 +202,6 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
-                if sentence.labels is not None:
-                    extracted_labels.append(sentence.labels[i])
-
                 for layer, name in self.activation_names:
                     activation = activations[layer][name]
                     if self.model.array_type == 'torch':
@@ -217,7 +213,7 @@ class Extractor:
         for a_name, arr in sen_activations.items():
             sen_activations[a_name] = np.array(arr)
 
-        return sen_activations, extracted_labels, n_extracted
+        return sen_activations, n_extracted
 
     def _init_sen_activations(self) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """
