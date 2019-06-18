@@ -117,6 +117,40 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
     }
 
+    arg_descriptions['classify'] = {
+        'activation_names': {
+            'required': True,
+            'nargs': '*',
+            'help': '(required) List of activation names on which classifiers will be trained.'
+        },
+        'classifier_type': {
+            'required': True,
+            'help': 'Classifier type, as of now only accepts `logreg`, but more will be added.'
+        },
+        'save_dir': {
+            'required': True,
+            'help': '(required) Directory to which trained models will be saved.'
+        },
+        'calc_class_weights': {
+            'type': bool,
+            'help': '(optional) Set to true to calculate the classifier class weights based on the '
+                    'corpus class frequencies. Defaults to false.'
+        }
+    }
+
+    arg_descriptions['train_dc'] = {
+        'data_subset_size': {
+            'type': int,
+            'help': '(optional) Subset size of the amount of data points that will be used for '
+                    'training. Train/test split is performed afterwards. Defaults to the entire '
+                    'data set.'
+        },
+        'train_test_split': {
+            'type': float,
+            'help': '(optional) Ratio of the train/test split. Defaults to 0.9.'
+        }
+    }
+
     arg_descriptions['decompose'] = {
         'decomposer': {
             'required': True,
