@@ -6,6 +6,6 @@
   "activation_names": ["hx1"],
   "activations_dir": "../experiments/pai/activations",
   "print_every": 50,
-  "cutoff": 5000,
+  "cutoff": -1,
   "dynamic_dumping": true
 }
