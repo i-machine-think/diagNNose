@@ -1,13 +1,12 @@
 {
   "model_type": "ForwardLSTM",
-  "model_path": "../lm_data/models/gulordava/model.pt",
-  "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "module_path": "../lm_data/models/gulordava/",
-  "corpus_path": "../lm_data/corpora/wino/wino_corpus.txt",
-  "header_from_first_line": true,
+  "model_path": "../lm_data/models/nobias/bias_650h_650e_wt_034do_voc10k.pt",
+  "vocab_path": "../lm_data/models/nobias/vocab.txt",
+  "corpus_path": "../lm_data/corpora/Number_and_syntax_units_in_LSTM_LMs/datasets/NA_tasks/nounpp.txt",
+  "corpus_header": ["sen", "type", "correct", "idx"],
   "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
-  "init_lstm_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle",
-  "activations_dir": "../lm_data/activations/extracted/wino",
+  "init_lstm_states_path": "../lm_data/activations/extracted/init_nobias_wbias/avg_eos.pickle",
+  "activations_dir": "../lm_data/activations/extracted/nobias_lakretz_wbias",
   "print_every": 10,
   "dynamic_dumping": true
 }
