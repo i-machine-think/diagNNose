@@ -27,7 +27,7 @@ class GoogleLM(LanguageModel):
         self.num_layers = 2
         self.hidden_size_c = 8192
         self.hidden_size_h = 1024
-        self.split_order = ['f', 'i', 'o', 'g']
+        self.split_order = ['i', 'g', 'f', 'o']
         self.array_type = 'numpy'
         self.forget_offset = 1
 
@@ -68,7 +68,8 @@ class GoogleLM(LanguageModel):
                      inp: np.ndarray,
                      prev_hx: np.ndarray,
                      prev_cx: np.ndarray) -> NamedArrayDict:
-        proj = self.lstm.weight[l] @ np.concatenate((prev_hx, inp)) + self.lstm.bias[l]
+        proj = self.lstm.weight[l] @ np.concatenate((inp, prev_hx)) + \
+               self.lstm.bias[l]
         split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
         f_g: np.ndarray = sigmoid(split_proj['f']
@@ -216,17 +217,26 @@ class SoftMax:
         bias_reader = NewCheckpointReader(os.path.join(ckpt_dir, 'ckpt-softmax8'))
         full_bias = bias_reader.get_tensor('softmax/b')
 
+        chunk_size = 100000
+
         # SoftMax is chunked into 8 arrays
         for i in range(8):
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f'ckpt-softmax{i}'))
             full_sm = sm_reader.get_tensor(f'softmax/W_{i}').astype(np.float32)
-            for j, w in enumerate(full_vocab[i*100000:(i+1)*100000]):
+
+            offset = i * chunk_size
+
+            for j, w in enumerate(full_vocab[offset:offset + chunk_size]):
+                sm = full_sm[j]
+                bias = full_bias[offset + j]
+
                 if w in c2i:
-                    self.decoder_w[c2i[w]] = full_sm[j]
-                    self.decoder_b[c2i[w]] = full_bias[j+(i*100000)]
+                    self.decoder_w[c2i[w]] = sm
+                    self.decoder_b[c2i[w]] = bias
+
                 if w == '</S>':
-                    self.decoder_w[c2i[c2i.eos_token]] = full_sm[j]
-                    self.decoder_w[c2i[c2i.eos_token]] = full_bias[j+(i*100000)]
-                if w == '<UNK>':
-                    self.decoder_w[c2i[c2i.unk_token]] = full_sm[j]
-                    self.decoder_w[c2i[c2i.unk_token]] = full_bias[j+(i*100000)]
+                    self.decoder_w[c2i[c2i.eos_token]] = sm
+                    self.decoder_b[c2i[c2i.eos_token]] = bias
+                elif w == '<UNK>':
+                    self.decoder_w[c2i[c2i.unk_token]] = sm
+                    self.decoder_b[c2i[c2i.unk_token]] = bias
