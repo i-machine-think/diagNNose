@@ -67,7 +67,7 @@ class BaseDecomposer:
         original_logit = np.exp(np.ma.dot(final_hidden_state, self.decoder_w.T) + bias)
 
         if normalize:
-            original_logit = (original_logit.T / np.sum(original_logit, axis=1)).T
+            original_logit = (np.exp(original_logit).T / np.sum(np.exp(original_logit), axis=1)).T
 
         return original_logit
 
