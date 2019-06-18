@@ -1,17 +1,18 @@
+import os
 from collections import defaultdict
 from time import time
-from typing import Any, List, Optional
+from typing import Any, List
 
 import numpy as np
 from sklearn.externals import joblib
-from sklearn.linear_model import LogisticRegressionCV as LogReg
+from sklearn.linear_model import LogisticRegressionCV as LogRegCV
 from sklearn.metrics import accuracy_score
 
-from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import ResultsDict
 from diagnnose.utils.paths import dump_pickle
+from diagnnose.typedefs.corpus import Corpus
 
 
 class DCTrainer:
@@ -22,25 +23,23 @@ class DCTrainer:
 
     Parameters
     ----------
+    corpus : Corpus
+        Corpus containing the token labels for each sentence.
     activations_dir : str
         Path to folder containing the activations to train on.
     activation_names : List[ActivationName]
-        List of (layer, name)-tuples indicating which activations the
-        classifiers will be trained on.
-    output_dir : str
-        Path to folder to which models and results will be saved.
+        List of activation names on which classifiers will be trained.
+    save_dir : str
+        Directory to which trained models will be saved.
     classifier_type : str
-        Classifier type, right now only accepts 'logreg' or 'svm'.
-    label_path : str, optional
-        Path to label files. If not provided, labels.pickle in
-        `activations_dir` will be used.
-    use_class_weights : bool
-        Flag to indicate whether class weights calculated from the
-        training data should be used for training (defaults to True).
+        Classifier type, as of now only accepts `logreg`, but more will be added.
+    calc_class_weights : bool, optional
+        Set to True to calculate the classifier class weights based on
+        the corpus class frequencies. Defaults to False.
 
     Attributes
     ----------
-    activation_reader : ActivationReader
+    data_loader : DataLoader
         Class that reads and preprocesses activation data.
     classifier : Classifier
         Current classifier that is being trained.
@@ -48,33 +47,37 @@ class DCTrainer:
         Dictionary containing relevant results. TODO: Add preds to this instead of separate files?
     """
     def __init__(self,
+                 corpus: Corpus,
                  activations_dir: str,
                  activation_names: List[ActivationName],
-                 output_dir: str,
+                 save_dir: str,
                  classifier_type: str,
-                 label_path: Optional[str] = None,
-                 use_class_weights: bool = True) -> None:
+                 calc_class_weights: bool = False) -> None:
 
         self.activation_names: List[ActivationName] = activation_names
-        self.output_dir = trim(output_dir)
-        self.classifier_type = classifier_type
-        # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
-        self.use_class_weights = use_class_weights
+        self.save_dir = save_dir
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
 
-        self.data_loader = DataLoader(activations_dir, label_path)
-        self._reset_classifier()
+        # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
+        self.classifier_type = classifier_type
+        self.calc_class_weights = calc_class_weights
+
+        self.data_loader = DataLoader(activations_dir, corpus)
         self.results: ResultsDict = defaultdict(dict)
 
-    def train(self, train_subset_size: int = -1, train_test_split: float = 0.9) -> None:
+        self._reset_classifier()
+
+    def train(self, data_subset_size: int = -1, train_test_split: float = 0.9) -> None:
         start_t = time()
 
         for a_name in self.activation_names:
             data_dict = self.data_loader.create_data_split(a_name,
-                                                           train_subset_size,
+                                                           data_subset_size,
                                                            train_test_split)
 
             # Calculate class weights
-            if self.use_class_weights:
+            if self.calc_class_weights:
                 classes, class_freqs = np.unique(data_dict['train_y'], return_counts=True)
                 norm = class_freqs.sum()  # Norm factor
                 class_weight = {classes[i]: class_freqs[i] / norm for i in range(len(class_freqs))}
@@ -91,7 +94,7 @@ class DCTrainer:
 
     def _reset_classifier(self) -> None:
         self.classifier = {
-            'logreg': LogReg(),
+            'logreg': LogRegCV(),
             'svm': None,
         }[self.classifier_type]
 
@@ -122,8 +125,8 @@ class DCTrainer:
     def save_classifier(self, pred_y: np.ndarray, activation_name: ActivationName) -> None:
         l, name = activation_name
 
-        preds_path = f'{self.output_dir}/preds/{name}_l{l}.pickle'
-        model_path = f'{self.output_dir}/models/{name}_l{l}.joblib'
+        preds_path = os.path.join(self.save_dir, f'{name}_l{l}_preds.pickle')
+        model_path = os.path.join(self.save_dir, f'{name}_l{l}.joblib')
 
         dump_pickle(pred_y, preds_path)
         joblib.dump(self.classifier, model_path)
@@ -134,7 +137,9 @@ class DCTrainer:
 
     def log_results(self, start_t: float) -> None:
         total_time = time() - start_t
-        print(f'Total classification time took {total_time:.2f}s')
+        m, s = divmod(total_time, 60)
+
+        print(f'Total classification time took {m:.0f}m {s:.1f}s')
 
         log = {
             'activation_names': self.activation_names,
@@ -143,5 +148,5 @@ class DCTrainer:
             'total_time': total_time,
         }
 
-        log_path = f'{self.output_dir}/log.pickle'
+        log_path = os.path.join(self.save_dir, 'log.pickle')
         dump_pickle(log, log_path)
