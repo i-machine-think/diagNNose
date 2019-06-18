@@ -41,6 +41,7 @@ class ContextualDecomposer(BaseDecomposer):
                    only_source_rel: bool = False,
                    only_source_rel_b: bool = False,
                    input_never_rel: bool = False,
+                   init_states_rel: bool = False,
                    use_extracted_activations: bool = True,
                    only_return_dec: bool = False,
                    validate: bool = True,
@@ -69,13 +70,16 @@ class ContextualDecomposer(BaseDecomposer):
             Relates to rel-irrel interactions. If set to true, only
             irrel_gate-rel_source interactions will be added to rel,
             similar to LRP (Arras et al., 2017).
-        only_source_rel : bool, optional
+        only_source_rel_b : bool, optional
             Relates to rel-b interactions. If set to true, only
             b-rel_source interactions will be added to rel,
             similar to LRP (Arras et al., 2017).
         input_never_rel : bool, optional
             Never add the Wx input to the rel part, useful when only
             investigating the model biases. Defaults to False.
+        init_states_rel : bool, optional
+            Directly add the initial cell/hidden states to the relevant
+            part. Defaults to False.
         use_extracted_activations : bool, optional
             Allows previously extracted activations to be used to avoid
             unnecessary recomputations of those activations.
@@ -103,6 +107,7 @@ class ContextualDecomposer(BaseDecomposer):
         self.bias_bias_only_in_phrase = bias_bias_only_in_phrase
         self.only_source_rel = only_source_rel
         self.only_source_rel_b = only_source_rel_b
+        self.init_states_rel = init_states_rel
 
         for layer in range(self.model.num_layers):
             for i in range(start_index, slen):
@@ -240,7 +245,7 @@ class ContextualDecomposer(BaseDecomposer):
             prev_rel = self.decompositions[f'relevant_{cell_type}'][layer][i - 1]
             prev_irrel = self.decompositions[f'irrelevant_{cell_type}'][layer][i - 1]
         else:
-            if start < 0:
+            if start < 0 or self.init_states_rel:
                 prev_rel = self.activation_dict[layer, f'i{cell_type}x'][0, 0]
                 prev_irrel = np.zeros(hidden_size, dtype=np.float32)
             else:

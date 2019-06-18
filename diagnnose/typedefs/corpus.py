@@ -18,14 +18,5 @@ class CorpusSentence:
     def __len__(self) -> int:
         return len(self.sen)
 
-    def validate(self) -> None:
-        if self.labels is None:
-            return
-        sen_len = len(self.sen)
-        labels_len = len(self.labels)
-        assert sen_len == labels_len, \
-            f'Length mismatch between sentence and labels, ' \
-            f'{sen_len} (sen) vs. {labels_len} (labels).'
-
 
 Corpus = Dict[int, CorpusSentence]

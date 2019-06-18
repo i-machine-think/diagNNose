@@ -23,6 +23,7 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     module_name = {
         'ForwardLSTM': 'forward_lstm',
         'GoogleLM': 'google_lm',
+        'OneHotLSTM': 'one_hot_lstm',
     }[model_type]
 
     module = import_module(f'diagnnose.models.{module_name}')
@@ -53,6 +54,7 @@ def import_decoder_from_model(model: LanguageModel,
 
     if model.array_type == 'torch':
         w = w.data.numpy()
-        b = b.data.numpy()
+        if b is not None:
+            b = b.data.numpy()
 
     return w, b

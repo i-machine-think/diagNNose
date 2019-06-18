@@ -13,7 +13,7 @@ from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationKey, ActivationName, ActivationNames, FullActivationDict, PartialArrayDict)
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.utils.paths import camel2snake, trim
+from diagnnose.utils.paths import camel2snake
 
 from .base_decomposer import BaseDecomposer
 
@@ -43,6 +43,7 @@ class DecomposerFactory:
                  activations_dir: str,
                  decoder: Optional[str] = None,
                  init_lstm_states_path: Optional[str] = None) -> None:
+
         # Import Decomposer class from string, assumes module name to be snake case variant
         # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
         module_name = camel2snake(decomposer)
@@ -73,12 +74,14 @@ class DecomposerFactory:
             account.
         classes : slice | List[int], optional
             Denotes the the class indices of the model decoder for which
-            the decomposed scores should be calculated.
+            the decomposed scores should be calculated. Defaults to the
+            entire vocabulary.
 
         Returns
         -------
         decomposer : BaseDecomposer
-            BaseDecomposer instance pertaining to the provided parameters.
+            BaseDecomposer instance pertaining to the provided
+            parameters.
         """
 
         decoder = self.decoder_w[classes], self.decoder_b[classes]
@@ -167,7 +170,7 @@ class DecomposerFactory:
 
         final_index = np.sum(np.all(1 - cell_states.mask, axis=2), axis=1) - 1
         if subsen_index.stop:
-            assert np.all(final_index >= subsen_index.stop), \
+            assert np.all(final_index >= subsen_index.stop-1), \
                 'Subsentence index can\'t be longer than sentence itself'
             final_index = np.array([subsen_index.stop - 1] * batch_size)
 
@@ -179,7 +182,7 @@ class DecomposerFactory:
 
     def _read_decoder(self, decoder_path: Optional[str]) -> LinearDecoder:
         if decoder_path:
-            classifier = joblib.load(trim(decoder_path))
+            classifier = joblib.load(decoder_path)
             decoder_w = classifier.coef_
             decoder_b = classifier.intercept_
         else:

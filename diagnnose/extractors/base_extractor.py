@@ -8,7 +8,7 @@ import torch
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel
-from diagnnose.typedefs.corpus import Corpus, CorpusSentence, Labels
+from diagnnose.typedefs.corpus import Corpus, CorpusSentence
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
 from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 
@@ -24,7 +24,7 @@ class Extractor:
     model : LanguageModel
         Language model that inherits from LanguageModel.
     corpus : Corpus
-        Corpus containing the labels for each sentence.
+        Corpus containing sentences to be extracted.
     activations_dir : str
         Directory to which activations will be written
     init_lstm_states_path: str, optional
@@ -61,9 +61,9 @@ class Extractor:
                 print_every: int = 10,
                 dynamic_dumping: bool = True,
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
-                create_label_file: bool = False,
-                create_avg_eos: bool = False) -> None:
-        """ Extracts embeddings from a labeled corpus.
+                create_avg_eos: bool = False,
+                only_dump_avg_eos: bool = False) -> None:
+        """ Extracts embeddings from a corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
         File writing is done directly per sentence, to lessen RAM usage.
@@ -84,11 +84,11 @@ class Extractor:
         selection_func : Callable
             Function which determines if activations for a token should
             be extracted or not.
-        create_label_file : bool, optional
-            Indicates whether to create a label file, defaults to False.
         create_avg_eos : bool, optional
             Toggle to save average end of sentence activations. Will be
             stored in in `self.output_dir`.
+        only_dump_avg_eos : bool , optional
+            Toggle to only save the average eos activations.
         """
         self.activation_names = activation_names
 
@@ -98,61 +98,61 @@ class Extractor:
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
 
-        tot_num = len(self.corpus) if cutoff < 0 else cutoff
+        tot_num = len(self.corpus) if cutoff == -1 else cutoff
         print(f'\nStarting extraction of {tot_num} sentences...')
 
         with ExitStack() as stack:
             self.activation_writer.create_output_files(
-                stack, activation_names, create_label_file, create_avg_eos
+                stack, activation_names, create_avg_eos, only_dump_avg_eos
             )
 
-            extracted_labels: Labels = []
-            avg_eos_states = self._init_avg_eos_activations()
+            if create_avg_eos:
+                avg_eos_states = self._init_avg_eos_activations()
 
-            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items()):
+            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items(), start=1):
                 if n_sens % print_every == 0 and n_sens > 0:
                     self._print_time_info(prev_t, start_t, print_every, n_sens, tot_num)
                     prev_t = time()
-                if cutoff == n_sens:
-                    break
 
-                sen_activations, sen_extracted_labels, n_extracted = \
+                sen_activations, n_extracted = \
                     self._extract_sentence(labeled_sentence, selection_func)
 
-                if dynamic_dumping:
-                    self.activation_writer.dump_activations(sen_activations)
-                else:
-                    for name in all_activations.keys():
-                        all_activations[name].append(sen_activations[name])
+                if not only_dump_avg_eos:
+                    if dynamic_dumping:
+                        self.activation_writer.dump_activations(sen_activations)
+                    else:
+                        for name in all_activations.keys():
+                            all_activations[name].append(sen_activations[name])
 
                 if create_avg_eos:
                     self._update_avg_eos_activations(avg_eos_states, sen_activations)
 
-                extracted_labels.extend(sen_extracted_labels)
                 activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
                 tot_extracted += n_extracted
 
+                if cutoff == n_sens:
+                    break
+
             del self.model
-            self.activation_writer.dump_activation_ranges(activation_ranges)
-            if extracted_labels:
-                self.activation_writer.dump_labels(extracted_labels)
             if create_avg_eos:
-                self._normalize_avg_eos_activations(avg_eos_states, n_sens+1)
+                self._normalize_avg_eos_activations(avg_eos_states, n_sens)
                 self.activation_writer.dump_avg_eos(avg_eos_states)
 
-            if not dynamic_dumping:
-                for name in all_activations.keys():
-                    all_activations[name] = np.concatenate(all_activations[name], axis=0)
-                self.activation_writer.dump_activations(all_activations)
+            if not only_dump_avg_eos:
+                self.activation_writer.dump_activation_ranges(activation_ranges)
+                if not dynamic_dumping:
+                    for name in all_activations.keys():
+                        all_activations[name] = np.concatenate(all_activations[name], axis=0)
+                    self.activation_writer.dump_activations(all_activations)
 
-        if dynamic_dumping:
+        if dynamic_dumping and not only_dump_avg_eos:
             print('\nConcatenating sequentially dumped pickle files into 1 array...')
             self.activation_writer.concat_pickle_dumps()
 
         minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')
-        print(f'{n_sens+1} sentences have been extracted, '
+        print(f'{n_sens} sentences have been extracted, '
               f'yielding {tot_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
@@ -173,7 +173,7 @@ class Extractor:
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
-                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, List, int]:
+                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, int]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -189,12 +189,11 @@ class Extractor:
         sen_activations : PartialArrayDict
             Extracted activations for this sentence. Activations are
             converted to numpy arrays.
-        extracted_labels : Labels
-            List of labels corresponding to the extracted activations.
+        n_extracted : Labels
+            Number of extracted activations.
         """
 
         sen_activations: PartialArrayDict = self._init_sen_activations()
-        extracted_labels: Labels = []
         n_extracted = 0
 
         activations: FullActivationDict = self.init_lstm_states.create()
@@ -204,9 +203,6 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
-                if sentence.labels is not None:
-                    extracted_labels.append(sentence.labels[i])
-
                 for layer, name in self.activation_names:
                     activation = activations[layer][name]
                     if self.model.array_type == 'torch':
@@ -218,7 +214,7 @@ class Extractor:
         for a_name, arr in sen_activations.items():
             sen_activations[a_name] = np.array(arr)
 
-        return sen_activations, extracted_labels, n_extracted
+        return sen_activations, n_extracted
 
     def _init_sen_activations(self) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """

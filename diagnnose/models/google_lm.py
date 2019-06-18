@@ -18,20 +18,22 @@ from .language_model import LanguageModel
 
 class GoogleLM(LanguageModel):
     def __init__(self,
-                 corpus_vocab_path: str,
                  pbtxt_path: str,
                  ckpt_dir: str,
-                 full_vocab_path: str) -> None:
+                 full_vocab_path: str,
+                 corpus_vocab_path: Optional[str] = None) -> None:
         super().__init__()
 
         self.num_layers = 2
         self.hidden_size_c = 8192
         self.hidden_size_h = 1024
         self.split_order = ['i', 'g', 'f', 'o']
+        # TODO: port this model to pytorch, this is a torch lib after all...
         self.array_type = 'numpy'
         self.forget_offset = 1
 
-        vocab = C2I(create_vocab_from_path(corpus_vocab_path))
+        vocab_path = corpus_vocab_path if corpus_vocab_path is not None else full_vocab_path
+        vocab = C2I(create_vocab_from_path(vocab_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
@@ -210,7 +212,7 @@ class SoftMax:
 
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
-    def _load_softmax(self, c2i: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
+    def _load_softmax(self, vocab: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
         with open(full_vocab_path) as f:
             full_vocab: List[str] = f.read().strip().split('\n')
 

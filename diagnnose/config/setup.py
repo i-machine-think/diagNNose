@@ -1,10 +1,11 @@
 import json
 from argparse import ArgumentParser
 from pprint import pprint
-from typing import Dict, Set
+from typing import Set
 
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs, ArgsDisjunction
 from .arg_parser import create_arg_descriptions
+
 
 class ConfigSetup:
     """ Sets up the configuration for extraction.

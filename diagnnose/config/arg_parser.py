@@ -9,8 +9,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         'model': {
             'model_type': {
                 'required': True,
-                'help': 'Language model type, as of now either '
-                        'ForwardLSTM or GoogleLM.'
+                'help': '(required) Language model type, as of now either ForwardLSTM or GoogleLM.'
             }
         }
     }
@@ -18,17 +17,23 @@ def create_arg_descriptions() -> ArgDescriptions:
     # Gulordava ForwardLSTM
     arg_descriptions['model'].update({
         'model_path': {
-            'help': 'Path to model parameters'
+            'help': 'Path to ForwardLSTM model parameters (pickled torch state_dict)'
         },
         'vocab_path': {
-            'help': 'Path to model vocabulary'
-        },
-        'module_path': {
-            'help': 'Path to folder containing model module'
+            'help': 'Path to ForwardLSTM model vocabulary'
         },
         'device': {
             'help': '(optional) Torch device name on which model will be run. Defaults to cpu.'
         },
+        'rnn_name': {
+            'help': '(optional) Attribute name of rnn, defaults to `rnn`.'
+        },
+        'encoder_name': {
+            'help': '(optional) Attribute name of model encoder, defaults to `encoder`.'
+        },
+        'decoder_name': {
+            'help': '(optional) Attribute name of model decoder, defaults to `decoder`.'
+        }
     })
 
     # GoogleLM
@@ -51,7 +56,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions['corpus'] = {
         'corpus_path': {
             'required': True,
-            'help': 'Path to a corpus file.'
+            'help': '(required) Path to a corpus file.'
         },
         'corpus_header': {
             'nargs': '*',
@@ -73,7 +78,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         # TODO: Provide explanation of activation names
         'activations_dir': {
             'required': True,
-            'help': 'Path to folder to which extracted embeddings will be written.'
+            'help': '(required) Path to folder to which extracted embeddings will be written.'
         },
         'init_lstm_states_path': {
             'help': '(optional) Location of initial lstm states of the model. '
@@ -85,22 +90,21 @@ def create_arg_descriptions() -> ArgDescriptions:
         'activation_names': {
             'required': True,
             'nargs': '*',
-            'help': 'List of activation names to be extracted.'
+            'help': '(required) List of activation names to be extracted.'
         },
         'dynamic_dumping': {
             'type': bool,
             'help': '(optional) Set to true to directly dump activations to file. '
                     'This way no activations are stored in RAM. Defaults to true.'
         },
-        'create_label_file': {
-            'type': bool,
-            'help': '(optional) Set to true to directly store the corpus labels as a separate '
-                    'numpy array. Defaults to True.'
-        },
         'create_avg_eos': {
             'type': bool,
             'help': '(optional) Set to true to directly store the average end of sentence '
                     'activations. Defaults to False'
+        },
+        'only_dump_avg_eos': {
+            'type': bool,
+            'help': '(optional) Set to true to only dump the avg eos activation. Defaults to False.'
         },
         'print_every': {
             'type': int,
@@ -113,10 +117,44 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
     }
 
+    arg_descriptions['classify'] = {
+        'activation_names': {
+            'required': True,
+            'nargs': '*',
+            'help': '(required) List of activation names on which classifiers will be trained.'
+        },
+        'classifier_type': {
+            'required': True,
+            'help': 'Classifier type, as of now only accepts `logreg`, but more will be added.'
+        },
+        'save_dir': {
+            'required': True,
+            'help': '(required) Directory to which trained models will be saved.'
+        },
+        'calc_class_weights': {
+            'type': bool,
+            'help': '(optional) Set to true to calculate the classifier class weights based on the '
+                    'corpus class frequencies. Defaults to false.'
+        }
+    }
+
+    arg_descriptions['train_dc'] = {
+        'data_subset_size': {
+            'type': int,
+            'help': '(optional) Subset size of the amount of data points that will be used for '
+                    'training. Train/test split is performed afterwards. Defaults to the entire '
+                    'data set.'
+        },
+        'train_test_split': {
+            'type': float,
+            'help': '(optional) Ratio of the train/test split. Defaults to 0.9.'
+        }
+    }
+
     arg_descriptions['decompose'] = {
         'decomposer': {
             'required': True,
-            'help': 'Class name of decomposer constructor. As of now either '
+            'help': '(required) Class name of decomposer constructor. As of now either '
                     'CellDecomposer or ContextualDecomposer'
         }
     }

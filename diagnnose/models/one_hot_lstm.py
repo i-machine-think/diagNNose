@@ -11,23 +11,20 @@ from .language_model import LanguageModel
 from diagnnose.utils.vocab import create_vocab_from_path, W2I
 
 
-class ForwardLSTM(LanguageModel):
+class OneHotLSTM(LanguageModel):
     """ Defines a default uni-directional n-layer LSTM.
 
     Allows for extraction of intermediate states and gate activations.
     """
     def __init__(self,
                  model_path: str,
-                 vocab_path: str,
                  device: str = 'cpu',
-                 rnn_name: str = 'rnn',
-                 encoder_name: str = 'encoder',
-                 decoder_name: str = 'decoder') -> None:
+                 rnn_name: str = 'lstm',
+                 decoder_name: str = 'linear') -> None:
 
         super().__init__()
 
         print('Loading pretrained model...')
-        self.vocab = W2I(create_vocab_from_path(vocab_path))
 
         # Load the pretrained model
         with open(os.path.expanduser(model_path), 'rb') as mf:
@@ -55,9 +52,9 @@ class ForwardLSTM(LanguageModel):
         self.hidden_size_h = state_dict[f'{rnn_name}.weight_hh_l0'].size(1)
         self.split_order = ['i', 'f', 'g', 'o']
         self.array_type = 'torch'
+        self.one_hot_len = 35
 
         # Encoder and decoder weights
-        self.encoder = state_dict[f'{encoder_name}.weight']
         self.decoder_w = state_dict[f'{decoder_name}.weight']
         if f'{decoder_name}.bias' in state_dict:
             self.decoder_b = state_dict[f'{decoder_name}.bias']
@@ -93,12 +90,13 @@ class ForwardLSTM(LanguageModel):
 
     @overrides
     def forward(self,
-                token: str,
+                idx: str,
                 prev_activations: FullActivationDict,
                 compute_out: bool = True) -> Tuple[Optional[Tensor], FullActivationDict]:
 
         # Look up the embeddings of the input words
-        input_ = self.encoder[self.vocab[token]]
+        input_ = torch.zeros(self.one_hot_len)
+        input_[int(idx)] = 1
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
