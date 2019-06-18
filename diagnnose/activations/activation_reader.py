@@ -129,7 +129,7 @@ class ActivationReader:
         else:
             index = key
 
-        if isinstance(index, int):
+        if isinstance(index, (int, np.integer)):
             index = [index]
 
         return index, indextype, concat
