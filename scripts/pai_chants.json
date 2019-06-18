@@ -2,9 +2,10 @@
   "model_type": "OneHotLSTM",
   "model_path": "../experiments/pai/interval_20_512_2_model.pt",
   "corpus_path": "../experiments/pai/corpus.txt",
-  "activation_names": ["hx0", "cx0", "hx1", "cx1"],
+  "corpus_header": ["sen", "labels"],
+  "activation_names": ["hx1"],
   "activations_dir": "../experiments/pai/activations",
-  "print_every": 10,
-  "cutoff": 50,
+  "print_every": 50,
+  "cutoff": 5000,
   "dynamic_dumping": true
 }
