@@ -98,7 +98,7 @@ class Extractor:
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
 
-        tot_num = len(self.corpus) if cutoff < 0 else cutoff
+        tot_num = len(self.corpus) if cutoff == -1 else cutoff
         print(f'\nStarting extraction of {tot_num} sentences...')
 
         with ExitStack() as stack:
@@ -109,12 +109,10 @@ class Extractor:
             if create_avg_eos:
                 avg_eos_states = self._init_avg_eos_activations()
 
-            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items()):
+            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items(), start=1):
                 if n_sens % print_every == 0 and n_sens > 0:
                     self._print_time_info(prev_t, start_t, print_every, n_sens, tot_num)
                     prev_t = time()
-                if cutoff == n_sens:
-                    break
 
                 sen_activations, n_extracted = \
                     self._extract_sentence(labeled_sentence, selection_func)
@@ -132,9 +130,12 @@ class Extractor:
                 activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
                 tot_extracted += n_extracted
 
+                if cutoff == n_sens:
+                    break
+
             del self.model
             if create_avg_eos:
-                self._normalize_avg_eos_activations(avg_eos_states, n_sens+1)
+                self._normalize_avg_eos_activations(avg_eos_states, n_sens)
                 self.activation_writer.dump_avg_eos(avg_eos_states)
 
             if not only_dump_avg_eos:
@@ -151,7 +152,7 @@ class Extractor:
         minutes, seconds = divmod(time() - start_t, 60)
 
         print(f'\nExtraction finished.')
-        print(f'{n_sens+1} sentences have been extracted, '
+        print(f'{n_sens} sentences have been extracted, '
               f'yielding {tot_extracted} data points.')
         print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
 
