@@ -53,6 +53,7 @@ def import_decoder_from_model(model: LanguageModel,
 
     if model.array_type == 'torch':
         w = w.data.numpy()
-        b = b.data.numpy()
+        if b is not None:
+            b = b.data.numpy()
 
     return w, b
