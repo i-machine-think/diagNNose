@@ -109,6 +109,10 @@ def string_to_dict(header: List[str], line: List[str], to_lower: bool) -> Dict[s
     Also splits the sentence string to a list of strings.
     """
     sendict: Dict[str, Any] = dict(zip(header, line))
+    for k, v in sendict.items():
+        if v.isnumeric():
+            sendict[k] = int(v)
+
     if 'sen' in sendict:
         sen = sendict['sen'].lower() if to_lower else sendict['sen']
         sendict['sen'] = sen.strip().split(' ')
