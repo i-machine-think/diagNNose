@@ -19,7 +19,10 @@ class ForwardLSTM(LanguageModel):
     def __init__(self,
                  model_path: str,
                  vocab_path: str,
-                 device: str = 'cpu') -> None:
+                 device: str = 'cpu',
+                 rnn_name: str = 'rnn',
+                 encoder_name: str = 'encoder',
+                 decoder_name: str = 'decoder') -> None:
 
         super().__init__()
 
@@ -34,29 +37,30 @@ class ForwardLSTM(LanguageModel):
         self.bias: ParameterDict = {}
 
         self.num_layers = 0
-        while f'rnn.weight_hh_l{self.num_layers}' in state_dict:
+        while f'{rnn_name}.weight_hh_l{self.num_layers}' in state_dict:
             self.num_layers += 1
 
         # LSTM weights
         for l in range(self.num_layers):
             # (2*hidden_size, 4*hidden_size)
-            self.weight[l] = torch.cat((state_dict[f'rnn.weight_hh_l{l}'],
-                                        state_dict[f'rnn.weight_ih_l{l}']), dim=1)
+            self.weight[l] = torch.cat((state_dict[f'{rnn_name}.weight_hh_l{l}'],
+                                        state_dict[f'{rnn_name}.weight_ih_l{l}']), dim=1)
 
-            if f'rnn.bias_ih_l{l}' in state_dict:
+            if f'{rnn_name}.bias_ih_l{l}' in state_dict:
                 # (4*hidden_size,)
-                self.bias[l] = state_dict[f'rnn.bias_ih_l{l}'] + state_dict[f'rnn.bias_hh_l{l}']
+                self.bias[l] = state_dict[f'{rnn_name}.bias_ih_l{l}'] + \
+                               state_dict[f'{rnn_name}.bias_hh_l{l}']
 
-        self.hidden_size_c = state_dict[f'rnn.weight_hh_l0'].size(1)
-        self.hidden_size_h = state_dict[f'rnn.weight_hh_l0'].size(1)
+        self.hidden_size_c = state_dict[f'{rnn_name}.weight_hh_l0'].size(1)
+        self.hidden_size_h = state_dict[f'{rnn_name}.weight_hh_l0'].size(1)
         self.split_order = ['i', 'f', 'g', 'o']
         self.array_type = 'torch'
 
         # Encoder and decoder weights
-        self.encoder = state_dict['encoder.weight']
-        self.decoder_w = state_dict['decoder.weight']
-        if 'decoder.bias' in state_dict:
-            self.decoder_b = state_dict['decoder.bias']
+        self.encoder = state_dict[f'{encoder_name}.weight']
+        self.decoder_w = state_dict[f'{decoder_name}.weight']
+        if f'{decoder_name}.bias' in state_dict:
+            self.decoder_b = state_dict[f'{decoder_name}.bias']
         else:
             self.decoder_b = None
 

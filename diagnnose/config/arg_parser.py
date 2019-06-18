@@ -17,17 +17,23 @@ def create_arg_descriptions() -> ArgDescriptions:
     # Gulordava ForwardLSTM
     arg_descriptions['model'].update({
         'model_path': {
-            'help': 'Path to model parameters'
+            'help': 'Path to ForwardLSTM model parameters (pickled torch state_dict)'
         },
         'vocab_path': {
-            'help': 'Path to model vocabulary'
-        },
-        'module_path': {
-            'help': 'Path to folder containing model module'
+            'help': 'Path to ForwardLSTM model vocabulary'
         },
         'device': {
             'help': '(optional) Torch device name on which model will be run. Defaults to cpu.'
         },
+        'rnn_name': {
+            'help': '(optional) Attribute name of rnn, defaults to `rnn`.'
+        },
+        'encoder_name': {
+            'help': '(optional) Attribute name of model encoder, defaults to `encoder`.'
+        },
+        'decoder_name': {
+            'help': '(optional) Attribute name of model decoder, defaults to `decoder`.'
+        }
     })
 
     # GoogleLM
@@ -91,15 +97,14 @@ def create_arg_descriptions() -> ArgDescriptions:
             'help': '(optional) Set to true to directly dump activations to file. '
                     'This way no activations are stored in RAM. Defaults to true.'
         },
-        'create_label_file': {
-            'type': bool,
-            'help': '(optional) Set to true to directly store the corpus labels as a separate '
-                    'numpy array. Defaults to True.'
-        },
         'create_avg_eos': {
             'type': bool,
             'help': '(optional) Set to true to directly store the average end of sentence '
                     'activations. Defaults to False'
+        },
+        'only_dump_avg_eos': {
+            'type': bool,
+            'help': '(optional) Set to true to only dump the avg eos activation. Defaults to False.'
         },
         'print_every': {
             'type': int,
