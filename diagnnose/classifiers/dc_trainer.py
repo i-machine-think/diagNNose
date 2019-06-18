@@ -11,7 +11,7 @@ from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import ResultsDict
-from diagnnose.utils.paths import dump_pickle, trim
+from diagnnose.utils.paths import dump_pickle
 
 
 class DCTrainer:

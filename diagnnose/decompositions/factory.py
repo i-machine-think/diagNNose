@@ -13,7 +13,7 @@ from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationKey, ActivationName, ActivationNames, FullActivationDict, PartialArrayDict)
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.utils.paths import camel2snake, trim
+from diagnnose.utils.paths import camel2snake
 
 from .base_decomposer import BaseDecomposer
 
@@ -179,7 +179,7 @@ class DecomposerFactory:
 
     def _read_decoder(self, decoder_path: Optional[str]) -> LinearDecoder:
         if decoder_path:
-            classifier = joblib.load(trim(decoder_path))
+            classifier = joblib.load(decoder_path)
             decoder_w = classifier.coef_
             decoder_b = classifier.intercept_
         else:

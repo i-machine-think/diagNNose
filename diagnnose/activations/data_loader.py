@@ -1,11 +1,9 @@
-from typing import Optional
-
 import numpy as np
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import DataDict
-from diagnnose.utils.paths import load_pickle, trim
+from diagnnose.typedefs.corpus import Corpus
 
 
 class DataLoader:

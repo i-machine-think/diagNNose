@@ -1,3 +1,4 @@
+import os
 import pickle
 from typing import List, Optional, Tuple, Union
 
@@ -6,7 +7,7 @@ import numpy as np
 from diagnnose.typedefs.activations import (
     ActivationIndex, ActivationKey, ActivationName, PartialArrayDict)
 from diagnnose.typedefs.extraction import ActivationRanges, Range
-from diagnnose.utils.paths import load_pickle, trim
+from diagnnose.utils.paths import load_pickle
 
 
 class ActivationReader:
@@ -38,7 +39,7 @@ class ActivationReader:
                  activations_dir: str,
                  store_multiple_activations: bool = False) -> None:
 
-        self.activations_dir = trim(activations_dir)
+        self.activations_dir = activations_dir
 
         self._activations: PartialArrayDict = {}
         self._data_len: int = -1
@@ -175,7 +176,8 @@ class ActivationReader:
     @property
     def activation_ranges(self) -> ActivationRanges:
         if self._activation_ranges is None:
-            self._activation_ranges = load_pickle(f'{self.activations_dir}/ranges.pickle')
+            ranges_dir = os.path.join(self.activations_dir, 'ranges.pickle')
+            self._activation_ranges = load_pickle(ranges_dir)
         return self._activation_ranges
 
     @property
@@ -212,7 +214,7 @@ class ActivationReader:
             Numpy array of activation values
         """
         l, name = activation_name
-        filename = f'{name}_l{l}.pickle'
+        filename = os.path.join(self.activations_dir, f'{name}_l{l}.pickle')
 
         hidden_size = None
         activations = None
@@ -221,7 +223,7 @@ class ActivationReader:
 
         # The activations can be stored as a series of pickle dumps, and
         # are therefore loaded until an EOFError is raised.
-        with open(f'{self.activations_dir}/{filename}', 'rb') as f:
+        with open(filename, 'rb') as f:
             while True:
                 try:
                     sen_activations = pickle.load(f)
