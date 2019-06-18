@@ -3,7 +3,6 @@
     "activation_names": ["hx1"],
     "corpus_path": "../experiments/pai/corpus.txt",
     "corpus_header": ["sen", "labels"],
-    "label_path": "../experiments/pai/targets.txt",
     "save_dir": "../experiments/pai/classifiers",
     "classifier_type": "logreg",
     "data_subset_size": 10000
