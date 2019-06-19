@@ -232,13 +232,13 @@ class SoftMax:
                 sm = full_sm[j]
                 bias = full_bias[offset + j]
 
-                if w in c2i:
-                    self.decoder_w[c2i[w]] = sm
-                    self.decoder_b[c2i[w]] = bias
+                if w in vocab:
+                    self.decoder_w[vocab[w]] = sm
+                    self.decoder_b[vocab[w]] = bias
 
                 if w == '</S>':
-                    self.decoder_w[c2i[c2i.eos_token]] = sm
-                    self.decoder_b[c2i[c2i.eos_token]] = bias
+                    self.decoder_w[vocab[vocab.eos_token]] = sm
+                    self.decoder_b[vocab[vocab.eos_token]] = bias
                 elif w == '<UNK>':
-                    self.decoder_w[c2i[c2i.unk_token]] = sm
-                    self.decoder_b[c2i[c2i.unk_token]] = bias
+                    self.decoder_w[vocab[vocab.unk_token]] = sm
+                    self.decoder_b[vocab[vocab.unk_token]] = bias
