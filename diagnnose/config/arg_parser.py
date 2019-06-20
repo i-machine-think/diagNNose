@@ -44,9 +44,9 @@ def create_arg_descriptions() -> ArgDescriptions:
         'ckpt_dir': {
             'help': 'Path to folder containing parameter checkpoint files.'
         },
-        'corpus_vocab_path': {
-            'help': 'Path to the corpus vocabulary. This allows for only a subset of the model '
-                    'softmax to be loaded in.'
+        'corpus_path': {
+            'help': 'Path to the corpus for which a vocabulary will be created. This allows for '
+                    'only a subset of the model softmax to be loaded in.'
         },
         'full_vocab_path': {
             'help': 'Path to the full model vocabulary of 800k tokens.'
@@ -179,15 +179,23 @@ def create_arg_parser(arg_groups: Set[str]) -> Tuple[ArgumentParser, Set[str]]:
                                          ' cmd arguments overwrite the config args.')
 
     arg_descriptions = create_arg_descriptions()
+
     required_args = set()
+    added_args: Set[str] = set()
+
     for group in arg_groups:
         group_args = arg_descriptions[group]
+
         for arg, arg_config in group_args.items():
-            from_cmd.add_argument(f'--{arg}',
-                                  nargs=arg_config.get('nargs', None),
-                                  type=arg_config.get('type', str),
-                                  help=arg_config['help'])
-            if arg_config.get('required', False):
-                required_args.add(arg)
+            if arg not in added_args:
+                from_cmd.add_argument(f'--{arg}',
+                                      nargs=arg_config.get('nargs', None),
+                                      type=arg_config.get('type', str),
+                                      help=arg_config['help'])
+
+                if arg_config.get('required', False):
+                    required_args.add(arg)
+
+                added_args.add(arg)
 
     return parser, required_args
