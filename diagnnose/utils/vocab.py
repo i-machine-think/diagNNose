@@ -48,6 +48,7 @@ class W2I(dict):
 
 class C2I(W2I):
     """Vocabulary containing character-level information.
+
     Taken from: https://github.com/tensorflow/models/tree/master/research/lm_1b
     """
 
@@ -108,9 +109,18 @@ class C2I(W2I):
 
 
 def create_vocab_from_path(vocab_path: str) -> Dict[str, int]:
-    with open(os.path.expanduser(vocab_path), 'r') as vf:
+    with open(os.path.expanduser(vocab_path)) as vf:
         vocab_lines = vf.readlines()
 
     w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
+
+    return w2i
+
+
+def create_vocab_from_corpus(corpus_path: str) -> Dict[str, int]:
+    with open(os.path.expanduser(corpus_path)) as cf:
+        corpus_tokens = set(w.strip() for l in cf.readlines() for w in l.split())
+
+    w2i = {w: i for i, w in enumerate(sorted(corpus_tokens))}
 
     return w2i

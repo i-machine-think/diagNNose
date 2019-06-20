@@ -11,7 +11,7 @@ from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
 from diagnnose.typedefs.activations import (
     FullActivationDict, NamedArrayDict, ParameterDict, PartialArrayDict)
-from diagnnose.utils.vocab import C2I, create_vocab_from_path
+from diagnnose.utils.vocab import C2I, create_vocab_from_path, create_vocab_from_corpus
 
 from .language_model import LanguageModel
 
@@ -21,7 +21,7 @@ class GoogleLM(LanguageModel):
                  pbtxt_path: str,
                  ckpt_dir: str,
                  full_vocab_path: str,
-                 corpus_vocab_path: Optional[str] = None) -> None:
+                 corpus_path: Optional[str] = None) -> None:
         super().__init__()
 
         self.num_layers = 2
@@ -32,8 +32,10 @@ class GoogleLM(LanguageModel):
         self.array_type = 'numpy'
         self.forget_offset = 1
 
-        vocab_path = corpus_vocab_path if corpus_vocab_path is not None else full_vocab_path
-        vocab = C2I(create_vocab_from_path(vocab_path))
+        if corpus_path is None:
+            vocab = C2I(create_vocab_from_path(full_vocab_path))
+        else:
+            vocab = C2I(create_vocab_from_corpus(corpus_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
