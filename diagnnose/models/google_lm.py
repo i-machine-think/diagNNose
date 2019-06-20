@@ -70,8 +70,7 @@ class GoogleLM(LanguageModel):
                      inp: np.ndarray,
                      prev_hx: np.ndarray,
                      prev_cx: np.ndarray) -> NamedArrayDict:
-        proj = self.lstm.weight[l] @ np.concatenate((inp, prev_hx)) + \
-               self.lstm.bias[l]
+        proj = self.lstm.weight[l] @ np.concatenate((inp, prev_hx)) + self.lstm.bias[l]
         split_proj = dict(zip(self.split_order, np.split(proj, 4)))
 
         f_g: np.ndarray = sigmoid(split_proj['f']
@@ -219,18 +218,17 @@ class SoftMax:
         bias_reader = NewCheckpointReader(os.path.join(ckpt_dir, 'ckpt-softmax8'))
         full_bias = bias_reader.get_tensor('softmax/b')
 
-        chunk_size = 100000
-
-        # SoftMax is chunked into 8 arrays
+        # SoftMax is chunked into 8 arrays of size 100000x1024
         for i in range(8):
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f'ckpt-softmax{i}'))
-            full_sm = sm_reader.get_tensor(f'softmax/W_{i}').astype(np.float32)
 
-            offset = i * chunk_size
+            sm_chunk = sm_reader.get_tensor(f'softmax/W_{i}').astype(np.float32)
+            bias_chunk = full_bias[i:len(full_bias):8]
+            vocab_chunk = full_vocab[i:len(full_bias):8]
 
-            for j, w in enumerate(full_vocab[offset:offset + chunk_size]):
-                sm = full_sm[j]
-                bias = full_bias[offset + j]
+            for j, w in enumerate(vocab_chunk):
+                sm = sm_chunk[j]
+                bias = bias_chunk[j]
 
                 if w in vocab:
                     self.decoder_w[vocab[w]] = sm
