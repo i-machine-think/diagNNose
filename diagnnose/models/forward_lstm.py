@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import torch
 from overrides import overrides

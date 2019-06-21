@@ -21,7 +21,7 @@ class GoogleLM(LanguageModel):
                  pbtxt_path: str,
                  ckpt_dir: str,
                  full_vocab_path: str,
-                 corpus_path: Optional[str] = None) -> None:
+                 corpus_vocab_path: Optional[str] = None) -> None:
         super().__init__()
 
         self.num_layers = 2
