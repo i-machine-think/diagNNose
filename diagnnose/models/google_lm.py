@@ -32,10 +32,10 @@ class GoogleLM(LanguageModel):
         self.array_type = 'numpy'
         self.forget_offset = 1
 
-        if corpus_path is None:
+        if corpus_vocab_path is None:
             vocab = C2I(create_vocab_from_path(full_vocab_path))
         else:
-            vocab = C2I(create_vocab_from_corpus(corpus_path))
+            vocab = C2I(create_vocab_from_corpus(corpus_vocab_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir)
