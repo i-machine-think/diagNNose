@@ -1,6 +1,6 @@
 {
   "model_type": "ForwardLSTM",
-  "model_path": "../lm_data/models/gulordava/state_dict.pt",
+  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "corpus_path": "../lm_data/corpora/Number_and_syntax_units_in_LSTM_LMs/datasets/NA_tasks/nounpp.txt",
   "corpus_header": ["sen", "type", "correct", "idx"],

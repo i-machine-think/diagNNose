@@ -1,6 +1,6 @@
 {
   "model_type": "OneHotLSTM",
-  "model_path": "../experiments/pai/interval_20_512_2_model.pt",
+  "state_dict": "../experiments/pai/interval_20_512_2_model.pt",
   "corpus_path": "../experiments/pai/corpus.txt",
   "corpus_header": ["sen", "labels"],
   "activation_names": ["hx1"],

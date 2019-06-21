@@ -16,7 +16,7 @@ def create_arg_descriptions() -> ArgDescriptions:
 
     # Gulordava ForwardLSTM
     arg_descriptions['model'].update({
-        'model_path': {
+        'state_dict': {
             'help': 'Path to ForwardLSTM model parameters (pickled torch state_dict)'
         },
         'vocab_path': {

@@ -17,7 +17,7 @@ class ForwardLSTM(LanguageModel):
     Allows for extraction of intermediate states and gate activations.
     """
     def __init__(self,
-                 model_path: str,
+                 state_dict: str,
                  vocab_path: str,
                  device: str = 'cpu',
                  rnn_name: str = 'rnn',
@@ -30,7 +30,7 @@ class ForwardLSTM(LanguageModel):
         self.vocab = W2I(create_vocab_from_path(vocab_path))
 
         # Load the pretrained model
-        with open(os.path.expanduser(model_path), 'rb') as mf:
+        with open(os.path.expanduser(state_dict), 'rb') as mf:
             state_dict = torch.load(mf, map_location=device)
 
         self.weight: ParameterDict = {}
