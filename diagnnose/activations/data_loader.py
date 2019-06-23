@@ -1,9 +1,12 @@
+from typing import Optional
+
 import numpy as np
 
 from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.corpora.create_labels import create_labels_from_corpus
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import DataDict
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.corpus import Corpus, Labels
 
 
 class DataLoader:
@@ -26,14 +29,19 @@ class DataLoader:
 
     def __init__(self,
                  activations_dir: str,
-                 corpus: Corpus) -> None:
+                 corpus: Optional[Corpus] = None,
+                 labels: Optional[Labels] = None) -> None:
+
+        assert corpus is not None or labels is not None, \
+            'Either `corpus` or `labels` should be provided!'
 
         self.activation_reader = ActivationReader(activations_dir)
-
-        self.labels = np.fromiter(
-            (l for s in corpus.values() for l in s.labels), dtype=np.int
-        )
         self.data_len = len(self.activation_reader)
+
+        if labels is None:
+            self.labels = create_labels_from_corpus(corpus)
+        else:
+            self.labels = labels
 
     def create_data_split(self,
                           activation_name: ActivationName,

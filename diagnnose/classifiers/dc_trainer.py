@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 from time import time
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 from sklearn.externals import joblib
@@ -12,7 +12,7 @@ from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import ResultsDict
 from diagnnose.utils.paths import dump_pickle
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.corpus import Corpus, Labels
 
 
 class DCTrainer:
@@ -47,11 +47,12 @@ class DCTrainer:
         Dictionary containing relevant results. TODO: Add preds to this instead of separate files?
     """
     def __init__(self,
-                 corpus: Corpus,
                  activations_dir: str,
                  activation_names: List[ActivationName],
                  save_dir: str,
                  classifier_type: str,
+                 corpus: Optional[Corpus] = None,
+                 labels: Optional[Labels] = None,
                  calc_class_weights: bool = False) -> None:
 
         self.activation_names: List[ActivationName] = activation_names
@@ -63,7 +64,7 @@ class DCTrainer:
         self.classifier_type = classifier_type
         self.calc_class_weights = calc_class_weights
 
-        self.data_loader = DataLoader(activations_dir, corpus)
+        self.data_loader = DataLoader(activations_dir, corpus=corpus, labels=labels)
         self.results: ResultsDict = defaultdict(dict)
 
         self._reset_classifier()
