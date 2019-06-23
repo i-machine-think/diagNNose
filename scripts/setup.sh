@@ -1,8 +1,11 @@
 # Download model
 wget https://dl.fbaipublicfiles.com/colorless-green-rnns/training-data/English/vocab.txt -P model
-wget https://github.com/facebookresearch/colorlessgreenRNNs/raw/master/src/language_models/model.py -P model
-wget -O model/model.pt https://dl.fbaipublicfiles.com/colorless-green-rnns/best-models/English/hidden650_batch128_dropout0.2_lr20.0.pt -P model
 
+# Download state_dict of gulordava lstm, as of now stored on google drive
+fileid="1SdIHXZzzubWbI7DXkMmHe0hMATtiPngX"
+filename="model/state_dict.pt"
+curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
+curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
 
 # Create output directory
 mkdir extracted

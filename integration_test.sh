@@ -1,4 +1,4 @@
-cd example_dir
+cd scripts
 sh setup.sh
 
-python3 extract.py -c extract.json
+python3 extract.py -c extract_test.json
