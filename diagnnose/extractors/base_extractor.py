@@ -173,7 +173,8 @@ class Extractor:
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,
-                          selection_func: SelectFunc) -> Tuple[PartialArrayDict, int]:
+                          selection_func: SelectFunc = lambda pos, token, labeled_sentence: True
+                          ) -> Tuple[PartialArrayDict, int]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -218,6 +219,7 @@ class Extractor:
 
     def _init_sen_activations(self) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """
+
         return {
             (layer, name): [] for (layer, name) in self.activation_names
         }

@@ -3,21 +3,24 @@ Test the code in rnnalayse.extractors.base_extractor.py.
 """
 
 import itertools
-import unittest
-from unittest.mock import patch, MagicMock
 import os
-from typing import List, Tuple, Any
+import unittest
+from typing import Any, List, Tuple
+from unittest.mock import MagicMock, patch
 
 import numpy as np
-from overrides import overrides
 import torch
+from overrides import overrides
 from torch import Tensor
 
+from diagnnose.corpora.create_labels import create_labels
+from diagnnose.corpora.import_corpus import import_corpus_from_path
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import FullActivationDict, PartialActivationDict
-from .test_utils import create_sentence_dummy_activations, suppress_print
+from diagnnose.typedefs.corpus import CorpusSentence
 
+from .test_utils import create_sentence_dummy_activations, suppress_print
 
 # GLOBALS
 ACTIVATION_DIM = 10
@@ -29,17 +32,29 @@ class MockLanguageModel(LanguageModel):
     """
     Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
     """
-    def __init__(self, num_layers: int, hidden_size: int, all_tokens: List[str], all_activations: Tensor):
-        super().__init__('', '', '')
-        self.num_layers = num_layers
-        self.hidden_size = hidden_size
+    def __init__(self,
+                 num_layers: int,
+                 hidden_size: int,
+                 all_tokens: List[str],
+                 all_activations: Tensor) -> None:
+        super().__init__()
         self.all_tokens = all_tokens
         self.all_activations = all_activations
         self.all_pairs = None
+
+        self.num_layers = num_layers
+        self.hidden_size_c = hidden_size
+        self.hidden_size_h = hidden_size
+        self.split_order = ['f', 'i', 'g', 'o']
+        self.array_type = 'torch'
+
         self.reset()
 
     @overrides
-    def forward(self, token: str, activations: FullActivationDict) -> Tuple[None, FullActivationDict]:
+    def forward(self,
+                token: str,
+                _activations: FullActivationDict,
+                compute_out: bool = False) -> Tuple[None, FullActivationDict]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
         assert token == next_token
@@ -60,31 +75,28 @@ class TestExtractor(unittest.TestCase):
         if not os.path.exists(ACTIVATIONS_DIR):
             os.makedirs(ACTIVATIONS_DIR)
 
-        # Prepare Mock sentences
-        cls.test_sentences = [MagicMock(), MagicMock(), MagicMock()]
-        cls.test_sentences[0].sen = ["The", "ripe", "taste", "improves", "."]
-        cls.test_sentences[0].labels = [0, 0, 1, 0, 0]
-        cls.test_sentences[0].misc_info = {"quality": "delicious"}
+        test_corpus = '''The ripe taste improves .\t0 0 1 0 0\tdelicious
+        The hog crawled .\t0 1 0 0\thairy
+        Move the vat .\t0 0 1 0\tok'''
 
-        cls.test_sentences[1].sen = ["The", "hog", "crawled", "."]
-        cls.test_sentences[1].labels = [0, 1, 0, 0]
-        cls.test_sentences[1].misc_info = {"quality": "hairy"}
+        corpus_path = os.path.join(ACTIVATIONS_DIR, 'corpus.txt')
+        with open(corpus_path, 'w') as f:
+            f.write(test_corpus)
 
-        cls.test_sentences[2].sen = ["Move", "the", "vat", "."]
-        cls.test_sentences[2].labels = [0, 0, 1, 0]
-        cls.test_sentences[2].misc_info = {"quality": "ok"}
-
-        cls.corpus = {i: cls.test_sentences[i] for i in range(len(cls.test_sentences))}
+        cls.corpus = import_corpus_from_path(corpus_path,
+                                             corpus_header=['sen', 'labels', 'quality'])
 
         # Mock the activations the model produces
-        cls.all_tokens = list(itertools.chain(*[sentence.sen for sentence in cls.test_sentences]))
+        cls.all_tokens = list(itertools.chain(*[item.sen for item in cls.corpus.values()]))
         cls.all_labels = cls._merge_labels([sentence.labels for sentence in cls.corpus.values()])
 
         cls.test_sentence_activations = []
         identifier_value = 0
         for sentence in cls.corpus.values():
             cls.test_sentence_activations.append(
-                create_sentence_dummy_activations(len(sentence.sen), ACTIVATION_DIM, identifier_value)
+                create_sentence_dummy_activations(
+                    len(sentence.sen), ACTIVATION_DIM, identifier_value
+                )
             )
             identifier_value += len(sentence.sen)
 
@@ -92,11 +104,13 @@ class TestExtractor(unittest.TestCase):
 
         # Prepare Mock Model
         cls.model = MockLanguageModel(
-            num_layers=1, hidden_size=ACTIVATION_DIM, all_tokens=cls.all_tokens, all_activations=cls.all_activations
+            num_layers=1, hidden_size=ACTIVATION_DIM, all_tokens=cls.all_tokens,
+            all_activations=cls.all_activations
         )
 
         # Init extractor
-        cls.extractor = Extractor(cls.model, cls.corpus, ACTIVATION_NAMES, output_dir=ACTIVATIONS_DIR)
+        cls.extractor = Extractor(cls.model, cls.corpus, activations_dir=ACTIVATIONS_DIR)
+        cls.extractor.activation_names = ACTIVATION_NAMES
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -104,20 +118,20 @@ class TestExtractor(unittest.TestCase):
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/cx_l0.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/corpus.txt")
 
     def test_extract_sentence(self) -> None:
         """ Test _extract_sentence for extracting the activations of whole sentences. """
 
         # Test extraction of all activations
         self.model.reset()
-        sentences_activations, labels, _ = zip(*[
-            self.extractor._extract_sentence(sentence, lambda pos, token, sentence: True)
+        sentences_activations, _ = zip(*[
+            self.extractor._extract_sentence(sentence)
             for sentence in self.corpus.values()
         ])
         extracted_activations = self._merge_sentence_activations(sentences_activations)
-        extracted_labels = self._merge_labels(labels)
+        extracted_labels = create_labels(self.corpus)
 
         self.assertTrue(
             (extracted_activations == self.all_activations.numpy()).all(),
@@ -129,24 +143,34 @@ class TestExtractor(unittest.TestCase):
         )
 
     def test_activation_extraction_by_pos(self) -> None:
-        """ Test the _extract_sentence function for extracting the activations based on position. """
+        """ Test the _extract_sentence function for extracting activations based on position. """
 
         self.extractor.model.reset()
-        pos_sentences_activations, pos_labels, _ = zip(*[
-            self.extractor._extract_sentence(sentence, lambda pos, token, sentence: pos == 2)
+
+        def selection_func(pos: int, _token: str, _sentence: CorpusSentence) -> bool:
+            return pos == 2
+
+        pos_sentences_activations, _ = zip(*[
+            self.extractor._extract_sentence(sentence, selection_func=selection_func)
             for sentence in self.corpus.values()
         ])
+
         extracted_pos_activations = self._merge_sentence_activations(pos_sentences_activations)
-        extracted_labels = self._merge_labels(pos_labels)
+        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
 
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
-            extracted_pos_activations.shape[0], 3, "More than one sentence was extracted based on position"
+            extracted_pos_activations.shape[0], 3,
+            "More than one sentence was extracted based on position"
         )
+
         # Confirm that all extracted activations come from position 2
-        # Due to the way the dummy activations are created, all their values (except for their unique id value)
-        # will be 3
-        self.assertTrue((extracted_pos_activations[:, 0] == 3).all(), "Sentence was extracted from the wrong position")
+        # Due to the way the dummy activations are created, all their values (except for their
+        # unique id value) will be 3
+        self.assertTrue(
+            (extracted_pos_activations[:, 0] == 3).all(),
+            "Sentence was extracted from the wrong position"
+        )
 
         # Confirm the right labels were extracted
         self.assertTrue(
@@ -158,39 +182,53 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
         self.extractor.model.reset()
-        label_sentence_activations, label_labels, _ = zip(*[
-            self.extractor._extract_sentence(sentence, lambda pos, token, sentence: sentence.labels[pos] == 1)
+
+        def selection_func(pos: int, _token: str, sentence: CorpusSentence) -> bool:
+            return sentence.labels is not None and sentence.labels[pos] == 1
+
+        label_sentence_activations, _ = zip(*[
+            self.extractor._extract_sentence(
+                sentence, selection_func=selection_func
+            )
             for sentence in self.corpus.values()
         ])
         extracted_label_activations = self._merge_sentence_activations(label_sentence_activations)
-        extracted_labels = self._merge_labels(label_labels)
 
         # Confirm that only one activation per sentence was extracted
-        self.assertEqual(extracted_label_activations.shape[0], 3, "More than one sentence was extracted based on label")
+        self.assertEqual(
+            extracted_label_activations.shape[0], 3,
+            "More than one sentence was extracted based on label"
+        )
         extracted_positions = extracted_label_activations[:, 0] - 1
-        label_positions = np.array([sentence.labels.index(1) for sentence in self.test_sentences])
+        label_positions = np.array([sentence.labels.index(1) for sentence in self.corpus.values()])
         # Confirm that activations are from the position of the specified label
-        self.assertTrue((extracted_positions == label_positions).all(), "Wrong activations extracted based on label")
-
-        # Confirm the right labels were extracted
         self.assertTrue(
-            (extracted_labels == 1).all(),
-            "Wrong labels were extracted based on label."
+            (extracted_positions == label_positions).all(),
+            "Wrong activations extracted based on label"
         )
 
     def test_activation_extraction_by_token(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
         self.extractor.model.reset()
-        token_sentence_activations, token_labels, _ = zip(*[
-            self.extractor._extract_sentence(sentence, lambda pos, token, sentence: token == "hog")
+
+        def selection_func(_pos: int, token: str, _sentence: CorpusSentence) -> bool:
+            return token == 'hog'
+
+        token_sentence_activations, _ = zip(*[
+            self.extractor._extract_sentence(
+                sentence, selection_func=selection_func
+            )
             for sentence in self.corpus.values()
         ])
         extracted_token_activations = self._merge_sentence_activations(token_sentence_activations)
-        extracted_labels = self._merge_labels(token_labels)
+        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
 
         # Confirm that only one activation corresponding to "hog" was extracted
-        self.assertEqual(extracted_token_activations.shape[0], 1, "More than one activation extracted by token")
+        self.assertEqual(
+            extracted_token_activations.shape[0], 1,
+            "More than one activation extracted by token"
+        )
         assert extracted_token_activations[:, -1] == 6
 
         # Confirm the right labels were extracted
@@ -200,27 +238,32 @@ class TestExtractor(unittest.TestCase):
         )
 
     def test_activation_extraction_by_misc_info(self) -> None:
-        """ Test the _extract_sentence function for extracting the activations based on additional info. """
+        """ Test the _extract_sentence function for extracting activations based on misc info. """
 
         self.extractor.model.reset()
-        misc_sentence_activations, misc_labels, _ = zip(*[
+
+        def selection_func(_pos: int, _token: str, sentence: CorpusSentence) -> bool:
+            return bool(sentence.misc_info['quality'] == 'delicious')
+
+        misc_sentence_activations, _ = zip(*[
             self.extractor._extract_sentence(
-                sentence, lambda pos, token, sentence: sentence.misc_info["quality"] == "delicious"
+                sentence, selection_func=selection_func
             )
             for sentence in self.corpus.values()
         ])
         extracted_misc_activations = self._merge_sentence_activations(misc_sentence_activations)
-        extracted_labels = self._merge_labels(misc_labels)
+        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
 
         # Confirm that only the first sentence was extracted
+        expected_activations = self.all_activations[:len(self.corpus[0].sen), :].numpy()
         self.assertTrue(
-            (extracted_misc_activations == self.all_activations[:len(self.test_sentences[0].sen), :].numpy()).all(),
+            (extracted_misc_activations == expected_activations).all(),
             "Wrong sentence extracted based on misc info."
         )
 
         # Confirm the right labels were extracted
         self.assertTrue(
-            (extracted_labels == self.all_labels[:len(self.test_sentences[0].sen)]).all(),
+            (extracted_labels == self.all_labels[:len(self.corpus[0].sen)]).all(),
             "Wrong labels extracted based on misc info."
         )
 
@@ -233,18 +276,22 @@ class TestExtractor(unittest.TestCase):
         """
 
         self.extractor.model.reset()
-        self.extractor.extract()
+        self.extractor.extract(ACTIVATION_NAMES)
         call_arg = dump_activations_mock.call_args[0][0]
 
         # Validate function calls
-        self.assertEqual(dump_activations_mock.call_count, 3, "Function was called the wrong number of times.")
+        self.assertEqual(
+            dump_activations_mock.call_count, 3,
+            "Function was called the wrong number of times."
+        )
         self.assertTrue(
             self.is_partial_activation_dict(call_arg),
             "Function was called with wrong type of variable, expected PartialActivationDict."
         )
 
     @staticmethod
-    def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]) -> np.ndarray:
+    def _merge_sentence_activations(sentences_activations: List[PartialActivationDict]
+                                    ) -> np.ndarray:
         """ Merge activations from different sentences into one single numpy array. """
         return np.array(list(itertools.chain(
             *[sentence_activations[(0, "hx")] for sentence_activations in sentences_activations])
@@ -266,10 +313,10 @@ class TestExtractor(unittest.TestCase):
         first_inner_key = list(var[first_outer_key].keys())[0]
 
         return all([
-            type(var) == dict,
-            type(first_outer_key) == int,
-            type(first_value) == dict,
-            type(var[first_outer_key][first_inner_key]) == Tensor
+            isinstance(var, dict),
+            isinstance(first_outer_key, int),
+            isinstance(first_value, dict),
+            isinstance(var[first_outer_key[first_inner_key]], Tensor),
         ])
 
     @staticmethod
@@ -279,9 +326,9 @@ class TestExtractor(unittest.TestCase):
         first_value = list(var.values())[0]
 
         return all([
-            type(var) == dict,
-            type(first_key) == tuple,
-            type(first_key[0]) == int,
-            type(first_key[1]) == str,
-            type(first_value) in (np.array, np.ndarray)
+            isinstance(var, dict),
+            isinstance(first_key, tuple),
+            isinstance(first_key[0], int),
+            isinstance(first_key[1], str),
+            isinstance(first_value, np.ndarray)
         ])
