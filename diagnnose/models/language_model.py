@@ -24,7 +24,8 @@ class LanguageModel(ABC, nn.Module):
     @abstractmethod
     def forward(self,
                 token: str,
-                prev_activations: FullActivationDict) -> Tuple[Tensor, FullActivationDict]:
+                prev_activations: FullActivationDict,
+                compute_out: bool = True) -> Tuple[Tensor, FullActivationDict]:
         """
 
         Parameters
@@ -34,6 +35,8 @@ class LanguageModel(ABC, nn.Module):
         prev_activations : FullActivationDict
             Dictionary mapping each layer to 'hx' and 'cx' to a tensor:
             {layer => {'hx'|'cx' => torch.Tensor}}
+        compute_out : bool, optional
+            Allows to skip softmax calculation, defaults to True.
 
         Returns
         -------
