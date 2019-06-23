@@ -2,12 +2,14 @@
 Test the code in rnnalayse.classifiers.dc_trainer.py.
 """
 
-from collections import Counter
-import unittest
-from unittest.mock import patch, MagicMock
 import os
+import unittest
+from collections import Counter
+from unittest.mock import MagicMock, patch
 
 from diagnnose.classifiers.dc_trainer import DCTrainer
+from diagnnose.corpora.import_corpus import import_corpus_from_path
+
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
@@ -34,15 +36,13 @@ class TestDCTrainer(unittest.TestCase):
 
         # Model without class weights
         cls.model = DCTrainer(
-            activations_dir=ACTIVATIONS_DIR, activation_names=ACTIVATION_NAMES,
-            output_dir=ACTIVATIONS_DIR, classifier_type="logreg",
-            label_path=f"{ACTIVATIONS_DIR}/labels.pickle", use_class_weights=False
+            ACTIVATIONS_DIR, ACTIVATION_NAMES, ACTIVATIONS_DIR, "logreg",
+            labels=cls.labels, calc_class_weights=False
         )
         # Model with class weights
         cls.weighed_model = DCTrainer(
-            activations_dir=ACTIVATIONS_DIR, activation_names=ACTIVATION_NAMES,
-            output_dir=ACTIVATIONS_DIR, classifier_type="logreg",
-            label_path=f"{ACTIVATIONS_DIR}/labels.pickle"
+            ACTIVATIONS_DIR, ACTIVATION_NAMES, ACTIVATIONS_DIR, "logreg",
+            labels=cls.labels, calc_class_weights=True
         )
         # Create split here s.t. we can later mock this exact function in DCTrainer.train
         # This way we can use the same random data splits
@@ -55,7 +55,6 @@ class TestDCTrainer(unittest.TestCase):
         # Remove files after tests
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
 
     @patch('diagnnose.activations.data_loader.DataLoader.create_data_split')
@@ -89,4 +88,3 @@ class TestDCTrainer(unittest.TestCase):
             ]),
             "Class weights have wrong values."
         )
-

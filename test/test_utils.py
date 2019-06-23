@@ -22,14 +22,17 @@ def create_and_dump_dummy_activations(num_sentences: int,
 
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
         num_labels = 0
-        activation_identifier = 0  # Identify activations globally by adding on number on one end
+        activation_identifier = 0  # Identify activations globally by adding a number on one end
         sen_lens = []
 
         for i in range(num_sentences):
-            num_activations = random.randint(1, max_tokens)  # Determine the number of tokens in this sentence
+            # Determine the number of tokens in this sentence
+            num_activations = random.randint(1, max_tokens)
             sen_lens.append((num_labels, num_labels + num_activations))
             num_labels += num_activations
-            activations = create_sentence_dummy_activations(num_activations, activations_dim, activation_identifier)
+            activations = create_sentence_dummy_activations(
+                num_activations, activations_dim, activation_identifier
+            )
             activation_identifier += num_activations  # Increment global activation id
 
             pickle.dump(activations, f)
