@@ -13,7 +13,7 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.corpora.create_labels import create_labels
+from diagnnose.corpora.create_labels import create_labels_from_corpus
 from diagnnose.corpora.import_corpus import import_corpus_from_path
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.language_model import LanguageModel
@@ -131,7 +131,7 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ])
         extracted_activations = self._merge_sentence_activations(sentences_activations)
-        extracted_labels = create_labels(self.corpus)
+        extracted_labels = create_labels_from_corpus(self.corpus)
 
         self.assertTrue(
             (extracted_activations == self.all_activations.numpy()).all(),
@@ -156,7 +156,7 @@ class TestExtractor(unittest.TestCase):
         ])
 
         extracted_pos_activations = self._merge_sentence_activations(pos_sentences_activations)
-        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
+        extracted_labels = create_labels_from_corpus(self.corpus, selection_func=selection_func)
 
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
@@ -222,7 +222,7 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ])
         extracted_token_activations = self._merge_sentence_activations(token_sentence_activations)
-        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
+        extracted_labels = create_labels_from_corpus(self.corpus, selection_func=selection_func)
 
         # Confirm that only one activation corresponding to "hog" was extracted
         self.assertEqual(
@@ -252,7 +252,7 @@ class TestExtractor(unittest.TestCase):
             for sentence in self.corpus.values()
         ])
         extracted_misc_activations = self._merge_sentence_activations(misc_sentence_activations)
-        extracted_labels = create_labels(self.corpus, selection_func=selection_func)
+        extracted_labels = create_labels_from_corpus(self.corpus, selection_func=selection_func)
 
         # Confirm that only the first sentence was extracted
         expected_activations = self.all_activations[:len(self.corpus[0].sen), :].numpy()
