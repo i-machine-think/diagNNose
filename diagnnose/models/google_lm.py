@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
+import torch.nn as nn
 from google.protobuf import text_format
 from overrides import overrides
 from scipy.special import expit as sigmoid
@@ -11,7 +12,7 @@ from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
 from diagnnose.typedefs.activations import (
     FullActivationDict, NamedArrayDict, ParameterDict, PartialArrayDict)
-from diagnnose.utils.vocab import C2I, create_vocab_from_path, create_vocab_from_corpus
+from diagnnose.utils.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
 
 from .language_model import LanguageModel
 
@@ -38,7 +39,7 @@ class GoogleLM(LanguageModel):
             vocab = C2I(create_vocab_from_corpus(corpus_vocab_path))
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
-        self.lstm = LSTM(ckpt_dir)
+        self.lstm = LSTM(ckpt_dir, self.num_layers, self.split_order, self.forget_offset)
         self.sm = SoftMax(vocab, full_vocab_path, ckpt_dir, self.hidden_size_h)
 
         print('Model initialisation finished.')
@@ -67,54 +68,18 @@ class GoogleLM(LanguageModel):
     def decoder_b(self) -> np.ndarray:
         return self.sm.decoder_b
 
-    def forward_step(self,
-                     l: int,
-                     inp: np.ndarray,
-                     prev_hx: np.ndarray,
-                     prev_cx: np.ndarray) -> NamedArrayDict:
-        proj = self.lstm.weight[l] @ np.concatenate((inp, prev_hx)) + self.lstm.bias[l]
-        split_proj = dict(zip(self.split_order, np.split(proj, 4)))
-
-        f_g: np.ndarray = sigmoid(split_proj['f']
-                                  + prev_cx*self.lstm.peepholes[l, 'f']
-                                  + self.forget_offset)
-        i_g: np.ndarray = sigmoid(split_proj['i']
-                                  + prev_cx*self.lstm.peepholes[l, 'i']
-                                  )
-        c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
-
-        cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g
-
-        o_g: np.ndarray = sigmoid(split_proj['o']
-                                  + cx*self.lstm.peepholes[l, 'o']
-                                  )
-
-        hx: np.ndarray = (o_g * np.tanh(cx)) @ self.lstm.weight_P[l]
-
-        return {
-            'emb': inp,
-            'hx': hx, 'cx': cx,
-            'f_g': f_g, 'i_g': i_g, 'o_g': o_g, 'c_tilde_g': c_tilde_g
-        }
-
     @overrides
     def forward(self,
                 token: str,
                 prev_activations: FullActivationDict,
                 compute_out: bool = True) -> Tuple[Optional[np.ndarray], FullActivationDict]:
         # Create the embeddings of the input words
-        input_ = self.encoder.encode(token)
+        embs = self.encoder.encode(token)
 
-        # Iteratively compute and store intermediate rnn activations
-        activations: FullActivationDict = {}
-        for l in range(self.num_layers):
-            prev_hx = prev_activations[l]['hx']
-            prev_cx = prev_activations[l]['cx']
-            activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
-            input_ = activations[l]['hx']
+        logits, activations = self.lstm(embs, prev_activations)
 
         if compute_out:
-            out = self.decoder_w @ input_ + self.decoder_b
+            out = self.decoder_w @ logits + self.decoder_b
         else:
             out = None
 
@@ -167,9 +132,19 @@ class CharCNN:
         return emb
 
 
-class LSTM:
-    def __init__(self, ckpt_dir: str) -> None:
+class LSTM(nn.Module):
+    def __init__(self,
+                 ckpt_dir: str,
+                 num_layers: int,
+                 split_order: List[str],
+                 forget_offset: int) -> None:
+        super().__init__()
+
         print('Loading LSTM...')
+
+        self.num_layers = num_layers
+        self.split_order = split_order
+        self.forget_offset = forget_offset
 
         # Projects hidden+input (2*1024) onto cell state dimension (8192)
         self.weight: ParameterDict = {}
@@ -203,6 +178,50 @@ class LSTM:
             for p in ['F', 'I', 'O']:
                 self.peepholes[l, p.lower()] = \
                     lstm_reader.get_tensor(f'lstm/lstm_{l}/W_{p}_diag').astype(np.float32)
+
+    def forward_step(self,
+                     l: int,
+                     inp: np.ndarray,
+                     prev_hx: np.ndarray,
+                     prev_cx: np.ndarray) -> NamedArrayDict:
+        proj = self.weight[l] @ np.concatenate((inp, prev_hx)) + self.bias[l]
+        split_proj = dict(zip(self.split_order, np.split(proj, 4)))
+
+        f_g: np.ndarray = sigmoid(split_proj['f']
+                                  + prev_cx*self.peepholes[l, 'f']
+                                  + self.forget_offset)
+        i_g: np.ndarray = sigmoid(split_proj['i']
+                                  + prev_cx*self.peepholes[l, 'i']
+                                  )
+        c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
+
+        cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g
+
+        o_g: np.ndarray = sigmoid(split_proj['o']
+                                  + cx*self.peepholes[l, 'o']
+                                  )
+
+        hx: np.ndarray = (o_g * np.tanh(cx)) @ self.weight_P[l]
+
+        return {
+            'emb': inp,
+            'hx': hx, 'cx': cx,
+            'f_g': f_g, 'i_g': i_g, 'o_g': o_g, 'c_tilde_g': c_tilde_g
+        }
+
+    def forward(self,
+                input_: np.ndarray,
+                prev_activations: FullActivationDict) -> Tuple[np.ndarray, FullActivationDict]:
+        # Iteratively compute and store intermediate rnn activations
+        activations: FullActivationDict = {}
+
+        for l in range(self.num_layers):
+            prev_hx = prev_activations[l]['hx']
+            prev_cx = prev_activations[l]['cx']
+            activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
+            input_ = activations[l]['hx']
+
+        return input_, activations
 
 
 class SoftMax:
