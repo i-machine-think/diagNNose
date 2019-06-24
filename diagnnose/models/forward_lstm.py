@@ -55,6 +55,7 @@ class ForwardLSTM(LanguageModel):
         self.hidden_size_h = state_dict[f'{rnn_name}.weight_hh_l0'].size(1)
         self.split_order = ['i', 'f', 'g', 'o']
         self.array_type = 'torch'
+        self.ih_concat_order = ['h', 'i']
 
         # Encoder and decoder weights
         self.encoder = state_dict[f'{encoder_name}.weight']

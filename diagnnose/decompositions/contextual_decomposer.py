@@ -151,9 +151,16 @@ class ContextualDecomposer(BaseDecomposer):
 
         prev_rel_h, prev_irrel_h = self._get_prev_cells(layer, i, start, 'h')
 
-        # Weights are stored as 1 big array
-        rel_proj = self.model.weight[layer] @ np.concatenate((prev_rel_h, rel_input))
-        irrel_proj = self.model.weight[layer] @ np.concatenate((prev_irrel_h, irrel_input))
+        if self.model.ih_concat_order == ['h', 'i']:
+            rel_concat = np.concatenate((prev_rel_h, rel_input))
+            irrel_concat = np.concatenate((prev_irrel_h, irrel_input))
+        else:
+            rel_concat = np.concatenate((rel_input, prev_rel_h))
+            irrel_concat = np.concatenate((irrel_input, prev_irrel_h))
+
+        # Weights are stored as 1 big array that project both input and hidden state.
+        rel_proj = self.model.weight[layer] @ rel_concat
+        irrel_proj = self.model.weight[layer] @ irrel_concat
 
         rel_names = map(lambda x: f'rel_{x}', self.model.split_order)
         self.activations.update(

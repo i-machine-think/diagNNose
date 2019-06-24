@@ -13,6 +13,7 @@ class LanguageModel(ABC, nn.Module):
     hidden_size_h: int
     split_order: List[str]
     array_type: str
+    ih_concat_order: List[str]
 
     """ Abstract class for LM with intermediate activations """
     @abstractmethod

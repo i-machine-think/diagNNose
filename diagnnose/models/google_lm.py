@@ -32,6 +32,7 @@ class GoogleLM(LanguageModel):
         # TODO: port this model to pytorch, this is a torch lib after all...
         self.array_type = 'numpy'
         self.forget_offset = 1
+        self.ih_concat_order = ['i', 'h']
 
         if corpus_vocab_path is None:
             vocab = C2I(create_vocab_from_path(full_vocab_path))
