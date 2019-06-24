@@ -200,7 +200,8 @@ class Extractor:
         activations: FullActivationDict = self.init_lstm_states.create()
 
         for i, token in enumerate(sentence.sen):
-            _out, activations = self.model(token, activations, compute_out=False)
+            with torch.no_grad():
+                _out, activations = self.model(token, activations, compute_out=False)
 
             # Check whether current activations match criterion defined in selection_func
             if selection_func(i, token, sentence):
