@@ -119,7 +119,8 @@ def create_vocab_from_path(vocab_path: str) -> Dict[str, int]:
 
 def create_vocab_from_corpus(corpus_path: str) -> Dict[str, int]:
     with open(os.path.expanduser(corpus_path)) as cf:
-        corpus_tokens = set(w.strip() for l in cf.readlines() for w in l.split())
+        # Note that the first corpus column is considered to be the sentence here
+        corpus_tokens = set(w.strip() for l in cf.readlines() for w in l.split('\t')[0].split(' '))
 
     w2i = {w: i for i, w in enumerate(sorted(corpus_tokens))}
 
