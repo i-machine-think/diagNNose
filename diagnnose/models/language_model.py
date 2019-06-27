@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from overrides import overrides
 from torch import Tensor, nn
@@ -8,18 +8,20 @@ from diagnnose.typedefs.activations import FullActivationDict
 
 
 class LanguageModel(ABC, nn.Module):
-    num_layers: int
-    hidden_size_c: int
-    hidden_size_h: int
-    split_order: List[str]
     array_type: str
-    ih_concat_order: List[str]
+    forget_offset: int = 0
+    ih_concat_order: List[str] = ['h', 'i']
+    sizes: Dict[int, Dict[str, int]] = {}
+    split_order: List[str]
 
     """ Abstract class for LM with intermediate activations """
     @abstractmethod
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__()
-        self.forget_offset = 0
+
+    @property
+    def num_layers(self) -> int:
+        return len(self.sizes)
 
     @overrides
     @abstractmethod

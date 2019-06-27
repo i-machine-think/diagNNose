@@ -24,9 +24,8 @@ class InitStates:
                  model: LanguageModel,
                  init_lstm_states_path: Optional[str] = None,
                  batch_size: Optional[int] = None) -> None:
+        self.sizes = model.sizes
         self.num_layers = model.num_layers
-        self.hidden_size_c = model.hidden_size_c
-        self.hidden_size_h = model.hidden_size_h
 
         self.init_lstm_states_path = init_lstm_states_path
 
@@ -66,23 +65,23 @@ class InitStates:
         """
         assert len(init_states) == self.num_layers, \
             'Number of initial layers not correct'
-        assert all(
-            'hx' in a.keys() and 'cx' in a.keys()
-            for a in init_states.values()
-        ), 'Initial layer names not correct, should be hx and cx'
-        assert len(init_states[0]['hx']) == self.hidden_size_h, \
-            'Initial activation size for hx is incorrect: ' \
-            f'hx: {len(init_states[0]["hx"])}, should be {self.hidden_size_h}'
-        assert len(init_states[0]['cx']) == self.hidden_size_c, \
-            'Initial activation size for cx is incorrect: ' \
-            f'cx: {len(init_states[0]["cx"])}, should be {self.hidden_size_c}'
+        for layer, layer_size in self.sizes.items():
+            init_state_dict = init_states[layer]
+            assert 'hx' in init_state_dict.keys() and 'cx' in init_state_dict.keys(), \
+                'Initial layer names not correct, should be hx and cx'
+            assert len(init_state_dict['hx']) == self.sizes[layer]['h'], \
+                'Initial activation size for hx is incorrect: ' \
+                f'hx: {len(init_state_dict["hx"])}, should be {self.sizes[layer]["h"]}'
+            assert len(init_state_dict['cx']) == self.sizes[layer]['c'], \
+                'Initial activation size for cx is incorrect: ' \
+                f'cx: {len(init_state_dict["cx"])}, should be {self.sizes[layer]["c"]}'
 
     def create_zero_init_states(self) -> FullActivationDict:
         """Zero-initialized states if no init state has been provided"""
         return {
             l: {
-                'cx': self._create_zero_state(self.hidden_size_c),
-                'hx': self._create_zero_state(self.hidden_size_h),
+                'cx': self._create_zero_state(self.sizes[l]['c']),
+                'hx': self._create_zero_state(self.sizes[l]['h']),
             } for l in range(self.num_layers)
         }
 

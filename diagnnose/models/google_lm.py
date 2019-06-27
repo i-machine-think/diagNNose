@@ -18,21 +18,32 @@ from .language_model import LanguageModel
 
 
 class GoogleLM(LanguageModel):
+    """ Reimplementation of the LM of Jozefowicz et al. (2016).
+
+    Paper: https://arxiv.org/abs/1602.02410
+    Lib: https://github.com/tensorflow/models/tree/master/research/lm_1b
+
+    This implementation allows for only a subset of the SoftMax to be
+    loaded in, to alleviate RAM usage.
+    """
+
+    array_type = 'numpy'  # TODO: port this model to pytorch, this is a torch lib after all...
+    forget_offset = 1
+    ih_concat_order = ['i', 'h']
+    sizes = {
+        l: {
+            'x': 1024, 'h': 1024, 'c': 8192
+        } for l in range(2)
+    }
+    split_order = ['i', 'g', 'f', 'o']
+
     def __init__(self,
                  pbtxt_path: str,
                  ckpt_dir: str,
                  full_vocab_path: str,
                  corpus_vocab_path: Optional[str] = None) -> None:
         super().__init__()
-
-        self.num_layers = 2
-        self.hidden_size_c = 8192
-        self.hidden_size_h = 1024
-        self.split_order = ['i', 'g', 'f', 'o']
-        # TODO: port this model to pytorch, this is a torch lib after all...
-        self.array_type = 'numpy'
-        self.forget_offset = 1
-        self.ih_concat_order = ['i', 'h']
+        print('Loading pretrained model...')
 
         if corpus_vocab_path is None:
             vocab = C2I(create_vocab_from_path(full_vocab_path))
@@ -41,7 +52,7 @@ class GoogleLM(LanguageModel):
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir, self.num_layers, self.split_order, self.forget_offset)
-        self.sm = SoftMax(vocab, full_vocab_path, ckpt_dir, self.hidden_size_h)
+        self.decoder = SoftMax(vocab, full_vocab_path, ckpt_dir, self.sizes[1]['h'])
 
         print('Model initialisation finished.')
 
@@ -63,11 +74,11 @@ class GoogleLM(LanguageModel):
 
     @property
     def decoder_w(self) -> np.ndarray:
-        return self.sm.decoder_w
+        return self.decoder.decoder_w
 
     @property
     def decoder_b(self) -> np.ndarray:
-        return self.sm.decoder_b
+        return self.decoder.decoder_b
 
     @overrides
     def forward(self,
@@ -161,7 +172,7 @@ class LSTM(nn.Module):
     def _load_lstm(self, ckpt_dir: str) -> None:
         lstm_reader = NewCheckpointReader(os.path.join(ckpt_dir, 'ckpt-lstm'))
 
-        for l in range(2):
+        for l in range(self.num_layers):
             # Model weights are divided into 8 chunks
             # (32768, 2048)
             self.weight[l] = np.concatenate(
@@ -185,15 +196,19 @@ class LSTM(nn.Module):
                      inp: np.ndarray,
                      prev_hx: np.ndarray,
                      prev_cx: np.ndarray) -> NamedArrayDict:
-        proj = self.weight[l] @ np.concatenate((inp, prev_hx)) + self.bias[l]
-        split_proj = dict(zip(self.split_order, np.split(proj, 4)))
+        proj: np.ndarray = self.weight[l] @ np.concatenate((inp, prev_hx)) + self.bias[l]
+
+        split_proj: NamedArrayDict = dict(zip(self.split_order, np.split(proj, 4)))
 
         f_g: np.ndarray = sigmoid(split_proj['f']
                                   + prev_cx*self.peepholes[l, 'f']
-                                  + self.forget_offset)
+                                  + self.forget_offset
+                                  )
+
         i_g: np.ndarray = sigmoid(split_proj['i']
                                   + prev_cx*self.peepholes[l, 'i']
                                   )
+
         c_tilde_g: np.ndarray = np.tanh(split_proj['g'])
 
         cx: np.ndarray = f_g * prev_cx + i_g * c_tilde_g

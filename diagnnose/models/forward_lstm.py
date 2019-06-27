@@ -16,6 +16,10 @@ class ForwardLSTM(LanguageModel):
 
     Allows for extraction of intermediate states and gate activations.
     """
+
+    array_type = 'torch'
+    split_order = ['i', 'f', 'g', 'o']
+
     def __init__(self,
                  state_dict: str,
                  vocab_path: str,
@@ -23,41 +27,39 @@ class ForwardLSTM(LanguageModel):
                  rnn_name: str = 'rnn',
                  encoder_name: str = 'encoder',
                  decoder_name: str = 'decoder') -> None:
-
         super().__init__()
-
         print('Loading pretrained model...')
-        self.vocab = W2I(create_vocab_from_path(vocab_path))
 
-        # Load the pretrained model
         with open(os.path.expanduser(state_dict), 'rb') as mf:
             params: NamedArrayDict = torch.load(mf, map_location=device)
 
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
-        self.num_layers = 0
-        while f'{rnn_name}.weight_hh_l{self.num_layers}' in params:
-            self.num_layers += 1
-
         # LSTM weights
-        for l in range(self.num_layers):
-            # (2*hidden_size, 4*hidden_size)
-            self.weight[l] = torch.cat((params[f'{rnn_name}.weight_hh_l{l}'],
-                                        params[f'{rnn_name}.weight_ih_l{l}']), dim=1)
+        layer = 0
+        while f'{rnn_name}.weight_hh_l{layer}' in params:
+            w_h = params[f'{rnn_name}.weight_hh_l{layer}']
+            w_i = params[f'{rnn_name}.weight_ih_l{layer}']
 
-            if f'{rnn_name}.bias_ih_l{l}' in params:
+            # (2*hidden_size, 4*hidden_size)
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1)
+
+            if f'{rnn_name}.bias_ih_l{layer}' in params:
                 # (4*hidden_size,)
-                self.bias[l] = params[f'{rnn_name}.bias_ih_l{l}'] + \
-                               params[f'{rnn_name}.bias_hh_l{l}']
+                self.bias[layer] = params[f'{rnn_name}.bias_ih_l{layer}'] + \
+                                   params[f'{rnn_name}.bias_hh_l{layer}']
+
+            self.sizes[layer] = {
+                'x': w_i.size(1), 'h': w_h.size(1), 'c': w_h.size(1)
+            }
+            layer += 1
 
         self.hidden_size_c = params[f'{rnn_name}.weight_hh_l0'].size(1)
         self.hidden_size_h = params[f'{rnn_name}.weight_hh_l0'].size(1)
-        self.split_order = ['i', 'f', 'g', 'o']
-        self.array_type = 'torch'
-        self.ih_concat_order = ['h', 'i']
 
         # Encoder and decoder weights
+        self.vocab = W2I(create_vocab_from_path(vocab_path))
         self.encoder = params[f'{encoder_name}.weight']
         self.decoder_w = params[f'{decoder_name}.weight']
         if f'{decoder_name}.bias' in params:

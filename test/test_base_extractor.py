@@ -42,9 +42,11 @@ class MockLanguageModel(LanguageModel):
         self.all_activations = all_activations
         self.all_pairs = None
 
-        self.num_layers = num_layers
-        self.hidden_size_c = hidden_size
-        self.hidden_size_h = hidden_size
+        self.sizes = {
+            l: {
+                'h': hidden_size, 'c': hidden_size, 'x': hidden_size
+            } for l in range(num_layers)
+        }
         self.split_order = ['f', 'i', 'g', 'o']
         self.array_type = 'torch'
 
