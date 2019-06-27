@@ -3,7 +3,6 @@
   "activations_dir": "../lm_data/activations/extracted/no_gender_bias_mixed",
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "module_path": "../lm_data/models/gulordava/",
   "decomposer": "ContextualDecomposer",
   "init_lstm_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle"
 }

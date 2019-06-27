@@ -34,11 +34,10 @@ class BaseDecomposer:
 
         self.final_index = final_index
         self.batch_size = len(final_index)
-        self.model = model
         self.toplayer = model.num_layers-1
 
         self._validate_activation_shapes()
-        self._append_init_cell_states()
+        self._append_init_states()
 
     def _decompose(self, *arg: Any, **kwargs: Any) -> NamedArrayDict:
         raise NotImplementedError
@@ -77,17 +76,25 @@ class BaseDecomposer:
     def _validate_activation_shapes(self) -> None:
         pass
 
-    # TODO: Consider appending init hidden state as well here
-    def _append_init_cell_states(self) -> None:
+    def _append_init_states(self) -> None:
         for layer, name in self.activation_dict:
-            if name == 'icx':
-                if (layer, 'cx') in self.activation_dict:
-                    self.activation_dict[(layer, 'cx')] = np.ma.concatenate((
-                        self.activation_dict[(layer, 'icx')],
-                        self.activation_dict[(layer, 'cx')]
+            if name[0] == 'i' and name[1:] in ['cx', 'hx']:
+                cell_type = name[1:]
+                if (layer, cell_type) in self.activation_dict:
+                    self.activation_dict[(layer, cell_type)] = np.ma.concatenate((
+                        self.activation_dict[(layer, name)],
+                        self.activation_dict[(layer, cell_type)]
                     ), axis=1)
-                    if (layer, '0cx') in self.activation_dict:
-                        self.activation_dict[(layer, 'cx')] = np.ma.concatenate((
-                            self.activation_dict[(layer, '0cx')],
-                            self.activation_dict[(layer, 'cx')]
+
+                    if cell_type == 'hx' and layer == self.toplayer:
+                        self.final_index += 1
+
+                    # 0cx activations should be concatenated in front of the icx activations.
+                    if (layer, f'0{cell_type}') in self.activation_dict:
+                        self.activation_dict[(layer, cell_type)] = np.ma.concatenate((
+                            self.activation_dict[(layer, f'0{cell_type}')],
+                            self.activation_dict[(layer, cell_type)]
                         ), axis=1)
+
+                        if cell_type == 'hx' and layer == self.toplayer:
+                            self.final_index += 1

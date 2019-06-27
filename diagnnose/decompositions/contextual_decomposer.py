@@ -355,7 +355,7 @@ class ContextualDecomposer(BaseDecomposer):
             for l in range(num_layers):
                 for i in range(start):
                     self.decompositions[l]['irrel_c'][i] = self.activation_dict[(l, 'cx')][0][i+1]
-                    self.decompositions[l]['irrel_h'][i] = self.activation_dict[(l, 'hx')][0][i]
+                    self.decompositions[l]['irrel_h'][i] = self.activation_dict[(l, 'hx')][0][i+1]
 
     def _set_rel_interactions(self, rel_interactions: Optional[List[str]]) -> None:
         all_interactions = {'rel-rel', 'rel-b', 'irrel-irrel', 'irrel-b', 'rel-irrel', 'b-b'}
@@ -382,16 +382,20 @@ class ContextualDecomposer(BaseDecomposer):
 
         decomposed_score = scores['relevant'][-1] + scores['irrelevant'][-1]
 
+        avg_difference = np.mean(original_score - decomposed_score)
+        max_difference = np.max(np.abs(original_score - decomposed_score))
+
         # Sanity check: scores + irrel_scores should equal the LSTM's output minus bias
-        assert np.allclose(original_score, decomposed_score, rtol=1e-3), \
-            f'Decomposed score does not match: {original_score} vs {decomposed_score}'
+        assert np.allclose(original_score, decomposed_score, rtol=1e-2), \
+            f'Decomposed score does not match: {original_score} vs {decomposed_score}\n' \
+            f'Average difference: {avg_difference}\n' \
+            f'Max. difference: {max_difference}\n' \
+            f'Consider running decompose with `validate=False` to ignore this warning.'
 
     def _calc_scores(self) -> NamedArrayDict:
-        top_layer = self.model.num_layers - 1
-
         return {
-            'relevant': self.decompositions[top_layer]['rel_h'] @ self.decoder_w.T,
-            'irrelevant': self.decompositions[top_layer]['irrel_h'] @ self.decoder_w.T,
+            'relevant': self.decompositions[self.toplayer]['rel_h'] @ self.decoder_w.T,
+            'irrelevant': self.decompositions[self.toplayer]['irrel_h'] @ self.decoder_w.T,
         }
 
 

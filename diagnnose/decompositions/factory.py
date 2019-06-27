@@ -144,10 +144,9 @@ class DecomposerFactory:
 
         batch_size = activations.shape[0]
 
-        if name == '0cx':
-            return np.zeros((batch_size, 1, self.model.hidden_size_c))
-        elif name == '0hx':
-            return np.zeros((batch_size, 1, self.model.hidden_size_h))
+        if name[0] == '0':
+            cell_type = name[1]
+            return np.zeros((batch_size, 1, self.model.sizes[layer][cell_type]))
 
         if subsen_index.start == 0 or subsen_index.start is None:
             init_state = self.init_cell_state[layer][name[1:]]
