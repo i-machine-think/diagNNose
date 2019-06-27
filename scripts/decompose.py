@@ -14,7 +14,7 @@ if __name__ == '__main__':
     decompose_args = {**config_dict['decompose'], **config_dict['activations']}
 
     constructor = DecomposerFactory(model, **decompose_args)
-    decomposer = constructor.create(0, slice(0, 6, 1), classes=[model.vocab['the']])
+    decomposer = constructor.create(0, slice(0, 6, 1))
 
     cd = decomposer.decompose(1, 2, ['rel-rel', 'rel-b'])
     print(cd['relevant'], cd['irrelevant'])

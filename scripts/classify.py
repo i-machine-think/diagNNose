@@ -13,6 +13,6 @@ if __name__ == '__main__':
 
     corpus: Corpus = import_corpus_from_path(**config_dict['corpus'])
 
-    dc_trainer = DCTrainer(corpus, **config_dict['activations'], **config_dict['classify'])
+    dc_trainer = DCTrainer(**config_dict['activations'], **config_dict['classify'], corpus=corpus)
 
     dc_trainer.train(**config_dict['train_dc'])

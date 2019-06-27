@@ -1,7 +1,7 @@
 {
   "model_type": "ForwardLSTM",
   "activations_dir": "../lm_data/activations/extracted/no_gender_bias_mixed",
-  "model_path": "../lm_data/models/gulordava/model.pt",
+  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "module_path": "../lm_data/models/gulordava/",
   "decomposer": "ContextualDecomposer",
