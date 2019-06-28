@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Callable, List, Optional, Set, Tuple, Union
 
 import numpy as np
@@ -44,7 +45,6 @@ class ContextualDecomposer(BaseDecomposer):
                    init_states_rel: bool = False,
                    use_extracted_activations: bool = True,
                    only_return_dec: bool = False,
-                   validate: bool = True,
                    ) -> Union[NamedArrayDict, FullActivationDict]:
         """ Main loop for the contextual decomposition.
 
@@ -87,8 +87,6 @@ class ContextualDecomposer(BaseDecomposer):
         only_return_dec : bool, optional
             Only returns the decomposed cell states, without calculating
             the corresponding decoder scores. Defaults to False.
-        validate : bool, optional
-            Toggles decomposition validation, defaults to True.
 
         Returns
         -------
@@ -128,8 +126,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         scores = self._calc_scores()
 
-        if validate:
-            self._validate_decomposition(scores)
+        self._validate_decomposition(scores)
 
         return scores
 
@@ -385,12 +382,14 @@ class ContextualDecomposer(BaseDecomposer):
         avg_difference = np.mean(original_score - decomposed_score)
         max_difference = np.max(np.abs(original_score - decomposed_score))
 
-        # Sanity check: scores + irrel_scores should equal the LSTM's output minus bias
-        assert np.allclose(original_score, decomposed_score, rtol=1e-2), \
-            f'Decomposed score does not match: {original_score} vs {decomposed_score}\n' \
-            f'Average difference: {avg_difference}\n' \
-            f'Max. difference: {max_difference}\n' \
-            f'Consider running decompose with `validate=False` to ignore this warning.'
+        # Sanity check: scores + irrel_scores should equal the original output
+        if not np.allclose(original_score, decomposed_score, rtol=1e-3):
+            warnings.warn(
+                f'Decomposed scores do not match: orig {original_score} vs dec {decomposed_score}\n'
+                f'Average difference: {avg_difference}\n'
+                f'Maximum difference: {max_difference}\n'
+                f'If the difference is small (<<1e-3) this is likely due to numerical instability.'
+            )
 
     def _calc_scores(self) -> NamedArrayDict:
         return {
