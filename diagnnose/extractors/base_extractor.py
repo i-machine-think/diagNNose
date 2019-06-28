@@ -1,10 +1,9 @@
 from contextlib import ExitStack
-from time import time
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
-
+from tqdm import tqdm
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel
@@ -58,7 +57,6 @@ class Extractor:
     def extract(self,
                 activation_names: ActivationNames,
                 cutoff: int = -1,
-                print_every: int = 10,
                 dynamic_dumping: bool = True,
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
                 create_avg_eos: bool = False,
@@ -76,8 +74,6 @@ class Extractor:
             How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
-        print_every : int, optional
-            Print time passed every n sentences, defaults to 10.
         dynamic_dumping : bool, optional
             Dump files dynamically, i.e. once per sentence, or dump
             all files at the end of extraction. Defaults to True.
@@ -92,7 +88,6 @@ class Extractor:
         """
         self.activation_names = activation_names
 
-        start_t = prev_t = time()
         tot_extracted = n_sens = 0
 
         all_activations: PartialArrayDict = self._init_sen_activations()
@@ -109,11 +104,7 @@ class Extractor:
             if create_avg_eos:
                 avg_eos_states = self._init_avg_eos_activations()
 
-            for n_sens, (sen_id, labeled_sentence) in enumerate(self.corpus.items(), start=1):
-                if n_sens % print_every == 0 and n_sens > 0:
-                    self._print_time_info(prev_t, start_t, print_every, n_sens, tot_num)
-                    prev_t = time()
-
+            for n_sens, (sen_id, labeled_sentence) in enumerate(tqdm(self.corpus.items()), start=1):
                 sen_activations, n_extracted = \
                     self._extract_sentence(labeled_sentence, selection_func)
 
@@ -133,7 +124,8 @@ class Extractor:
                 if cutoff == n_sens:
                     break
 
-            del self.model
+            del self.model  # clear up RAM usage for finall activation dump
+
             if create_avg_eos:
                 self._normalize_avg_eos_activations(avg_eos_states, n_sens)
                 self.activation_writer.dump_avg_eos(avg_eos_states)
@@ -149,27 +141,8 @@ class Extractor:
             print('\nConcatenating sequentially dumped pickle files into 1 array...')
             self.activation_writer.concat_pickle_dumps()
 
-        minutes, seconds = divmod(time() - start_t, 60)
-
         print(f'\nExtraction finished.')
-        print(f'{n_sens} sentences have been extracted, '
-              f'yielding {tot_extracted} data points.')
-        print(f'Total time took {minutes:.0f}m {seconds:.1f}s')
-
-    @staticmethod
-    def _print_time_info(prev_t: float, start_t: float, print_every: int, n_sens: int,
-                         tot_num: int) -> None:
-        speed = 1 / ((time() - prev_t) / print_every)
-        duration = time() - start_t
-        minutes, seconds = divmod(duration, 60)
-
-        time_left = (tot_num - n_sens) / speed
-        m_left, s_left = divmod(time_left, 60)
-
-        print(f'#sens: {n_sens:>4}\t\t'
-              f'Time: {minutes:>3.0f}m {seconds:>2.1f}s\t'
-              f'Speed: {speed:.2f}sen/s\t'
-              f'~Time left: {m_left:>3.0f}m {s_left:>2.1f}s')
+        print(f'{n_sens} sentences have been extracted, yielding {tot_extracted} data points.')
 
     def _extract_sentence(self,
                           sentence: CorpusSentence,

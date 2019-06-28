@@ -48,7 +48,7 @@ class ActivationWriter:
 
         if not os.path.exists(self.activations_dir):
             os.makedirs(self.activations_dir)
-        # check if output directory is empty
+
         if os.listdir(self.activations_dir):
             warnings.warn("Output directory %s is not empty" % self.activations_dir)
 

@@ -106,10 +106,6 @@ def create_arg_descriptions() -> ArgDescriptions:
             'type': bool,
             'help': '(optional) Set to true to only dump the avg eos activation. Defaults to False.'
         },
-        'print_every': {
-            'type': int,
-            'help': '(optional) Print extraction progress every n steps. Defaults to 20.'
-        },
         'cutoff': {
             'type': int,
             'help': '(optional) Stop extraction after n sentences. Defaults to -1 to extract '
