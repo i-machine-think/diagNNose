@@ -308,7 +308,7 @@ class ContextualDecomposer(BaseDecomposer):
                     self.decompositions[layer][decomp_name][i] += bias_gate * irrel_source
 
                 elif interaction == 'rel-irrel':
-                    if decomp_name[:3] == 'rel' and self.only_source_rel:
+                    if decomp_name.startswith('rel') and self.only_source_rel:
                         self.decompositions[layer][irrel_cd_name][i] += rel_gate * irrel_source
                         self.decompositions[layer][decomp_name][i] += irrel_gate * rel_source
                     else:
@@ -325,7 +325,7 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _add_bias_bias(self, layer: int, i: int, bias_product: np.ndarray, decomp_name: str,
                        inside_phrase: bool) -> None:
-        if decomp_name[:3] == 'rel':
+        if decomp_name.startswith('rel'):
             self.decompositions[layer][decomp_name][i] += bias_product
         else:
             if inside_phrase and self.bias_bias_only_in_phrase:

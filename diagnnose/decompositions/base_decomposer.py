@@ -78,7 +78,7 @@ class BaseDecomposer:
 
     def _append_init_states(self) -> None:
         for layer, name in self.activation_dict:
-            if name[0] == 'i' and name[1:] in ['cx', 'hx']:
+            if name.startswith('i') and name[1:] in ['cx', 'hx']:
                 cell_type = name[1:]
                 if (layer, cell_type) in self.activation_dict:
                     self.activation_dict[(layer, cell_type)] = np.ma.concatenate((

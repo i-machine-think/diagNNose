@@ -8,9 +8,9 @@ import torch
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 from diagnnose.typedefs.corpus import Corpus, CorpusSentence
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
-from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
 
 
 class Extractor:
