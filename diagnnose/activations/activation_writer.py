@@ -5,7 +5,7 @@ from contextlib import ExitStack
 from typing import BinaryIO, Optional
 
 from diagnnose.typedefs.activations import (
-    ActivationFiles, ActivationNames, FullActivationDict, PartialArrayDict)
+    ActivationFiles, ActivationNames, BatchArrayDict, FullActivationDict, PartialArrayDict)
 from diagnnose.typedefs.extraction import ActivationRanges
 from diagnnose.utils.paths import dump_pickle
 
@@ -73,13 +73,18 @@ class ActivationWriter:
 
         Parameters
         ----------
-        activations : PartialActivationDict
-            The Tensors of each activation that was specifed by
+        activations : PartialArrayDict
+            The Tensors for each activation that was specifed by
             self.activation_names at initialization.
         """
         for layer, name in self.activation_names:
-            assert (layer, name) in self.activation_files.keys(), 'Activation file is not opened'
-            pickle.dump(activations[(layer, name)], self.activation_files[(layer, name)])
+            assert (layer, name,) in self.activation_files.keys(), (
+                "Activation file is not opened"
+            )
+            pickle.dump(
+                activations[(layer, name)],
+                self.activation_files[(layer, name)],
+            )
 
     def dump_activation_ranges(self, activation_ranges: ActivationRanges) -> None:
         assert self.activation_ranges_file is not None

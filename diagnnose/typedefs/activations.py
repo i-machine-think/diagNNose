@@ -20,6 +20,7 @@ FullActivationDict = Dict[int, NamedArrayDict]
 # Dict with arbitrary number of activations
 PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
+BatchArrayDict = Dict[int, PartialArrayDict]
 
 ParameterDict = Dict[int, Union[Tensor, np.ndarray]]
 

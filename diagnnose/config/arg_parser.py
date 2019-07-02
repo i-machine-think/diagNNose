@@ -92,6 +92,12 @@ def create_arg_descriptions() -> ArgDescriptions:
             'nargs': '*',
             'help': '(required) List of activation names to be extracted.'
         },
+        'batch_size': {
+            'type': int,
+            'help': '(optional) Amount of sentences processed per forward step. '
+                    'Higher batch size increases extraction speed, but should '
+                    'be done accordingly to the amount of available RAM. Defaults to 1.'
+        },
         'dynamic_dumping': {
             'type': bool,
             'help': '(optional) Set to true to directly dump activations to file. '
