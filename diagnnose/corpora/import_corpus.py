@@ -1,12 +1,17 @@
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from diagnnose.typedefs.corpus import Corpus, CorpusSentence
+from torchtext.data import Field, RawField, TabularDataset
+from torchtext.vocab import Vocab
+
+from diagnnose.utils.vocab import create_vocab_from_path
 
 
-def import_corpus_from_path(corpus_path: str,
-                            corpus_header: Optional[List[str]] = None,
-                            to_lower: bool = False,
-                            header_from_first_line: bool = False) -> Corpus:
+def import_corpus(corpus_path: str,
+                  corpus_header: Optional[List[str]] = None,
+                  header_from_first_line: bool = False,
+                  to_lower: bool = False,
+                  vocab_path: Optional[str] = None) -> TabularDataset:
+
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
@@ -24,105 +29,53 @@ def import_corpus_from_path(corpus_path: str,
         Optional list of attribute names of each column, if not provided
         all lines will be considered to be sentences,  with the
         attribute name "sen".
+    to_lower : bool, optional
+        Transform entire corpus to lower case, defaults to False.
     header_from_first_line : bool, optional
         Use the first line of the corpus as the attribute names of the
         corpus.
-    to_lower : bool, optional
-        Transform entire corpus to lower case, defaults to False.
 
     Returns
     -------
-    corpus : Corpus
-        A Corpus type containing the parsed sentences and optional labels
+    corpus : TabularDataset
+        A TabularDataset containing the parsed sentences and optional labels
     """
-    corpus = {}
 
-    raw_corpus = read_raw_corpus(corpus_path,
-                                 header=corpus_header,
-                                 to_lower=to_lower,
-                                 header_from_first_line=header_from_first_line)
+    if corpus_header is None:
+        if header_from_first_line:
+            with open(corpus_path) as f:
+                corpus_header = f.readline().strip().split('\t')
+        else:
+            corpus_header = ['sen']
 
-    for key, item in raw_corpus.items():
-        assert 'sen' in item.keys(), 'Corpus item should contain a sentence (`sen`) attribute!'
+    assert 'sen' in corpus_header, '`sen` should be part of corpus_header!'
 
-        sen = item['sen']
-        labels = item['labels'] if 'labels' in item else None
-        misc_info = {k: v for k, v in item.items() if k not in ['sen', 'labels']}
+    fields = {}
+    for field in corpus_header:
+        if field == 'sen':
+            fields[field] = Field(batch_first=True,
+                                  include_lengths=True,
+                                  lower=to_lower,
+                                  )
+        elif field == 'labels':
+            fields[field] = Field(use_vocab=False,
+                                  tokenize=lambda s: list(map(int, s.split())),
+                                  )
+        else:
+            fields[field] = RawField()
 
-        if labels is not None:
-            assert len(sen) == len(labels), \
-                f'Length mismatch between sentence and labels, ' \
-                f'{len(sen)} (sen) vs. {len(labels)} (labels).'
+    # The current torchtext Vocab does not allow a fixed vocab order
+    if vocab_path is not None:
+        vocab = create_vocab_from_path(vocab_path)
+        fields['sen'].vocab = Vocab({}, specials=[])
+        fields['sen'].vocab.stoi = vocab
+        fields['sen'].vocab.itos = list(vocab.keys())
 
-        corpus_sentence = CorpusSentence(sen, labels, misc_info)
-        corpus[key] = corpus_sentence
+    corpus = TabularDataset(fields=fields.items(),
+                            format='tsv',
+                            path=corpus_path,
+                            skip_header=header_from_first_line,
+                            csv_reader_params={'quotechar': None},
+                            )
 
     return corpus
-
-
-def read_raw_corpus(corpus_path: str,
-                    separator: str = '\t',
-                    header: Optional[List[str]] = None,
-                    header_from_first_line: bool = False,
-                    to_lower: bool = False) -> Dict[int, Dict[str, Any]]:
-    """ Reads a tsv/csv type file and converts it to a dictionary.
-
-    Expects the first line to indicate the column names if header is not
-    provided.
-
-    Parameters
-    ----------
-    corpus_path : str
-        Path to corpus file
-    separator : str, optional
-        Character separator of each attribute in the corpus. Defaults to \t
-    header : List[str], optional
-        Optional list of attribute names of each column
-    header_from_first_line : bool, optional
-        Optional toggle to use the first line of the corpus as attribute
-        names for the parsed corpus, such as in a csv file.
-    to_lower : bool, optional
-        Transform entire corpus to lower case, defaults to False.
-
-    Returns
-    -------
-    corpus : Dict[int, Dict[str, Any]]
-        Dictionary mapping id to dict of attributes
-    """
-    with open(corpus_path) as f:
-        lines = f.read().strip().split('\n')
-
-    split_lines = [l.strip().split(separator) for l in lines]
-    if header_from_first_line:
-        header = split_lines[0]
-        split_lines = split_lines[1:]
-    elif header is None:
-        header = ['sen']
-
-    init_corpus = {
-        i: string_to_dict(header, x, to_lower) for i, x in enumerate(split_lines)
-    }
-
-    return init_corpus
-
-
-def string_to_dict(header: List[str], line: List[str], to_lower: bool) -> Dict[str, Any]:
-    """Converts a list of attributes and values to a dictionary.
-
-    Also splits the sentence string to a list of strings.
-    """
-    sendict: Dict[str, Any] = dict(zip(header, line))
-    for k, v in sendict.items():
-        if v.isnumeric():
-            sendict[k] = int(v)
-
-    if 'sent' in sendict:
-        sendict['sen'] = sendict.pop('sent')
-    if 'sen' in sendict:
-        sen = sendict['sen'].lower() if to_lower else sendict['sen']
-        sendict['sen'] = sen.strip().split(' ')
-
-    if 'labels' in sendict:
-        sendict['labels'] = [int(l) for l in sendict['labels'].split(' ')]
-
-    return sendict

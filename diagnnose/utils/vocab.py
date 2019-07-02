@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Set
+from typing import Any, Dict, Set, Union
 
 import numpy as np
 
@@ -108,20 +108,26 @@ class C2I(W2I):
             return self._convert_word_to_char_ids(word)
 
 
-def create_vocab_from_path(vocab_path: str) -> Dict[str, int]:
+def create_vocab_from_path(vocab_path: str, create_char_vocab: bool = False) -> Union[W2I, C2I]:
     with open(os.path.expanduser(vocab_path)) as vf:
         vocab_lines = vf.readlines()
 
     w2i = {w.strip(): i for i, w in enumerate(vocab_lines)}
 
-    return w2i
+    if create_char_vocab:
+        return C2I(w2i)
+    else:
+        return W2I(w2i)
 
 
-def create_vocab_from_corpus(corpus_path: str) -> Dict[str, int]:
+def create_vocab_from_corpus(corpus_path: str, create_char_vocab: bool = False) -> Union[W2I, C2I]:
     with open(os.path.expanduser(corpus_path)) as cf:
         # Note that the first corpus column is considered to be the sentence here
         corpus_tokens = set(w.strip() for l in cf.readlines() for w in l.split('\t')[0].split(' '))
 
     w2i = {w: i for i, w in enumerate(sorted(corpus_tokens))}
 
-    return w2i
+    if create_char_vocab:
+        return C2I(w2i)
+    else:
+        return W2I(w2i)

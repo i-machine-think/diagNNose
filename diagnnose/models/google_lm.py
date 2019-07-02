@@ -46,9 +46,9 @@ class GoogleLM(LanguageModel):
         print('Loading pretrained model...')
 
         if corpus_vocab_path is None:
-            vocab = C2I(create_vocab_from_path(full_vocab_path))
+            vocab: C2I = create_vocab_from_path(full_vocab_path, create_char_vocab=True)
         else:
-            vocab = C2I(create_vocab_from_corpus(corpus_vocab_path))
+            vocab = create_vocab_from_corpus(corpus_vocab_path, create_char_vocab=True)
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(ckpt_dir, self.num_layers, self.split_order, self.forget_offset)

@@ -19,9 +19,6 @@ def create_arg_descriptions() -> ArgDescriptions:
         'state_dict': {
             'help': 'Path to ForwardLSTM model parameters (pickled torch state_dict)'
         },
-        'vocab_path': {
-            'help': 'Path to ForwardLSTM model vocabulary'
-        },
         'device': {
             'help': '(optional) Torch device name on which model will be run. Defaults to cpu.'
         },
@@ -71,6 +68,9 @@ def create_arg_descriptions() -> ArgDescriptions:
             'type': bool,
             'help': '(optional) Use the first line of the corpus as the attribute  names of the '
                     'corpus. Defaults to False.'
+        },
+        'vocab_path': {
+            'help': 'Path to the model vocabulary.'
         },
     }
 

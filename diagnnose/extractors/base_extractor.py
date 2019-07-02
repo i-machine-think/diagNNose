@@ -3,7 +3,9 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
+from torchtext.data import BucketIterator, Batch
 from tqdm import tqdm
+
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel

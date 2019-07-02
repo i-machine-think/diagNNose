@@ -22,7 +22,6 @@ class ForwardLSTM(LanguageModel):
 
     def __init__(self,
                  state_dict: str,
-                 vocab_path: str,
                  device: str = 'cpu',
                  rnn_name: str = 'rnn',
                  encoder_name: str = 'encoder',
@@ -59,7 +58,7 @@ class ForwardLSTM(LanguageModel):
         self.hidden_size_h = params[f'{rnn_name}.weight_hh_l0'].size(1)
 
         # Encoder and decoder weights
-        self.vocab = W2I(create_vocab_from_path(vocab_path))
+        # self.vocab = W2I(create_vocab_from_path(vocab_path))
         self.encoder = params[f'{encoder_name}.weight']
         self.decoder_w = params[f'{decoder_name}.weight']
         if f'{decoder_name}.bias' in params:
@@ -96,12 +95,12 @@ class ForwardLSTM(LanguageModel):
 
     @overrides
     def forward(self,
-                token: str,
+                input_: torch.Tensor,
                 prev_activations: FullActivationDict,
                 compute_out: bool = True) -> Tuple[Optional[Tensor], FullActivationDict]:
 
         # Look up the embeddings of the input words
-        input_ = self.encoder[self.vocab[token]]
+        embs = self.encoder[input_]
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
