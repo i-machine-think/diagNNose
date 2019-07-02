@@ -10,7 +10,7 @@ from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.activations.init_states import InitStates
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import ActivationNames, FullActivationDict, PartialArrayDict
-from diagnnose.typedefs.corpus import Corpus, CorpusSentence
+from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
 
 
@@ -58,6 +58,7 @@ class Extractor:
     # TODO: Allow batch input + refactor
     def extract(self,
                 activation_names: ActivationNames,
+                batch_size: int = 1,
                 cutoff: int = -1,
                 dynamic_dumping: bool = True,
                 selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
@@ -72,7 +73,11 @@ class Extractor:
         ----------
         activation_names : List[tuple[int, str]]
             List of (layer, activation_name) tuples
-        cutoff: int, optional
+        batch_size : int, optional
+            Amount of sentences processed per forward step. Higher batch
+            size increases extraction speed, but should be done
+            accordingly to the amount of available RAM. Defaults to 1.
+        cutoff : int, optional
             How many sentences of the corpus to extract activations for.
             Setting this parameter to -1 will extract the entire corpus,
             otherwise extraction is halted after extracting n sentences.
@@ -94,6 +99,7 @@ class Extractor:
 
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
+        iterator = self._create_iterator(batch_size)
 
         tot_num = len(self.corpus) if cutoff == -1 else cutoff
         print(f'\nStarting extraction of {tot_num} sentences...')
@@ -106,9 +112,8 @@ class Extractor:
             if create_avg_eos:
                 avg_eos_states = self._init_avg_eos_activations()
 
-            for n_sens, (sen_id, labeled_sentence) in enumerate(tqdm(self.corpus.items()), start=1):
-                sen_activations, n_extracted = \
-                    self._extract_sentence(labeled_sentence, selection_func)
+            for n_sens, batch in enumerate(tqdm(iterator), start=1):
+                sen_activations, n_extracted = self._extract_sentence(batch, selection_func)
 
                 if not only_dump_avg_eos:
                     if dynamic_dumping:
@@ -120,7 +125,7 @@ class Extractor:
                 if create_avg_eos:
                     self._update_avg_eos_activations(avg_eos_states, sen_activations)
 
-                activation_ranges[sen_id] = (tot_extracted, tot_extracted+n_extracted)
+                activation_ranges[n_sens] = (tot_extracted, tot_extracted+n_extracted)
                 tot_extracted += n_extracted
 
                 if cutoff == n_sens:
@@ -147,15 +152,15 @@ class Extractor:
         print(f'{n_sens} sentences have been extracted, yielding {tot_extracted} data points.')
 
     def _extract_sentence(self,
-                          sentence: CorpusSentence,
+                          batch: Batch,
                           selection_func: SelectFunc = lambda pos, token, labeled_sentence: True
                           ) -> Tuple[PartialArrayDict, int]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
         ----------
-        sentence : CorpusSentence
-            Corpus sentence containing the raw sentence and other info
+        batch : Batch
+            Batch containing sentence and label information.
         selection_func : SelectFunc
             Function that determines whether activations for a token
             should be extracted or not.
@@ -174,12 +179,15 @@ class Extractor:
 
         activations: FullActivationDict = self.init_lstm_states.create()
 
-        for i, token in enumerate(sentence.sen):
+        sentence = batch.sen[0]
+        for i in range(sentence.size(1)):
+            tokens = sentence[:, i]
+
             with torch.no_grad():
-                _out, activations = self.model(token, activations, compute_out=False)
+                _out, activations = self.model(tokens, activations, compute_out=False)
 
             # Check whether current activations match criterion defined in selection_func
-            if selection_func(i, token, sentence):
+            if selection_func(i, tokens, sentence):
                 for layer, name in self.activation_names:
                     activation = activations[layer][name]
                     if self.model.array_type == 'torch':
@@ -193,6 +201,19 @@ class Extractor:
 
         return sen_activations, n_extracted
 
+    def _create_iterator(self, batch_size: int) -> BucketIterator:
+        iterator = BucketIterator(dataset=self.corpus,
+                                  batch_size=batch_size,
+                                  device=self.model.device,
+                                  repeat=False,
+                                  shuffle=True,
+                                  sort=False,
+                                  sort_key=lambda x: len(x.sen),
+                                  sort_within_batch=True,
+                                  )
+
+        return iterator
+
     def _init_sen_activations(self) -> PartialArrayDict:
         """ Initialize dict of numpy arrays that will be written to file. """
 
@@ -202,7 +223,7 @@ class Extractor:
 
     def _init_avg_eos_activations(self) -> FullActivationDict:
         init_avg_eos_activations: FullActivationDict = \
-            self.init_lstm_states.create_zero_init_states()
+            self.init_lstm_states.create_zero_init_states(2)
 
         for layer in range(self.model.num_layers):
             if (layer, 'hx') not in self.activation_names:

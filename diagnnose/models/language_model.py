@@ -9,6 +9,7 @@ from diagnnose.typedefs.activations import FullActivationDict
 
 class LanguageModel(ABC, nn.Module):
     array_type: str
+    device: str = 'cpu'
     forget_offset: int = 0
     ih_concat_order: List[str] = ['h', 'i']
     sizes: Dict[int, Dict[str, int]] = {}

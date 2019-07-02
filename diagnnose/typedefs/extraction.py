@@ -1,8 +1,9 @@
 from typing import Callable, Dict, Tuple
 
-from .corpus import CorpusSentence
+from torchtext.data import Example
 
-SelectFunc = Callable[[int, str, CorpusSentence], bool]
+
+SelectFunc = Callable[[int, str, Example], bool]
 
 Range = Tuple[int, int]
 ActivationRanges = Dict[int, Range]

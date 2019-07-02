@@ -18,6 +18,7 @@ class ForwardLSTM(LanguageModel):
     """
 
     array_type = 'torch'
+    ih_concat_order = ['h', 'i']
     split_order = ['i', 'f', 'g', 'o']
 
     def __init__(self,
@@ -32,6 +33,7 @@ class ForwardLSTM(LanguageModel):
         with open(os.path.expanduser(state_dict), 'rb') as mf:
             params: NamedArrayDict = torch.load(mf, map_location=device)
 
+        self.device: str = device
         self.weight: ParameterDict = {}
         self.bias: ParameterDict = {}
 
@@ -54,9 +56,6 @@ class ForwardLSTM(LanguageModel):
             }
             layer += 1
 
-        self.hidden_size_c = params[f'{rnn_name}.weight_hh_l0'].size(1)
-        self.hidden_size_h = params[f'{rnn_name}.weight_hh_l0'].size(1)
-
         # Encoder and decoder weights
         # self.vocab = W2I(create_vocab_from_path(vocab_path))
         self.encoder = params[f'{encoder_name}.weight']
@@ -69,15 +68,16 @@ class ForwardLSTM(LanguageModel):
         print('Model initialisation finished.')
 
     def forward_step(self,
-                     l: int,
+                     layer: int,
                      inp: Tensor,
                      prev_hx: Tensor,
                      prev_cx: Tensor) -> NamedArrayDict:
         # (4*hidden_size,)
-        proj = self.weight[l] @ torch.cat((prev_hx, inp))
-        if l in self.bias:
-            proj += self.bias[l]
-        split_proj = dict(zip(self.split_order, torch.split(proj, self.hidden_size_c)))
+        ih_concat = torch.cat((prev_hx, inp), dim=1)
+        proj = ih_concat @ self.weight[layer].t()
+        if layer in self.bias:
+            proj += self.bias[layer]
+        split_proj = dict(zip(self.split_order, torch.split(proj, self.sizes[layer]['c'], dim=1)))
 
         f_g: Tensor = torch.sigmoid(split_proj['f'])
         i_g: Tensor = torch.sigmoid(split_proj['i'])
@@ -107,8 +107,8 @@ class ForwardLSTM(LanguageModel):
         for l in range(self.num_layers):
             prev_hx = prev_activations[l]['hx']
             prev_cx = prev_activations[l]['cx']
-            activations[l] = self.forward_step(l, input_, prev_hx, prev_cx)
-            input_ = activations[l]['hx']
+            activations[l] = self.forward_step(l, embs, prev_hx, prev_cx)
+            embs = activations[l]['hx']
 
         if compute_out:
             out = self.decoder_w @ input_
