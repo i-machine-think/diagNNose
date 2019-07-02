@@ -63,6 +63,7 @@ def import_corpus(corpus_path: str,
                                   )
         else:
             fields[field] = RawField()
+            fields[field].is_target = False
 
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None:
@@ -77,5 +78,8 @@ def import_corpus(corpus_path: str,
                             skip_header=header_from_first_line,
                             csv_reader_params={'quotechar': None},
                             )
+
+    if vocab_path is not None:
+        corpus.vocab = corpus.fields['sen'].vocab
 
     return corpus
