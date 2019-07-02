@@ -18,15 +18,16 @@ class InitStates:
     init_lstm_states_path : str, optional
         Path to pickled file with initial lstm states.
     """
-    def __init__(self,
-                 model: LanguageModel,
-                 init_lstm_states_path: Optional[str] = None) -> None:
+
+    def __init__(
+        self, model: LanguageModel, init_lstm_states_path: Optional[str] = None
+    ) -> None:
         self.sizes = model.sizes
         self.num_layers = model.num_layers
 
         self.init_lstm_states_path = init_lstm_states_path
 
-        self.use_np_arrays = model.array_type == 'numpy'
+        self.use_np_arrays = model.array_type == "numpy"
 
     def create(self, batch_size: int = 1) -> FullActivationDict:
         """ Set up the initial LM states.
@@ -60,44 +61,56 @@ class InitStates:
             New initial states that should have a structure that
             complies with the dimensions of the language model.
         """
-        assert len(init_states) == self.num_layers, \
-            'Number of initial layers not correct'
+        assert (
+            len(init_states) == self.num_layers
+        ), "Number of initial layers not correct"
         for layer, layer_size in self.sizes.items():
             init_state_dict = init_states[layer]
 
-            assert 'hx' in init_state_dict.keys() and 'cx' in init_state_dict.keys(), \
-                'Initial layer names not correct, should be hx and cx'
+            assert (
+                "hx" in init_state_dict.keys() and "cx" in init_state_dict.keys()
+            ), "Initial layer names not correct, should be hx and cx"
 
-            assert len(init_state_dict['hx']) == self.sizes[layer]['h'], \
-                'Initial activation size for hx is incorrect: ' \
+            assert len(init_state_dict["hx"]) == self.sizes[layer]["h"], (
+                "Initial activation size for hx is incorrect: "
                 f'hx: {len(init_state_dict["hx"])}, should be {self.sizes[layer]["h"]}'
+            )
 
-            assert len(init_state_dict['cx']) == self.sizes[layer]['c'], \
-                'Initial activation size for cx is incorrect: ' \
+            assert len(init_state_dict["cx"]) == self.sizes[layer]["c"], (
+                "Initial activation size for cx is incorrect: "
                 f'cx: {len(init_state_dict["cx"])}, should be {self.sizes[layer]["c"]}'
+            )
 
-    def _expand_batch_size(self,
-                           init_states: FullActivationDict,
-                           batch_size: int) -> FullActivationDict:
+    def _expand_batch_size(
+        self, init_states: FullActivationDict, batch_size: int
+    ) -> FullActivationDict:
         return {
             l: {
-                'cx': np.repeat(init_states[l]['cx'][np.newaxis, :], batch_size, axis=0),
-                'hx': np.repeat(init_states[l]['hx'][np.newaxis, :], batch_size, axis=0),
-            } for l in range(self.num_layers)
+                "cx": np.repeat(
+                    init_states[l]["cx"][np.newaxis, :], batch_size, axis=0
+                ),
+                "hx": np.repeat(
+                    init_states[l]["hx"][np.newaxis, :], batch_size, axis=0
+                ),
+            }
+            for l in range(self.num_layers)
         }
 
-    def create_zero_init_states(self, batch_size: Optional[int] = None) -> FullActivationDict:
+    def create_zero_init_states(
+        self, batch_size: Optional[int] = None
+    ) -> FullActivationDict:
         """Zero-initialized states if no init state has been provided"""
         return {
             l: {
-                'cx': self._create_zero_state(self.sizes[l]['c'], batch_size),
-                'hx': self._create_zero_state(self.sizes[l]['h'], batch_size),
-            } for l in range(self.num_layers)
+                "cx": self._create_zero_state(self.sizes[l]["c"], batch_size),
+                "hx": self._create_zero_state(self.sizes[l]["h"], batch_size),
+            }
+            for l in range(self.num_layers)
         }
 
-    def _create_zero_state(self,
-                           size: int,
-                           batch_size: Optional[int] = None) -> Union[torch.Tensor, np.ndarray]:
+    def _create_zero_state(
+        self, size: int, batch_size: Optional[int] = None
+    ) -> Union[torch.Tensor, np.ndarray]:
         if batch_size is not None:
             if self.use_np_arrays:
                 return np.zeros((batch_size, size), dtype=np.float32)

@@ -12,11 +12,11 @@ class InterventionLSTM(ForwardLSTM):
     or other information that can be used during an intervention. See interventions.mechanism and
     interventions.weakly_supervised for more details.
     """
+
     @overrides
-    def forward(self,
-                inp: str,
-                prev_activations: FullActivationDict,
-                **additional: Dict):
+    def forward(
+        self, inp: str, prev_activations: FullActivationDict, **additional: Dict
+    ):
         """
         Parameters
         ----------

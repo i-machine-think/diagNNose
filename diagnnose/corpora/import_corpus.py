@@ -6,11 +6,13 @@ from torchtext.vocab import Vocab
 from diagnnose.utils.vocab import create_vocab_from_path
 
 
-def import_corpus(corpus_path: str,
-                  corpus_header: Optional[List[str]] = None,
-                  header_from_first_line: bool = False,
-                  to_lower: bool = False,
-                  vocab_path: Optional[str] = None) -> TabularDataset:
+def import_corpus(
+    corpus_path: str,
+    corpus_header: Optional[List[str]] = None,
+    header_from_first_line: bool = False,
+    to_lower: bool = False,
+    vocab_path: Optional[str] = None,
+) -> TabularDataset:
 
     """ Imports a corpus from a path.
 
@@ -44,23 +46,22 @@ def import_corpus(corpus_path: str,
     if corpus_header is None:
         if header_from_first_line:
             with open(corpus_path) as f:
-                corpus_header = f.readline().strip().split('\t')
+                corpus_header = f.readline().strip().split("\t")
         else:
-            corpus_header = ['sen']
+            corpus_header = ["sen"]
 
-    assert 'sen' in corpus_header, '`sen` should be part of corpus_header!'
+    assert "sen" in corpus_header, "`sen` should be part of corpus_header!"
 
     fields = {}
     for field in corpus_header:
-        if field == 'sen':
-            fields[field] = Field(batch_first=True,
-                                  include_lengths=True,
-                                  lower=to_lower,
-                                  )
-        elif field == 'labels':
-            fields[field] = Field(use_vocab=False,
-                                  tokenize=lambda s: list(map(int, s.split())),
-                                  )
+        if field == "sen":
+            fields[field] = Field(
+                batch_first=True, include_lengths=True, lower=to_lower
+            )
+        elif field == "labels":
+            fields[field] = Field(
+                use_vocab=False, tokenize=lambda s: list(map(int, s.split()))
+            )
         else:
             fields[field] = RawField()
             fields[field].is_target = False
@@ -68,18 +69,19 @@ def import_corpus(corpus_path: str,
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None:
         vocab = create_vocab_from_path(vocab_path)
-        fields['sen'].vocab = Vocab({}, specials=[])
-        fields['sen'].vocab.stoi = vocab
-        fields['sen'].vocab.itos = list(vocab.keys())
+        fields["sen"].vocab = Vocab({}, specials=[])
+        fields["sen"].vocab.stoi = vocab
+        fields["sen"].vocab.itos = list(vocab.keys())
 
-    corpus = TabularDataset(fields=fields.items(),
-                            format='tsv',
-                            path=corpus_path,
-                            skip_header=header_from_first_line,
-                            csv_reader_params={'quotechar': None},
-                            )
+    corpus = TabularDataset(
+        fields=fields.items(),
+        format="tsv",
+        path=corpus_path,
+        skip_header=header_from_first_line,
+        csv_reader_params={"quotechar": None},
+    )
 
     if vocab_path is not None:
-        corpus.vocab = corpus.fields['sen'].vocab
+        corpus.vocab = corpus.fields["sen"].vocab
 
     return corpus

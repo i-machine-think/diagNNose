@@ -18,23 +18,23 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     --------
     A LanguageModel created from the given files
     """
-    model_type = model_config.pop('model_type')
+    model_type = model_config.pop("model_type")
 
     module_name = {
-        'ForwardLSTM': 'forward_lstm',
-        'GoogleLM': 'google_lm',
-        'OneHotLSTM': 'one_hot_lstm',
+        "ForwardLSTM": "forward_lstm",
+        "GoogleLM": "google_lm",
+        "OneHotLSTM": "one_hot_lstm",
     }[model_type]
 
-    module = import_module(f'diagnnose.models.{module_name}')
+    module = import_module(f"diagnnose.models.{module_name}")
     model_constructor: Type[LanguageModel] = getattr(module, model_type)
 
     return model_constructor(**model_config)
 
 
-def import_decoder_from_model(model: LanguageModel,
-                              decoder_w: str = 'decoder_w',
-                              decoder_b: str = 'decoder_b') -> LinearDecoder:
+def import_decoder_from_model(
+    model: LanguageModel, decoder_w: str = "decoder_w", decoder_b: str = "decoder_b"
+) -> LinearDecoder:
     """ Returns the decoding layer of a language model.
 
     Assumed to be a linear layer, that can be accessed by the decoder_w
@@ -52,7 +52,7 @@ def import_decoder_from_model(model: LanguageModel,
     w = getattr(model, decoder_w)
     b = getattr(model, decoder_b)
 
-    if model.array_type == 'torch':
+    if model.array_type == "torch":
         w = w.data.numpy()
         if b is not None:
             b = b.data.numpy()

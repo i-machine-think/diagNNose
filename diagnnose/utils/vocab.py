@@ -23,10 +23,9 @@ class W2I(dict):
         to <eos>.
     """
 
-    def __init__(self,
-                 w2i: Dict[str, int],
-                 unk_token: str = '<unk>',
-                 eos_token: str = '<eos>') -> None:
+    def __init__(
+        self, w2i: Dict[str, int], unk_token: str = "<unk>", eos_token: str = "<eos>"
+    ) -> None:
         if unk_token not in w2i:
             w2i[unk_token] = len(w2i)
         if eos_token not in w2i:
@@ -52,7 +51,9 @@ class C2I(W2I):
     Taken from: https://github.com/tensorflow/models/tree/master/research/lm_1b
     """
 
-    def __init__(self, w2i: Dict[str, int], max_word_length: int = 50, **kwargs: Any) -> None:
+    def __init__(
+        self, w2i: Dict[str, int], max_word_length: int = 50, **kwargs: Any
+    ) -> None:
         super().__init__(w2i, **kwargs)
         self._max_word_length = max_word_length
         chars_set: Set[str] = set()
@@ -67,7 +68,7 @@ class C2I(W2I):
             free_ids.append(chr(i))
 
         if len(free_ids) < 5:
-            raise ValueError('Not enough free char ids: %d' % len(free_ids))
+            raise ValueError("Not enough free char ids: %d" % len(free_ids))
 
         self.eos_char = free_ids[1]  # <end sentence>
         self.bow_char = free_ids[2]  # <begin word>
@@ -95,7 +96,7 @@ class C2I(W2I):
         code[:] = ord(self.pad_char)
 
         if len(word) > self.max_word_length - 2:
-            word = word[:self.max_word_length - 2]
+            word = word[: self.max_word_length - 2]
         cur_word = self.bow_char + word + self.eow_char
         for j in range(len(cur_word)):
             code[j] = ord(cur_word[j])
@@ -108,7 +109,9 @@ class C2I(W2I):
             return self._convert_word_to_char_ids(word)
 
 
-def create_vocab_from_path(vocab_path: str, create_char_vocab: bool = False) -> Union[W2I, C2I]:
+def create_vocab_from_path(
+    vocab_path: str, create_char_vocab: bool = False
+) -> Union[W2I, C2I]:
     with open(os.path.expanduser(vocab_path)) as vf:
         vocab_lines = vf.readlines()
 
@@ -120,10 +123,14 @@ def create_vocab_from_path(vocab_path: str, create_char_vocab: bool = False) -> 
         return W2I(w2i)
 
 
-def create_vocab_from_corpus(corpus_path: str, create_char_vocab: bool = False) -> Union[W2I, C2I]:
+def create_vocab_from_corpus(
+    corpus_path: str, create_char_vocab: bool = False
+) -> Union[W2I, C2I]:
     with open(os.path.expanduser(corpus_path)) as cf:
         # Note that the first corpus column is considered to be the sentence here
-        corpus_tokens = set(w.strip() for l in cf.readlines() for w in l.split('\t')[0].split(' '))
+        corpus_tokens = set(
+            w.strip() for l in cf.readlines() for w in l.split("\t")[0].split(" ")
+        )
 
     w2i = {w: i for i, w in enumerate(sorted(corpus_tokens))}
 

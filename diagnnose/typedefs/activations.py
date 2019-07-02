@@ -32,7 +32,4 @@ IndexType = str  # 'pos', 'key' or 'all'
 ConcatToggle = bool
 ActivationKeyConfig = Dict[str, Union[ActivationName, IndexType, ConcatToggle]]
 
-ActivationKey = Union[
-    ActivationIndex,
-    Tuple[ActivationIndex, ActivationKeyConfig]
-]
+ActivationKey = Union[ActivationIndex, Tuple[ActivationIndex, ActivationKeyConfig]]

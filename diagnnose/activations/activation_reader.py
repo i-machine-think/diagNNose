@@ -5,7 +5,11 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from diagnnose.typedefs.activations import (
-    ActivationIndex, ActivationKey, ActivationName, PartialArrayDict)
+    ActivationIndex,
+    ActivationKey,
+    ActivationName,
+    PartialArrayDict,
+)
 from diagnnose.typedefs.extraction import ActivationRanges, Range
 from diagnnose.utils.paths import load_pickle
 
@@ -35,9 +39,9 @@ class ActivationReader:
         in the .activations array.
     """
 
-    def __init__(self,
-                 activations_dir: str,
-                 store_multiple_activations: bool = False) -> None:
+    def __init__(
+        self, activations_dir: str, store_multiple_activations: bool = False
+    ) -> None:
 
         self.activations_dir = activations_dir
 
@@ -95,11 +99,11 @@ class ActivationReader:
                 the first layer of the 8th extracted sentence.
         """
         index, indextype, concat = self._parse_key(key)
-        assert self.activations is not None, 'self.activations should be set first'
+        assert self.activations is not None, "self.activations should be set first"
 
-        if indextype == 'all':
+        if indextype == "all":
             return self.activations[index]
-        if indextype == 'key':
+        if indextype == "key":
             ranges = self._create_range_from_key(index)
         else:
             ranges = np.array(list(self.activation_ranges.values()))[index]
@@ -117,16 +121,16 @@ class ActivationReader:
         return activations
 
     def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str, bool]:
-        indextype = 'pos'
+        indextype = "pos"
         concat = True
         # if key is a tuple it also contains a indextype and/or activation name
         if isinstance(key, tuple):
             index = key[0]
 
-            indextype = key[1].get('indextype', 'pos')
-            concat = key[1].get('concat', True)
-            if 'a_name' in key[1]:
-                self.activations = key[1]['a_name']
+            indextype = key[1].get("indextype", "pos")
+            concat = key[1].get("concat", True)
+            if "a_name" in key[1]:
+                self.activations = key[1]["a_name"]
         else:
             index = key
 
@@ -135,23 +139,29 @@ class ActivationReader:
 
         return index, indextype, concat
 
-    def _create_range_from_key(self, key: Union[int, slice, List[int], np.ndarray]) -> List[Range]:
+    def _create_range_from_key(
+        self, key: Union[int, slice, List[int], np.ndarray]
+    ) -> List[Range]:
         if isinstance(key, (list, np.ndarray)):
             ranges = [self.activation_ranges[r] for r in key]
 
         elif isinstance(key, slice):
-            assert key.step is None or key.step == 1, 'Step slicing not supported for sen key index'
+            assert (
+                key.step is None or key.step == 1
+            ), "Step slicing not supported for sen key index"
             start = key.start if key.start else 0
             stop = key.stop if key.stop else max(self.activation_ranges.keys()) + 1
             ranges = [r for k, r in self.activation_ranges.items() if start <= k < stop]
 
         else:
-            raise KeyError('Type of index is incompatible')
+            raise KeyError("Type of index is incompatible")
 
         return ranges
 
     @staticmethod
-    def _create_indices_from_range(ranges: List[Tuple[int, int]], concat: bool) -> np.ndarray:
+    def _create_indices_from_range(
+        ranges: List[Tuple[int, int]], concat: bool
+    ) -> np.ndarray:
         # Concatenate all range indices into a 1d array
         if concat:
             return np.concatenate([range(*r) for r in ranges])
@@ -162,7 +172,7 @@ class ActivationReader:
         indices = np.zeros((len(ranges), maxrange), dtype=int) - 1
 
         for i, r in enumerate(ranges):
-            indices[i, :r[1] - r[0]] = np.array(range(*r))
+            indices[i, : r[1] - r[0]] = np.array(range(*r))
 
         return indices
 
@@ -179,7 +189,7 @@ class ActivationReader:
     @property
     def activation_ranges(self) -> ActivationRanges:
         if self._activation_ranges is None:
-            ranges_dir = os.path.join(self.activations_dir, 'ranges.pickle')
+            ranges_dir = os.path.join(self.activations_dir, "ranges.pickle")
             self._activation_ranges = load_pickle(ranges_dir)
         return self._activation_ranges
 
@@ -195,9 +205,7 @@ class ActivationReader:
             if self.store_multiple_activations:
                 self._activations[activation_name] = activations
             else:
-                self._activations = {
-                    activation_name: activations
-                }
+                self._activations = {activation_name: activations}
 
     @activations.deleter
     def activations(self) -> None:
@@ -217,7 +225,7 @@ class ActivationReader:
             Numpy array of activation values
         """
         l, name = activation_name
-        filename = os.path.join(self.activations_dir, f'{name}_l{l}.pickle')
+        filename = os.path.join(self.activations_dir, f"{name}_l{l}.pickle")
 
         hidden_size = None
         activations = None
@@ -226,7 +234,7 @@ class ActivationReader:
 
         # The activations can be stored as a series of pickle dumps, and
         # are therefore loaded until an EOFError is raised.
-        with open(filename, 'rb') as f:
+        with open(filename, "rb") as f:
             while True:
                 try:
                     sen_activations = pickle.load(f)
@@ -235,15 +243,18 @@ class ActivationReader:
                     # is created only after observing the first batch of activations.
                     if hidden_size is None:
                         hidden_size = sen_activations.shape[1]
-                        activations = np.empty((self.data_len, hidden_size), dtype=np.float32)
+                        activations = np.empty(
+                            (self.data_len, hidden_size), dtype=np.float32
+                        )
 
                     i = len(sen_activations)
-                    activations[n:n + i] = sen_activations
+                    activations[n : n + i] = sen_activations
                     n += i
                 except EOFError:
                     break
 
-        assert activations is not None, \
-            f'Reading activations {name}_l{l} returned None, check if file exists and is non-empty.'
+        assert (
+            activations is not None
+        ), f"Reading activations {name}_l{l} returned None, check if file exists and is non-empty."
 
         return activations

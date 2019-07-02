@@ -9,13 +9,14 @@ from diagnnose.typedefs.activations import FullActivationDict
 
 class LanguageModel(ABC, nn.Module):
     array_type: str
-    device: str = 'cpu'
+    device: str = "cpu"
     forget_offset: int = 0
-    ih_concat_order: List[str] = ['h', 'i']
+    ih_concat_order: List[str] = ["h", "i"]
     sizes: Dict[int, Dict[str, int]] = {}
     split_order: List[str]
 
     """ Abstract class for LM with intermediate activations """
+
     @abstractmethod
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__()
@@ -26,10 +27,9 @@ class LanguageModel(ABC, nn.Module):
 
     @overrides
     @abstractmethod
-    def forward(self,
-                token: str,
-                prev_activations: FullActivationDict,
-                compute_out: bool = True) -> Tuple[Tensor, FullActivationDict]:
+    def forward(
+        self, token: str, prev_activations: FullActivationDict, compute_out: bool = True
+    ) -> Tuple[Tensor, FullActivationDict]:
         """
 
         Parameters

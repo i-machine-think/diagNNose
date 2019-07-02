@@ -27,13 +27,16 @@ class DataLoader:
         property self.labels.
     """
 
-    def __init__(self,
-                 activations_dir: str,
-                 corpus: Optional[Corpus] = None,
-                 labels: Optional[Labels] = None) -> None:
+    def __init__(
+        self,
+        activations_dir: str,
+        corpus: Optional[Corpus] = None,
+        labels: Optional[Labels] = None,
+    ) -> None:
 
-        assert corpus is not None or labels is not None, \
-            'Either `corpus` or `labels` should be provided!'
+        assert (
+            corpus is not None or labels is not None
+        ), "Either `corpus` or `labels` should be provided!"
 
         self.activation_reader = ActivationReader(activations_dir)
         self.data_len = len(self.activation_reader)
@@ -43,10 +46,12 @@ class DataLoader:
         else:
             self.labels = labels
 
-    def create_data_split(self,
-                          activation_name: ActivationName,
-                          data_subset_size: int = -1,
-                          train_test_split: float = 0.9) -> DataDict:
+    def create_data_split(
+        self,
+        activation_name: ActivationName,
+        data_subset_size: int = -1,
+        train_test_split: float = 0.9,
+    ) -> DataDict:
         """ Creates train/test data split of activations
 
         Parameters
@@ -61,8 +66,9 @@ class DataLoader:
         """
 
         if data_subset_size != -1:
-            assert 0 < data_subset_size <= self.data_len, \
-                "Size of subset must not be bigger than the full data set."
+            assert (
+                0 < data_subset_size <= self.data_len
+            ), "Size of subset must not be bigger than the full data set."
 
         activations = self.activation_reader.read_activations(activation_name)
 
@@ -74,8 +80,8 @@ class DataLoader:
         test_indices = indices[split:]
 
         return {
-            'train_x': activations[train_indices],
-            'train_y': self.labels[train_indices],
-            'test_x': activations[test_indices],
-            'test_y': self.labels[test_indices]
+            "train_x": activations[train_indices],
+            "train_y": self.labels[train_indices],
+            "test_x": activations[test_indices],
+            "test_y": self.labels[test_indices],
         }

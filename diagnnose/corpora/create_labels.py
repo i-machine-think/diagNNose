@@ -3,9 +3,10 @@ from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.extraction import SelectFunc
 
 
-def create_labels_from_corpus(corpus: Corpus,
-                              selection_func: SelectFunc = lambda pos, token, labeled_sentence: True
-                              ) -> np.ndarray:
+def create_labels_from_corpus(
+    corpus: Corpus,
+    selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
+) -> np.ndarray:
     """ Creates labels based on the selection_func that was used during
     extraction.
 

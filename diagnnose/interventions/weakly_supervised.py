@@ -52,16 +52,22 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         List of strings specifying on which layer for which activations interventions should be conducted, i.e.
         ['hx_l0', 'cx_l1']
     """
-    def __init__(self,
-                 model: ForwardLSTM,
-                 diagnostic_classifiers: DiagnosticClassifierDict,
-                 intervention_points: List[str],
-                 step_size: float,
-                 trigger_func: Callable=None,
-                 masking: bool = False,
-                 redecode: bool = False):
 
-        super().__init__(model, trigger_func=self.dc_trigger_func if trigger_func is None else trigger_func)
+    def __init__(
+        self,
+        model: ForwardLSTM,
+        diagnostic_classifiers: DiagnosticClassifierDict,
+        intervention_points: List[str],
+        step_size: float,
+        trigger_func: Callable = None,
+        masking: bool = False,
+        redecode: bool = False,
+    ):
+
+        super().__init__(
+            model,
+            trigger_func=self.dc_trigger_func if trigger_func is None else trigger_func,
+        )
         self.step_size = step_size
         self.masking = masking
         self.redecode = redecode
@@ -70,7 +76,7 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         self.diagnostic_classifiers = defaultdict(dict)
 
         for path, dc in diagnostic_classifiers.items():
-            matches = re.search('(\wx)_(l\d+)', path)
+            matches = re.search("(\wx)_(l\d+)", path)
             activation_type, layer = matches.groups()
             self.diagnostic_classifiers[layer][activation_type] = dc
 
@@ -79,12 +85,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         self.topmost_layer_num = int(self.topmost_layer[1:])
 
     @abstractmethod
-    def select_diagnostic_classifier(self,
-                                     inp: str,
-                                     prev_activations: FullActivationDict,
-                                     layer: str,
-                                     activation_type: str,
-                                     **additional: dict):
+    def select_diagnostic_classifier(
+        self,
+        inp: str,
+        prev_activations: FullActivationDict,
+        layer: str,
+        activation_type: str,
+        **additional: dict
+    ):
         """
         Select the appropriate Diagnostic Classifier based on data used in current forward pass.
 
@@ -104,12 +112,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         ...
 
     @abstractmethod
-    def dc_trigger_func(self,
-                        prev_activations: FullActivationDict,
-                        activations: FullActivationDict,
-                        out: Tensor,
-                        prediction: Tensor,
-                        **additional: dict) -> Tensor:
+    def dc_trigger_func(
+        self,
+        prev_activations: FullActivationDict,
+        activations: FullActivationDict,
+        out: Tensor,
+        prediction: Tensor,
+        **additional: dict
+    ) -> Tensor:
         """
         Use a Diagnostic Classifier to determine for which batch instances to trigger an intervention.
         Returns a binary mask with 1 corresponding to an impending intervention.
@@ -129,8 +139,9 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         """
         ...
 
-    def diagnostic_classifier_to_vars(self,
-                                      diagnostic_classifier: LogReg) -> Tuple[Tensor, Tensor]:
+    def diagnostic_classifier_to_vars(
+        self, diagnostic_classifier: LogReg
+    ) -> Tuple[Tensor, Tensor]:
         """
         Convert the weights and bias of a Diagnostic Classifier (trained with scikit-learn) into PyTorch Variables.
 
@@ -152,8 +163,7 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         return weights, bias
 
     @staticmethod
-    def _wrap_in_var(array: np.array,
-                     requires_grad: bool) -> Variable:
+    def _wrap_in_var(array: np.array, requires_grad: bool) -> Variable:
         """
         Wrap a numpy array into a PyTorch Variable.
 
@@ -164,12 +174,13 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         requires_grad: bool
             Whether the variable requires the calculation of its gradients.
         """
-        return Variable(torch.tensor(array, dtype=torch.float).squeeze(0), requires_grad=requires_grad)
+        return Variable(
+            torch.tensor(array, dtype=torch.float).squeeze(0),
+            requires_grad=requires_grad,
+        )
 
     @abstractmethod
-    def diagnostic_classifier_loss(self,
-                                   prediction: Tensor,
-                                   label: Tensor) -> _Loss:
+    def diagnostic_classifier_loss(self, prediction: Tensor, label: Tensor) -> _Loss:
         """
         Define in this function how the loss of the Diagnostic Classifier's prediction w.r.t to the loss is calculated.
         Should return a subclass of PyTorch's _Loss object like NLLLoss or CrossEntropyLoss.
@@ -184,12 +195,14 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         ...
 
     @overrides
-    def intervention_func(self,
-                          inp: str,
-                          prev_activations: FullActivationDict,
-                          out: Tensor,
-                          activations: FullActivationDict,
-                          **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
+    def intervention_func(
+        self,
+        inp: str,
+        prev_activations: FullActivationDict,
+        out: Tensor,
+        activations: FullActivationDict,
+        **additional: Dict
+    ) -> Tuple[Tensor, FullActivationDict]:
         """
         Conduct an intervention based on weak supervision signal.
 
@@ -216,23 +229,33 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
         for intervention_point in self.intervention_points:
             activation_type, layer = intervention_point.split("_")
             layer_num = int(layer[1:])
-            dc = self.select_diagnostic_classifier(inp, prev_activations, layer, activation_type, **additional)
+            dc = self.select_diagnostic_classifier(
+                inp, prev_activations, layer, activation_type, **additional
+            )
             weights, bias = self.diagnostic_classifier_to_vars(dc)
             label = torch.tensor([additional["label"]], dtype=torch.float)
 
             # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
             current_activations = activations[layer_num][activation_type]
-            current_activations = self._wrap_in_var(current_activations, requires_grad=True)
+            current_activations = self._wrap_in_var(
+                current_activations, requires_grad=True
+            )
             params = [current_activations]
             optimizer = SGD(params, lr=self.step_size)
             optimizer.zero_grad()
 
-            prediction = torch.sigmoid(weights @ current_activations + bias).unsqueeze(0)
-            mask = self.dc_trigger_func(prev_activations, activations, out, prediction, **additional)
+            prediction = torch.sigmoid(weights @ current_activations + bias).unsqueeze(
+                0
+            )
+            mask = self.dc_trigger_func(
+                prev_activations, activations, out, prediction, **additional
+            )
             loss = self.diagnostic_classifier_loss(prediction, label)
             loss.backward()
             gradient = current_activations.grad
-            gradient = self.replace_nans(gradient)  # Sometimes gradient might become nan when loss is exactly 0
+            gradient = self.replace_nans(
+                gradient
+            )  # Sometimes gradient might become nan when loss is exactly 0
 
             # Manual (masked) update step
             new_activations = current_activations - self.step_size * gradient * mask

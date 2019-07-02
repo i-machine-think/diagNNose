@@ -30,14 +30,12 @@ class InterventionMechanism(ABC):
         Function that triggers an intervention, either by returning a mask or a step size.
 
     """
-    def __init__(self,
-                 model: InterventionLSTM,
-                 trigger_func: Callable):
+
+    def __init__(self, model: InterventionLSTM, trigger_func: Callable):
         self.model = model
         self.trigger_func = trigger_func
 
-    def __call__(self,
-                 forward_func: Callable) -> Callable:
+    def __call__(self, forward_func: Callable) -> Callable:
         """
         Wrap the intervention function about the models forward function and return the decorated function.
 
@@ -51,14 +49,17 @@ class InterventionMechanism(ABC):
         wrapped: Callable:
             Decorated forward function.
         """
+
         @wraps(forward_func)
-        def wrapped(inp: str,
-                    prev_activations: FullActivationDict,
-                    **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
+        def wrapped(
+            inp: str, prev_activations: FullActivationDict, **additional: Dict
+        ) -> Tuple[Tensor, FullActivationDict]:
 
             out, activations = forward_func(inp, prev_activations)
 
-            return self.intervention_func(inp, prev_activations, out, activations, **additional)
+            return self.intervention_func(
+                inp, prev_activations, out, activations, **additional
+            )
 
         return wrapped
 
@@ -75,12 +76,14 @@ class InterventionMechanism(ABC):
         return self.model
 
     @abstractmethod
-    def intervention_func(self,
-                          inp: str,
-                          prev_activations: FullActivationDict,
-                          out: Tensor,
-                          activations: FullActivationDict,
-                          **additional: Dict) -> Tuple[Tensor, FullActivationDict]:
+    def intervention_func(
+        self,
+        inp: str,
+        prev_activations: FullActivationDict,
+        out: Tensor,
+        activations: FullActivationDict,
+        **additional: Dict
+    ) -> Tuple[Tensor, FullActivationDict]:
         """
         Define the intervention logic here.
 
@@ -100,6 +103,3 @@ class InterventionMechanism(ABC):
         # Use self.trigger_func on input arguments here to determine when to trigger an intervention
         # Afterwards match the return signature of the original model forward() function
         ...
-
-
-
