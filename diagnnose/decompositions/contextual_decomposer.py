@@ -388,7 +388,8 @@ class ContextualDecomposer(BaseDecomposer):
                 f'Decomposed scores do not match: orig {original_score} vs dec {decomposed_score}\n'
                 f'Average difference: {avg_difference}\n'
                 f'Maximum difference: {max_difference}\n'
-                f'If the difference is small (<<1e-3) this is likely due to numerical instability.'
+                f'If the difference is small (<<1e-3) this is likely due to numerical instability '
+                f'and hence not necessarily problematic.'
             )
 
     def _calc_scores(self) -> NamedArrayDict:

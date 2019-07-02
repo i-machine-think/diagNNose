@@ -243,4 +243,7 @@ class ActivationReader:
                 except EOFError:
                     break
 
+        assert activations is not None, \
+            f'Reading activations {name}_l{l} returned None, check if file exists and is non-empty.'
+
         return activations
