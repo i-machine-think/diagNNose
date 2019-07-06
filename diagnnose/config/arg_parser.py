@@ -160,6 +160,13 @@ def create_arg_descriptions() -> ArgDescriptions:
         }
     }
 
+    arg_descriptions["downstream"] = {
+        "lakretz_tasks": {
+            "help": "(optional) The downstream lakretz_tasks that will be tested. If not provided "
+            "this will default to the full set of conditions."
+        }
+    }
+
     return arg_descriptions
 
 
