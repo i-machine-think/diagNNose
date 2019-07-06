@@ -1,5 +1,5 @@
 from contextlib import ExitStack
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -33,8 +33,6 @@ class Extractor:
         Corpus containing sentences to be extracted.
     activations_dir : str
         Directory to which activations will be written
-    init_lstm_states_path: str, optional
-        Path to pickled initial embeddings
 
     Attributes
     ----------
@@ -53,13 +51,11 @@ class Extractor:
         model: LanguageModel,
         corpus: Corpus,
         activations_dir: str,
-        init_lstm_states_path: Optional[str] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
 
         self.activation_names: ActivationNames = []
-        self.init_lstm_states: InitStates = InitStates(model, init_lstm_states_path)
 
         self.activation_writer = ActivationWriter(activations_dir)
 
@@ -244,6 +240,7 @@ class Extractor:
         return {(layer, name): [] for (layer, name) in self.activation_names}
 
     def _init_avg_eos_activations(self) -> FullActivationDict:
+        # TODO this might break now as init_states always adds batch dim
         init_avg_eos_activations: FullActivationDict = self.init_lstm_states.create_zero_init_states()
 
         for layer in range(self.model.num_layers):

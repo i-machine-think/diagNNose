@@ -16,7 +16,8 @@ class InitStates:
     model : LanguageModel
         Language model for which init states will be created.
     init_lstm_states_path : str, optional
-        Path to pickled file with initial lstm states.
+        Path to pickled file with initial lstm states. If not provided
+        zero-valued init states will be created.
     """
 
     def __init__(
@@ -111,11 +112,6 @@ class InitStates:
     def _create_zero_state(
         self, size: int, batch_size: Optional[int] = None
     ) -> Union[torch.Tensor, np.ndarray]:
-        if batch_size is not None:
-            if self.use_np_arrays:
-                return np.zeros((batch_size, size), dtype=np.float32)
-            return torch.zeros((batch_size, size))
-
         if self.use_np_arrays:
-            return np.zeros(size, dtype=np.float32)
-        return torch.zeros(size)
+            return np.zeros((batch_size, size), dtype=np.float32)
+        return torch.zeros((batch_size, size))

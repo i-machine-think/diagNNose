@@ -5,29 +5,33 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.typedefs.activations import (
-    NamedArrayDict,
-    FullActivationDict,
-    ParameterDict,
-)
+from diagnnose.activations.init_states import InitStates
+from diagnnose.typedefs.activations import FullActivationDict, NamedArrayDict, ParameterDict
 
 from .language_model import LanguageModel
-from diagnnose.utils.vocab import create_vocab_from_path, W2I
 
 
 class ForwardLSTM(LanguageModel):
     """ Defines a default uni-directional n-layer LSTM.
 
     Allows for extraction of intermediate states and gate activations.
+
+    Parameters
+    ----------
+    init_lstm_states_path: str, optional
+        Path to pickled initial embeddings
+
     """
 
     array_type = "torch"
     ih_concat_order = ["h", "i"]
     split_order = ["i", "f", "g", "o"]
 
+    # TODO: add documentation for init params
     def __init__(
         self,
         state_dict: str,
+        init_lstm_states_path: Optional[str] = None,
         device: str = "cpu",
         rnn_name: str = "rnn",
         encoder_name: str = "encoder",
@@ -71,6 +75,8 @@ class ForwardLSTM(LanguageModel):
         else:
             self.decoder_b = None
 
+        self.init_lstm_states: InitStates = InitStates(self, init_lstm_states_path)
+
         print("Model initialisation finished.")
 
     def forward_step(
@@ -107,12 +113,16 @@ class ForwardLSTM(LanguageModel):
     def forward(
         self,
         input_: torch.Tensor,
-        prev_activations: FullActivationDict,
+        prev_activations: Optional[FullActivationDict] = None,
         compute_out: bool = True,
     ) -> Tuple[Optional[Tensor], FullActivationDict]:
 
         # Look up the embeddings of the input words
         embs = self.encoder[input_]
+
+        if prev_activations is None:
+            bsz = embs.size(0)
+            prev_activations = self.init_lstm_states.create(bsz)
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}

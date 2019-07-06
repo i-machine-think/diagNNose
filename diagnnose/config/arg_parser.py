@@ -10,7 +10,11 @@ def create_arg_descriptions() -> ArgDescriptions:
             "model_type": {
                 "required": True,
                 "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
-            }
+            },
+            "init_lstm_states_path": {
+                "help": "(optional) Location of initial lstm states of the model. "
+                        "If no path is provided zero-initialized states will be used."
+            },
         }
     }
 
@@ -82,10 +86,6 @@ def create_arg_descriptions() -> ArgDescriptions:
             "required": True,
             "help": "(required) Path to folder to which extracted embeddings will be written.",
         },
-        "init_lstm_states_path": {
-            "help": "(optional) Location of initial lstm states of the model. "
-            "If no path is provided zero-initialized states will be used."
-        },
     }
 
     arg_descriptions["extract"] = {
@@ -112,7 +112,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "only_dump_avg_eos": {
             "type": bool,
-            "help": "(optional) Set to true to only dump the avg eos activation. Defaults to False.",
+            "help": "(optional) Set to true to only dump the avg eos activation. Defaults to false.",
         },
         "cutoff": {
             "type": int,
