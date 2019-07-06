@@ -45,8 +45,8 @@ def create_arg_descriptions() -> ArgDescriptions:
                 "help": "Path to folder containing parameter checkpoint files."
             },
             "corpus_vocab_path": {
-                "help": "Path to the corpus for which a vocabulary will be created. This allows for "
-                "only a subset of the model softmax to be loaded in."
+                "help": "Path to the corpus for which a vocabulary will be created. This allows "
+                "for only a subset of the model softmax to be loaded in."
             },
             "full_vocab_path": {
                 "help": "Path to the full model vocabulary of 800k tokens."
@@ -70,7 +70,10 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": "(optional) Use the first line of the corpus as the attribute  names of the "
             "corpus. Defaults to False.",
         },
-        "vocab_path": {"help": "Path to the model vocabulary."},
+        "vocab_path": {
+            "help": "Path to the model vocabulary, which should a file containing a vocab "
+            "entry at each line."
+        },
     }
 
     arg_descriptions["activations"] = {

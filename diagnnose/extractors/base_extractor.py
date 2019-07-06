@@ -3,11 +3,11 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
-from torchtext.data import Batch, BucketIterator
+from torchtext.data import Batch
 from tqdm import tqdm
 
 from diagnnose.activations.activation_writer import ActivationWriter
-from diagnnose.activations.init_states import InitStates
+from diagnnose.corpora.create_iterator import create_iterator
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationNames,
@@ -109,7 +109,9 @@ class Extractor:
 
         all_activations: PartialArrayDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
-        iterator = self._create_iterator(batch_size)
+        iterator = create_iterator(
+            self.corpus, batch_size=batch_size, device=self.model.device
+        )
 
         tot_num = len(self.corpus) if cutoff == -1 else cutoff
         print(f"\nStarting extraction of {tot_num} sentences...")
@@ -230,16 +232,6 @@ class Extractor:
                 batch_activations[j][a_name] = np.array(arr)
 
         return batch_activations, n_extracted
-
-    def _create_iterator(self, batch_size: int) -> BucketIterator:
-        iterator = BucketIterator(
-            dataset=self.corpus,
-            batch_size=batch_size,
-            device=self.model.device,
-            shuffle=False,
-        )
-
-        return iterator
 
     def _init_batch_activations(self, batch_size: int) -> BatchArrayDict:
         """ Initial dict of of activations for current batch. """

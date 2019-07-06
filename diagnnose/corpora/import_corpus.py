@@ -36,6 +36,9 @@ def import_corpus(
     header_from_first_line : bool, optional
         Use the first line of the corpus as the attribute names of the
         corpus.
+    vocab_path : str, optional
+        Path to the model vocabulary, which should a file containing a
+        vocab entry at each line.
 
     Returns
     -------
