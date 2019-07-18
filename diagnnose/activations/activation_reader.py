@@ -43,6 +43,7 @@ class ActivationReader:
         self, activations_dir: str, store_multiple_activations: bool = False
     ) -> None:
 
+        assert os.path.exists(activations_dir), 'Activations dir not found!'
         self.activations_dir = activations_dir
 
         self._activations: PartialArrayDict = {}

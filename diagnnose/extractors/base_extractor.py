@@ -40,8 +40,6 @@ class Extractor:
     corpus : Corpus
     activation_names : List[tuple[int, str]]
     activations_dir: str
-    init_lstm_states : FullActivationDict
-        Initial embeddings that are loaded from file or set to zero.
     activation_writer : ActivationWriter
         Auxiliary class that writes activations to file.
     """
@@ -201,7 +199,7 @@ class Extractor:
         n_extracted: List[int] = [0] * batch_size
 
         batch_activations: BatchArrayDict = self._init_batch_activations(batch_size)
-        cur_activations: FullActivationDict = self.init_lstm_states.create(batch_size)
+        cur_activations: FullActivationDict = self.model.init_hidden(batch_size)
 
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
