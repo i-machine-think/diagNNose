@@ -12,7 +12,8 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     Arguments
     ----------
     model_config : str
-        Dictionary containing the model config attributes.
+        Dictionary containing the model config attributes that are
+        specific to that specific model.
 
     Returns
     --------
@@ -23,7 +24,7 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     module_name = {
         "ForwardLSTM": "forward_lstm",
         "GoogleLM": "google_lm",
-        "OneHotLSTM": "one_hot_lstm",
+        "MerityLM": "merity_lm",
     }[model_type]
 
     module = import_module(f"diagnnose.models.{module_name}")
