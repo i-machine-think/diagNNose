@@ -4,6 +4,7 @@ from typing import Set, Tuple
 from diagnnose.typedefs.config import ArgDescriptions
 
 
+# TODO: consider adding default values here explicitly
 def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions: ArgDescriptions = {
         "model": {
@@ -13,7 +14,7 @@ def create_arg_descriptions() -> ArgDescriptions:
             },
             "init_lstm_states_path": {
                 "help": "(optional) Location of initial lstm states of the model. "
-                        "If no path is provided zero-initialized states will be used."
+                "If no path is provided zero-initialized states will be used."
             },
         }
     }
@@ -74,10 +75,13 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": "(optional) Use the first line of the corpus as the attribute  names of the "
             "corpus. Defaults to False.",
         },
+    }
+
+    arg_descriptions["vocab"] = {
         "vocab_path": {
             "help": "Path to the model vocabulary, which should a file containing a vocab "
             "entry at each line."
-        },
+        }
     }
 
     arg_descriptions["activations"] = {
@@ -85,7 +89,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         "activations_dir": {
             "required": True,
             "help": "(required) Path to folder to which extracted embeddings will be written.",
-        },
+        }
     }
 
     arg_descriptions["extract"] = {
@@ -164,10 +168,25 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["downstream"] = {
+        "lakretz_path": {
+            "help": "(optional) Path to directory containing the Lakretz datasets that can be "
+            "found in the github repo. If not provided the Lakretz tasks will not be tested."
+        },
         "lakretz_tasks": {
-            "help": "(optional) The downstream lakretz_tasks that will be tested. If not provided "
+            "help": "(optional) The downstream Lakretz tasks that will be tested. If not provided "
             "this will default to the full set of conditions."
-        }
+        },
+        "marvin_path": {
+            "help": "(optional) Path to directory containing the Marvin datasets that can be "
+            "found in the github repo. If not provided the Marvin tasks will not be tested."
+        },
+        "marvin_tasks": {
+            "help": "(optional) The downstream Marvin tasks that will be tested. If not provided "
+            "this will default to the full set of conditions."
+        },
+        "print_results": {
+            "help": "(optional) Toggle on to print task results directly. Defaults to True."
+        },
     }
 
     return arg_descriptions
