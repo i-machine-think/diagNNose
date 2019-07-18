@@ -7,7 +7,7 @@ from torchtext.data import Batch
 from tqdm import tqdm
 
 from diagnnose.activations.activation_writer import ActivationWriter
-from diagnnose.corpora.create_iterator import create_iterator
+from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationNames,
@@ -45,10 +45,7 @@ class Extractor:
     """
 
     def __init__(
-        self,
-        model: LanguageModel,
-        corpus: Corpus,
-        activations_dir: str,
+        self, model: LanguageModel, corpus: Corpus, activations_dir: str
     ) -> None:
         self.model = model
         self.corpus = corpus

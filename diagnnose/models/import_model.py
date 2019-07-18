@@ -5,7 +5,7 @@ from diagnnose.typedefs.classifiers import LinearDecoder
 from .language_model import LanguageModel
 
 
-def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
+def import_model(model_config: Dict[str, Any]) -> LanguageModel:
     """
     Import a model from a json file.
 
@@ -21,13 +21,7 @@ def import_model_from_json(model_config: Dict[str, Any]) -> LanguageModel:
     """
     model_type = model_config.pop("model_type")
 
-    module_name = {
-        "ForwardLSTM": "forward_lstm",
-        "GoogleLM": "google_lm",
-        "MerityLM": "merity_lm",
-    }[model_type]
-
-    module = import_module(f"diagnnose.models.{module_name}")
+    module = import_module("diagnnose.models")
     model_constructor: Type[LanguageModel] = getattr(module, model_type)
 
     return model_constructor(**model_config)

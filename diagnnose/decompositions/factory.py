@@ -6,8 +6,7 @@ from sklearn.externals import joblib
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.activations.init_states import InitStates
-from diagnnose.decompositions.cell_decomposer import CellDecomposer
-from diagnnose.decompositions.contextual_decomposer import ContextualDecomposer
+from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (

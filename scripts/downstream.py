@@ -14,8 +14,7 @@ if __name__ == "__main__":
     model: LanguageModel = import_model_from_json(config_dict["model"])
 
     suite = DownstreamSuite(
-        device=config_dict["model"].get("device", "cpu"),
-        **config_dict["downstream"],
+        device=config_dict["model"].get("device", "cpu"), **config_dict["downstream"]
     )
 
     results = suite.perform_tasks(model, config_dict["vocab"]["vocab_path"])
