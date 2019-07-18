@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pprint import pprint
 from typing import Set
 
-from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs, ArgsDisjunction
+from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs
 from .arg_parser import create_arg_descriptions
 
 
@@ -76,38 +76,8 @@ class ConfigSetup:
     def _validate_config(self, arg_dict: ArgDict, init_arg_dict: ArgDict) -> None:
         """ Check if required args are provided """
         for arg in self.required_args:
-            if isinstance(arg, str):
-                arg_present = self._arg_is_provided(arg, arg_dict, init_arg_dict)
-                assert arg_present, self.argparser.error(f"--{arg} should be provided")
-
-            elif isinstance(arg, tuple):
-                args_present = self._validate_args_disjunction(
-                    arg, arg_dict, init_arg_dict
-                )
-                assert args_present, self.argparser.error(f"--{arg} should be provided")
-
-    # TODO: consider removing this, too much overhead without actual use
-    def _validate_args_disjunction(
-        self,
-        args_disjunction: ArgsDisjunction,
-        arg_dict: ArgDict,
-        init_arg_dict: ArgDict,
-    ) -> bool:
-        args_present = False
-        for subargs in args_disjunction:
-            subargs_present = True
-            if isinstance(subargs, str):
-                subargs_present &= self._arg_is_provided(
-                    subargs, arg_dict, init_arg_dict
-                )
-            if isinstance(subargs, tuple):
-                for subarg in subargs:
-                    subargs_present &= self._arg_is_provided(
-                        subarg, arg_dict, init_arg_dict
-                    )
-            args_present |= subargs_present
-
-        return args_present
+            arg_present = self._arg_is_provided(arg, arg_dict, init_arg_dict)
+            assert arg_present, self.argparser.error(f"--{arg} should be provided")
 
     @staticmethod
     def _arg_is_provided(arg: str, arg_dict: ArgDict, init_arg_dict: ArgDict) -> bool:

@@ -1,10 +1,8 @@
-from typing import Any, Dict, Union, Set, Tuple
+from typing import Any, Dict, Set
 
 ArgDict = Dict[str, Any]
 ConfigDict = Dict[str, ArgDict]
 
-ArgsDisjunction = Tuple["RequiredArgs", "RequiredArgs"]
-
-RequiredArgs = Set[Union[str, ArgsDisjunction]]
+RequiredArgs = Set[str]
 
 ArgDescriptions = Dict[str, Dict[str, Dict[str, Any]]]
