@@ -1,12 +1,16 @@
 import os
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 from overrides import overrides
 from torch import Tensor
 
 from diagnnose.activations.init_states import InitStates
-from diagnnose.typedefs.activations import FullActivationDict, NamedArrayDict, ParameterDict
+from diagnnose.typedefs.activations import (
+    FullActivationDict,
+    NamedArrayDict,
+    ParameterDict,
+)
 
 from .language_model import LanguageModel
 
@@ -49,18 +53,23 @@ class ForwardLSTM(LanguageModel):
 
         # LSTM weights
         layer = 0
-        while f"{rnn_name}.weight_hh_l{layer}" in params:
-            w_h = params[f"{rnn_name}.weight_hh_l{layer}"]
-            w_i = params[f"{rnn_name}.weight_ih_l{layer}"]
+        assert (
+            self.rnn_names(0, rnn_name)["weight_hh"] in params
+        ), "rnn weight name not found, check if setup is correct"
+
+        while self.rnn_names(layer, rnn_name)["weight_hh"] in params:
+            rnn_names = self.rnn_names(layer, rnn_name)
+
+            w_h = params[rnn_names["weight_hh"]]
+            w_i = params[rnn_names["weight_ih"]]
 
             # (2*hidden_size, 4*hidden_size)
             self.weight[layer] = torch.cat((w_h, w_i), dim=1)
 
-            if f"{rnn_name}.bias_ih_l{layer}" in params:
+            if rnn_names["bias_hh"] in params:
                 # (4*hidden_size,)
                 self.bias[layer] = (
-                    params[f"{rnn_name}.bias_ih_l{layer}"]
-                    + params[f"{rnn_name}.bias_hh_l{layer}"]
+                    params[rnn_names["bias_hh"]] + params[rnn_names["bias_ih"]]
                 )
 
             self.sizes[layer] = {"x": w_i.size(1), "h": w_h.size(1), "c": w_h.size(1)}
@@ -122,7 +131,7 @@ class ForwardLSTM(LanguageModel):
 
         if prev_activations is None:
             bsz = embs.size(0)
-            prev_activations = self.init_lstm_states.create(bsz)
+            prev_activations = self.init_hidden(bsz)
 
         # Iteratively compute and store intermediate rnn activations
         activations: FullActivationDict = {}
@@ -140,3 +149,18 @@ class ForwardLSTM(LanguageModel):
             out = None
 
         return out, activations
+
+    @staticmethod
+    def rnn_names(layer: int, rnn_name: str) -> Dict[str, str]:
+        return {
+            "weight_hh": f"{rnn_name}.weight_hh_l{layer}",
+            "weight_ih": f"{rnn_name}.weight_ih_l{layer}",
+            "bias_hh": f"{rnn_name}.bias_hh_l{layer}",
+            "bias_ih": f"{rnn_name}.bias_ih_l{layer}",
+        }
+
+    def init_hidden(self, bsz: int) -> FullActivationDict:
+        return self.init_lstm_states.create(bsz)
+
+    def final_hidden(self, hidden: FullActivationDict) -> torch.Tensor:
+        return hidden[self.num_layers - 1]["hx"].squeeze()
