@@ -1,6 +1,6 @@
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import ConfigSetup
-from diagnnose.corpora.import_corpus import import_corpus
+from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model_from_json
 from diagnnose.models.language_model import LanguageModel
