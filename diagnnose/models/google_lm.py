@@ -3,15 +3,16 @@ import sys
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
-import tensorflow as tf
 import torch.nn as nn
-from google.protobuf import text_format
 from overrides import overrides
 from scipy.special import expit as sigmoid
-from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
 from diagnnose.typedefs.activations import (
-    FullActivationDict, NamedArrayDict, ParameterDict, PartialArrayDict)
+    FullActivationDict,
+    NamedArrayDict,
+    ParameterDict,
+    PartialArrayDict,
+)
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
 
@@ -108,6 +109,9 @@ class CharCNN:
 
     @staticmethod
     def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:
+        import tensorflow as tf
+        from google.protobuf import text_format
+
         ckpt_file = os.path.join(ckpt_dir, "ckpt-char-embedding")
 
         with tf.Graph().as_default():
@@ -172,6 +176,8 @@ class LSTM(nn.Module):
         self._load_lstm(ckpt_dir)
 
     def _load_lstm(self, ckpt_dir: str) -> None:
+        from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
+
         lstm_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-lstm"))
 
         for l in range(self.num_layers):
@@ -201,9 +207,8 @@ class LSTM(nn.Module):
     def forward_step(
         self, l: int, inp: np.ndarray, prev_hx: np.ndarray, prev_cx: np.ndarray
     ) -> NamedArrayDict:
-        proj: np.ndarray = self.weight[l] @ np.concatenate((inp, prev_hx)) + self.bias[
-            l
-        ]
+        proj: np.ndarray = self.weight[l] @ np.concatenate((inp, prev_hx))
+        proj += self.bias[l]
 
         split_proj: NamedArrayDict = dict(zip(self.split_order, np.split(proj, 4)))
 
@@ -257,6 +262,8 @@ class SoftMax:
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
     def _load_softmax(self, vocab: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
+        from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
+
         with open(full_vocab_path) as f:
             full_vocab: List[str] = f.read().strip().split("\n")
 
