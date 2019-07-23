@@ -1,8 +1,8 @@
-from typing import Any, Dict, Type
 from importlib import import_module
-from diagnnose.typedefs.classifiers import LinearDecoder
+from typing import Any, Dict, Type
 
-from .language_model import LanguageModel
+from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.models import LanguageModel
 
 
 def import_model(model_config: Dict[str, Any]) -> LanguageModel:

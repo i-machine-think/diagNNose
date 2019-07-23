@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationNames,
     BatchArrayDict,
@@ -17,6 +16,7 @@ from diagnnose.typedefs.activations import (
 )
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
+from diagnnose.typedefs.models import LanguageModel
 
 
 class Extractor:

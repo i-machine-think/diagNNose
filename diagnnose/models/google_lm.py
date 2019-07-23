@@ -11,14 +11,9 @@ from scipy.special import expit as sigmoid
 from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
 from diagnnose.typedefs.activations import (
-    FullActivationDict,
-    NamedArrayDict,
-    ParameterDict,
-    PartialArrayDict,
-)
-from diagnnose.utils.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
-
-from .language_model import LanguageModel
+    FullActivationDict, NamedArrayDict, ParameterDict, PartialArrayDict)
+from diagnnose.typedefs.models import LanguageModel
+from diagnnose.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
 
 
 class GoogleLM(LanguageModel):

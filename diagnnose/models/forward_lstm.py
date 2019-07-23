@@ -12,7 +12,7 @@ from diagnnose.typedefs.activations import (
     ParameterDict,
 )
 
-from .language_model import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 
 class ForwardLSTM(LanguageModel):

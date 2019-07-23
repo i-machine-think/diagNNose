@@ -3,8 +3,8 @@ from typing import Optional, Union
 import numpy as np
 import torch
 
-from diagnnose.models.language_model import LanguageModel
 from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.paths import load_pickle
 
 
