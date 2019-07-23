@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 import numpy as np
 import torch
-from torchtext.data import Batch
+from torchtext.data import Batch, Example
 from tqdm import tqdm
 
 from diagnnose.activations.activation_writer import ActivationWriter
@@ -61,7 +61,7 @@ class Extractor:
         batch_size: int = 1,
         cutoff: int = -1,
         dynamic_dumping: bool = True,
-        selection_func: SelectFunc = lambda pos, token, batch_idx, batch: True,
+        selection_func: SelectFunc = lambda pos, token, item: True,
         create_avg_eos: bool = False,
         only_dump_avg_eos: bool = False,
     ) -> None:
@@ -85,7 +85,7 @@ class Extractor:
         dynamic_dumping : bool, optional
             Dump files dynamically, i.e. once per sentence, or dump
             all files at the end of extraction. Defaults to True.
-        selection_func : Callable
+        selection_func : Callable[[int, str, Example], bool]
             Function which determines if activations for a token should
             be extracted or not.
         create_avg_eos : bool, optional
@@ -115,9 +115,11 @@ class Extractor:
             if create_avg_eos:
                 avg_eos_states = self._init_avg_eos_activations()
 
-            for batch in tqdm(iterator):
+            for batch in tqdm(iterator, unit="batch"):
+                batch_examples = self.corpus.examples[n_sens: n_sens+batch.batch_size]
+
                 batch_activations, n_extracted = self._extract_sentence(
-                    batch, selection_func
+                    batch, batch_examples, selection_func
                 )
 
                 if not only_dump_avg_eos:
@@ -172,7 +174,7 @@ class Extractor:
         )
 
     def _extract_sentence(
-        self, batch: Batch, selection_func: SelectFunc
+        self, batch: Batch, examples: List[Example], selection_func: SelectFunc
     ) -> Tuple[BatchArrayDict, List[int]]:
         """ Generates the embeddings of a sentence and writes to file.
 
@@ -209,7 +211,7 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             for j in range(batch_size):
-                if i < sen_lens[j] and selection_func(i, tokens, j, batch):
+                if i < sen_lens[j] and selection_func(i, tokens, examples[j]):
                     for layer, name in self.activation_names:
                         cur_activation = cur_activations[layer][name][j]
                         if self.model.array_type == "torch":
