@@ -5,7 +5,6 @@ import numpy as np
 from sklearn.externals import joblib
 
 from diagnnose.activations.activation_reader import ActivationReader
-from diagnnose.activations.init_states import InitStates
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.models.language_model import LanguageModel
@@ -17,7 +16,6 @@ from diagnnose.typedefs.activations import (
     PartialArrayDict,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.utils.paths import camel2snake
 
 from .base_decomposer import BaseDecomposer
 
@@ -36,9 +34,6 @@ class DecomposerFactory:
         Path to folder containing extracted activations
     decoder : Union[str, LinearDecoder]
         Path to a pickled decoder or a (w,b) decoder tuple
-    init_lstm_states_path : str, optional
-        Defaults to zero-embeddings, otherwise loads in pickled initial
-        cell states.
     """
 
     def __init__(
@@ -47,13 +42,8 @@ class DecomposerFactory:
         decomposer: str,
         activations_dir: str,
         decoder: Optional[str] = None,
-        init_lstm_states_path: Optional[str] = None,
     ) -> None:
-
-        # Import Decomposer class from string, assumes module name to be snake case variant
-        # of CamelCased Decomposer class. Taken from: https://stackoverflow.com/a/30941292
-        module_name = camel2snake(decomposer)
-        module = import_module(f"diagnnose.decompositions.{module_name}")
+        module = import_module(f"diagnnose.decompositions")
         self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
 
         self.activation_reader = ActivationReader(
@@ -63,9 +53,7 @@ class DecomposerFactory:
 
         self.decoder_w, self.decoder_b = self._read_decoder(decoder)
 
-        self.init_cell_state: FullActivationDict = InitStates(
-            model, init_lstm_states_path
-        ).create()
+        self.init_cell_state: FullActivationDict = model.init_lstm_states.create()
 
     def create(
         self,
@@ -201,7 +189,7 @@ class DecomposerFactory:
         return final_index
 
     def _read_decoder(self, decoder_path: Optional[str]) -> LinearDecoder:
-        if decoder_path:
+        if decoder_path is not None:
             classifier = joblib.load(decoder_path)
             decoder_w = classifier.coef_
             decoder_b = classifier.intercept_
