@@ -3,7 +3,7 @@ from typing import List, Optional
 from torchtext.data import Field, RawField, TabularDataset
 from torchtext.vocab import Vocab
 
-from diagnnose.utils.vocab import create_vocab_from_path
+from diagnnose.vocab import create_vocab_from_path
 
 
 def import_corpus(
