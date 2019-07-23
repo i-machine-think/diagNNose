@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import torch
 
-from diagnnose.corpora.create_iterator import create_iterator
-from diagnnose.corpora.import_corpus import import_corpus
-from diagnnose.models.language_model import LanguageModel
+from diagnnose.corpus.create_iterator import create_iterator
+from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.typedefs.models import LanguageModel
 
 lakretz_descriptions: Dict[str, Any] = {
     "adv": {"classes": 2, "items_per_class": 900, "conditions": ["S", "P"]},

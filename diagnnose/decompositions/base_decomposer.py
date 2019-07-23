@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 
-from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
     NamedArrayDict,

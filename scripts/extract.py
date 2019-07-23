@@ -3,7 +3,7 @@ from diagnnose.config.setup import ConfigSetup
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model
-from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
 
 if __name__ == "__main__":

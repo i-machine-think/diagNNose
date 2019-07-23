@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from diagnnose.downstream.lakretz import lakretz_downstream
 from diagnnose.downstream.marvin import marvin_downstream
-from diagnnose.models.language_model import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 
 # TODO: add functionality to calculate this for extracted activations

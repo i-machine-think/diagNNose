@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from diagnnose.corpora.create_iterator import create_iterator
-from diagnnose.corpora.import_corpus import import_corpus
-from diagnnose.models.language_model import LanguageModel
+from diagnnose.corpus.create_iterator import create_iterator
+from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.typedefs.models import LanguageModel
 
 marvin_descriptions: Dict[str, Any] = {
     "npi_no_the_ever": {"classes": 1},
