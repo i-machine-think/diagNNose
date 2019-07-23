@@ -66,8 +66,6 @@ class BaseDecomposer:
         return np.exp(self.decoder_b)
 
     def calc_original_logits(self, normalize: bool = False) -> np.ndarray:
-        bias = self.decoder_b
-
         assert (
             self.toplayer,
             "hx",
@@ -76,7 +74,9 @@ class BaseDecomposer:
         )
         final_hidden_state = self.get_final_activations((self.toplayer, "hx"))
 
-        original_logit = np.exp(np.ma.dot(final_hidden_state, self.decoder_w.T) + bias)
+        original_logit = np.exp(
+            np.ma.dot(final_hidden_state, self.decoder_w.T) + self.decoder_b
+        )
 
         if normalize:
             original_logit = (

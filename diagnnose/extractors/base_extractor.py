@@ -39,7 +39,7 @@ class Extractor:
     model : LanguageModel
     corpus : Corpus
     activation_names : List[tuple[int, str]]
-    activations_dir: str
+    activations_dir : str
     activation_writer : ActivationWriter
         Auxiliary class that writes activations to file.
     """

@@ -68,7 +68,7 @@ class ContextualDecomposer(BaseDecomposer):
         rel_interactions : List[str], optional
             Indicates the interactions that are part of the relevant
             decomposition. Possible interactions are: rel-rel, rel-b and
-            rel-irrel.
+            rel-irrel. Defaults to rel-rel, rel-irrel & rel-b.
         bias_bias_only_in_phrase : bool, optional
             Toggles whether the bias-bias interaction should only be
             added when inside the relevant phrase. Defaults to True,
@@ -93,8 +93,9 @@ class ContextualDecomposer(BaseDecomposer):
             unnecessary recomputations of those activations.
             Defaults to True.
         only_return_dec : bool, optional
-            Only returns the decomposed cell states, without calculating
-            the corresponding decoder scores. Defaults to False.
+            Only returns the decomposed cell states of the top layer,
+            without calculating the corresponding decoder scores.
+            Defaults to False.
 
         Returns
         -------
@@ -130,7 +131,7 @@ class ContextualDecomposer(BaseDecomposer):
                 self._project_hidden(layer, i)
 
         if only_return_dec:
-            return self.decompositions
+            return self.decompositions[self.toplayer]
 
         scores = self._calc_scores()
 

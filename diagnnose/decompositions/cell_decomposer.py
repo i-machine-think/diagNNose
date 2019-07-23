@@ -6,6 +6,7 @@ from diagnnose.typedefs.activations import NamedArrayDict
 from .base_decomposer import BaseDecomposer
 
 
+# TODO: Update class with new structure, currently broken.
 class CellDecomposer(BaseDecomposer):
     """ Implementation of the LSTM decomposition method described in:
 
