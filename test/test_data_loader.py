@@ -45,6 +45,7 @@ class TestDataLoader(unittest.TestCase):
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
     def test_create_data_split(self) -> None:
         """ Test creating the data set splits for Diagnostic Classifier training. """

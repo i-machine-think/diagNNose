@@ -8,7 +8,6 @@ from collections import Counter
 from unittest.mock import MagicMock, patch
 
 from diagnnose.classifiers.dc_trainer import DCTrainer
-from diagnnose.corpora.import_corpus import import_corpus_from_path
 
 from .test_utils import create_and_dump_dummy_activations
 
@@ -70,6 +69,7 @@ class TestDCTrainer(unittest.TestCase):
         if os.listdir(ACTIVATIONS_DIR):
             os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
+            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
 
     @patch("diagnnose.activations.data_loader.DataLoader.create_data_split")
     @patch("diagnnose.classifiers.dc_trainer.DCTrainer._reset_classifier")
@@ -79,11 +79,11 @@ class TestDCTrainer(unittest.TestCase):
     @patch("diagnnose.classifiers.dc_trainer.DCTrainer.fit_data")
     def test_class_weights(
         self,
-        mock_fit_data: MagicMock,
+        _mock_fit_data: MagicMock,
         mock_eval_classifier: MagicMock,
-        mock_save_classifier: MagicMock,
-        mock_log_results: MagicMock,
-        mock_reset_classifier: MagicMock,
+        _mock_save_classifier: MagicMock,
+        _mock_log_results: MagicMock,
+        _mock_reset_classifier: MagicMock,
         create_data_split_mock: MagicMock,
     ) -> None:
         create_data_split_mock.return_value = self.data_dict

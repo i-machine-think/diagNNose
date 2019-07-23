@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from diagnnose.activations.activation_reader import ActivationReader
-from diagnnose.corpora.create_labels import create_labels_from_corpus
+from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import DataDict
 from diagnnose.typedefs.corpus import Corpus, Labels

@@ -5,7 +5,7 @@ from diagnnose.typedefs.extraction import SelectFunc
 
 def create_labels_from_corpus(
     corpus: Corpus,
-    selection_func: SelectFunc = lambda pos, token, labeled_sentence: True,
+    selection_func: SelectFunc = lambda pos, token, example: True,
 ) -> np.ndarray:
     """ Creates labels based on the selection_func that was used during
     extraction.
@@ -18,9 +18,9 @@ def create_labels_from_corpus(
         Function that determines whether a label should be stored.
     """
     labels = []
-    for s in corpus.values():
-        for i, w in enumerate(s.sen):
-            if selection_func(i, w, s):
-                labels.append(s.labels[i])
+    for item in corpus.examples:
+        for i, w in enumerate(item.sen):
+            if selection_func(i, w, item):
+                labels.append(item.labels[i])
 
     return np.array(labels)

@@ -1,5 +1,5 @@
 """
-Test the code in rnnalayse.extractors.base_extractor.py.
+Test the code in diagnnose.extractors.base_extractor.py.
 """
 
 import itertools
@@ -12,13 +12,16 @@ import numpy as np
 import torch
 from overrides import overrides
 from torch import Tensor
+from torchtext.data import Example
 
-from diagnnose.corpora.create_labels import create_labels_from_corpus
-from diagnnose.corpora.import_corpus import import_corpus_from_path
+from diagnnose.activations.init_states import InitStates
+from diagnnose.corpus import import_corpus
+from diagnnose.corpus.create_iterator import create_iterator
+from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.models.language_model import LanguageModel
-from diagnnose.typedefs.activations import FullActivationDict, PartialActivationDict
-from diagnnose.typedefs.corpus import CorpusSentence
+from diagnnose.typedefs.activations import FullActivationDict, PartialArrayDict
+from diagnnose.typedefs.extraction import SelectFunc
+from diagnnose.typedefs.models import LanguageModel
 
 from .test_utils import create_sentence_dummy_activations, suppress_print
 
@@ -52,17 +55,28 @@ class MockLanguageModel(LanguageModel):
         self.split_order = ["f", "i", "g", "o"]
         self.array_type = "torch"
 
+        self.init_lstm_states: InitStates = InitStates(self)
+
         self.reset()
 
     @overrides
     def forward(
-        self, token: str, _activations: FullActivationDict, compute_out: bool = False
+        self,
+        token: torch.Tensor,
+        _activations: FullActivationDict,
+        compute_out: bool = False,
     ) -> Tuple[None, FullActivationDict]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
-        assert token == next_token
+        assert token.item() == next_token
+
+        if len(next_activation.shape) == 1:
+            next_activation = next_activation.unsqueeze(dim=0)
 
         return None, {0: {"hx": next_activation, "cx": next_activation}}
+
+    def init_hidden(self, bsz: int) -> FullActivationDict:
+        return self.init_lstm_states.create(bsz)
 
     def reset(self) -> None:
         """ Reset the activations for next test. """
@@ -86,29 +100,30 @@ class TestExtractor(unittest.TestCase):
         with open(corpus_path, "w") as f:
             f.write(test_corpus)
 
-        cls.corpus = import_corpus_from_path(
-            corpus_path, corpus_header=["sen", "labels", "quality"]
+        cls.corpus = import_corpus(
+            corpus_path,
+            corpus_header=["sen", "labels", "quality"],
+            vocab_from_corpus=True,
         )
+        cls.examples = cls.corpus.examples
+        cls.iterator = create_iterator(cls.corpus, batch_size=1)
 
         # Mock the activations the model produces
-        cls.all_tokens = list(
-            itertools.chain(*[item.sen for item in cls.corpus.values()])
-        )
-        cls.all_labels = cls._merge_labels(
-            [sentence.labels for sentence in cls.corpus.values()]
-        )
+        cls.all_words = list(itertools.chain(*[item.sen for item in cls.corpus]))
+        cls.all_tokens = [cls.corpus.vocab.stoi[w] for w in cls.all_words]
+        cls.all_labels = cls._merge_labels([example.labels for example in cls.corpus])
 
-        cls.test_sentence_activations = []
+        test_sentence_activations = []
         identifier_value = 0
-        for sentence in cls.corpus.values():
-            cls.test_sentence_activations.append(
+        for example in cls.corpus:
+            test_sentence_activations.append(
                 create_sentence_dummy_activations(
-                    len(sentence.sen), ACTIVATION_DIM, identifier_value
+                    len(example.sen), ACTIVATION_DIM, identifier_value
                 )
             )
-            identifier_value += len(sentence.sen)
+            identifier_value += len(example.sen)
 
-        cls.all_activations = torch.cat(cls.test_sentence_activations)
+        cls.all_activations = torch.cat(test_sentence_activations)
 
         # Prepare Mock Model
         cls.model = MockLanguageModel(
@@ -136,16 +151,10 @@ class TestExtractor(unittest.TestCase):
     def test_extract_sentence(self) -> None:
         """ Test _extract_sentence for extracting the activations of whole sentences. """
 
-        # Test extraction of all activations
-        self.model.reset()
-        sentences_activations, _ = zip(
-            *[
-                self.extractor._extract_sentence(sentence)
-                for sentence in self.corpus.values()
-            ]
-        )
-        extracted_activations = self._merge_sentence_activations(sentences_activations)
-        extracted_labels = create_labels_from_corpus(self.corpus)
+        def selection_func(_pos: int, _token: int, _example: Example) -> bool:
+            return True
+
+        extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         self.assertTrue(
             (extracted_activations == self.all_activations.numpy()).all(),
@@ -159,30 +168,14 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_pos(self) -> None:
         """ Test the _extract_sentence function for extracting activations based on position. """
 
-        self.extractor.model.reset()
-
-        def selection_func(pos: int, _token: str, _sentence: CorpusSentence) -> bool:
+        def selection_func(pos: int, _token: int, _example: Example) -> bool:
             return pos == 2
 
-        pos_sentences_activations, _ = zip(
-            *[
-                self.extractor._extract_sentence(
-                    sentence, selection_func=selection_func
-                )
-                for sentence in self.corpus.values()
-            ]
-        )
-
-        extracted_pos_activations = self._merge_sentence_activations(
-            pos_sentences_activations
-        )
-        extracted_labels = create_labels_from_corpus(
-            self.corpus, selection_func=selection_func
-        )
+        extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
-            extracted_pos_activations.shape[0],
+            extracted_activations.shape[0],
             3,
             "More than one sentence was extracted based on position",
         )
@@ -191,7 +184,7 @@ class TestExtractor(unittest.TestCase):
         # Due to the way the dummy activations are created, all their values (except for their
         # unique id value) will be 3
         self.assertTrue(
-            (extracted_pos_activations[:, 0] == 3).all(),
+            (extracted_activations[:, 0] == 3).all(),
             "Sentence was extracted from the wrong position",
         )
 
@@ -204,32 +197,23 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_label(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
-        self.extractor.model.reset()
+        def selection_func(pos: int, _token: int, example: Example) -> bool:
+            return (
+                getattr(example, "labels") is not None
+                and getattr(example, "labels")[pos] == 1
+            )
 
-        def selection_func(pos: int, _token: str, sentence: CorpusSentence) -> bool:
-            return sentence.labels is not None and sentence.labels[pos] == 1
-
-        label_sentence_activations, _ = zip(
-            *[
-                self.extractor._extract_sentence(
-                    sentence, selection_func=selection_func
-                )
-                for sentence in self.corpus.values()
-            ]
-        )
-        extracted_label_activations = self._merge_sentence_activations(
-            label_sentence_activations
-        )
+        extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         # Confirm that only one activation per sentence was extracted
         self.assertEqual(
-            extracted_label_activations.shape[0],
+            extracted_activations.shape[0],
             3,
             "More than one sentence was extracted based on label",
         )
-        extracted_positions = extracted_label_activations[:, 0] - 1
+        extracted_positions = extracted_activations[:, 0] - 1
         label_positions = np.array(
-            [sentence.labels.index(1) for sentence in self.corpus.values()]
+            [example.labels.index(1) for example in self.examples]
         )
         # Confirm that activations are from the position of the specified label
         self.assertTrue(
@@ -240,33 +224,18 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_token(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
-        self.extractor.model.reset()
+        def selection_func(_pos: int, token: int, _example: Example) -> bool:
+            return token == int(self.corpus.vocab.stoi["hog"])
 
-        def selection_func(_pos: int, token: str, _sentence: CorpusSentence) -> bool:
-            return token == "hog"
-
-        token_sentence_activations, _ = zip(
-            *[
-                self.extractor._extract_sentence(
-                    sentence, selection_func=selection_func
-                )
-                for sentence in self.corpus.values()
-            ]
-        )
-        extracted_token_activations = self._merge_sentence_activations(
-            token_sentence_activations
-        )
-        extracted_labels = create_labels_from_corpus(
-            self.corpus, selection_func=selection_func
-        )
+        extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         # Confirm that only one activation corresponding to "hog" was extracted
         self.assertEqual(
-            extracted_token_activations.shape[0],
+            extracted_activations.shape[0],
             1,
             "More than one activation extracted by token",
         )
-        assert extracted_token_activations[:, -1] == 6
+        assert extracted_activations[:, -1] == 6
 
         # Confirm the right labels were extracted
         self.assertTrue(
@@ -277,32 +246,19 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_misc_info(self) -> None:
         """ Test the _extract_sentence function for extracting activations based on misc info. """
 
-        self.extractor.model.reset()
+        def selection_func(_pos: int, _token: int, example: Example) -> bool:
+            return hasattr(example, "quality") and bool(
+                getattr(example, "quality", "") == "delicious"
+            )
 
-        def selection_func(_pos: int, _token: str, sentence: CorpusSentence) -> bool:
-            return bool(sentence.misc_info["quality"] == "delicious")
-
-        misc_sentence_activations, _ = zip(
-            *[
-                self.extractor._extract_sentence(
-                    sentence, selection_func=selection_func
-                )
-                for sentence in self.corpus.values()
-            ]
-        )
-        extracted_misc_activations = self._merge_sentence_activations(
-            misc_sentence_activations
-        )
-        extracted_labels = create_labels_from_corpus(
-            self.corpus, selection_func=selection_func
-        )
+        extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         # Confirm that only the first sentence was extracted
         expected_activations = self.all_activations[
             : len(self.corpus[0].sen), :
         ].numpy()
         self.assertTrue(
-            (extracted_misc_activations == expected_activations).all(),
+            (extracted_activations == expected_activations).all(),
             "Wrong sentence extracted based on misc info.",
         )
 
@@ -313,8 +269,13 @@ class TestExtractor(unittest.TestCase):
         )
 
     @suppress_print
+    @patch(
+        "diagnnose.activations.activation_writer.ActivationWriter.concat_pickle_dumps"
+    )
     @patch("diagnnose.activations.activation_writer.ActivationWriter.dump_activations")
-    def test_extraction_dumping_args(self, dump_activations_mock: MagicMock) -> None:
+    def test_extraction_dumping_args(
+        self, dump_activations_mock: MagicMock, _concat_pickle_dumps_mock: MagicMock
+    ) -> None:
         """
         Test whether functions used to dump pickle files during activation extraction are called
         with the right arguments.
@@ -335,9 +296,28 @@ class TestExtractor(unittest.TestCase):
             "Function was called with wrong type of variable, expected PartialActivationDict.",
         )
 
+    def _base_extract(
+        self, selection_func: SelectFunc
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        self.model.reset()
+
+        sen_activations = []
+        for i, batch in enumerate(self.iterator):
+            sen_activation = self.extractor._extract_sentence(
+                batch, [self.examples[i]], selection_func
+            )[0][0]
+            sen_activations.append(sen_activation)
+
+        extracted_activations = self._merge_sentence_activations(sen_activations)
+        extracted_labels = create_labels_from_corpus(
+            self.corpus, selection_func=selection_func
+        )
+
+        return extracted_activations, extracted_labels
+
     @staticmethod
     def _merge_sentence_activations(
-        sentences_activations: List[PartialActivationDict]
+        sentences_activations: List[PartialArrayDict]
     ) -> np.ndarray:
         """ Merge activations from different sentences into one single numpy array. """
         return np.array(

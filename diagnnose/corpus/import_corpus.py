@@ -3,7 +3,7 @@ from typing import List, Optional
 from torchtext.data import Field, RawField, TabularDataset
 from torchtext.vocab import Vocab
 
-from diagnnose.vocab import create_vocab_from_path
+from diagnnose.vocab import create_vocab_from_path, create_vocab_from_corpus
 
 
 def import_corpus(
@@ -12,6 +12,7 @@ def import_corpus(
     header_from_first_line: bool = False,
     to_lower: bool = False,
     vocab_path: Optional[str] = None,
+    vocab_from_corpus: bool = False,
 ) -> TabularDataset:
 
     """ Imports a corpus from a path.
@@ -39,6 +40,10 @@ def import_corpus(
     vocab_path : str, optional
         Path to the model vocabulary, which should a file containing a
         vocab entry at each line.
+    vocab_from_corpus : bool, optional
+        Create a new vocabulary from the tokens of the corpus itself.
+        If set to True `vocab_path` does not need to be provided.
+        Defaults to False.
 
     Returns
     -------
@@ -70,8 +75,11 @@ def import_corpus(
             fields[field].is_target = False
 
     # The current torchtext Vocab does not allow a fixed vocab order
-    if vocab_path is not None:
-        vocab = create_vocab_from_path(vocab_path)
+    if vocab_path is not None or vocab_from_corpus:
+        if vocab_path is not None:
+            vocab = create_vocab_from_path(vocab_path)
+        else:
+            vocab = create_vocab_from_corpus(corpus_path)
         fields["sen"].vocab = Vocab({}, specials=[])
         fields["sen"].vocab.stoi = vocab
         fields["sen"].vocab.itos = list(vocab.keys())
@@ -84,7 +92,7 @@ def import_corpus(
         csv_reader_params={"quotechar": None},
     )
 
-    if vocab_path is not None:
+    if vocab_path is not None or vocab_from_corpus:
         corpus.vocab = corpus.fields["sen"].vocab
 
     return corpus

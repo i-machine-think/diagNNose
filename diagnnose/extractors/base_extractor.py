@@ -85,7 +85,7 @@ class Extractor:
         dynamic_dumping : bool, optional
             Dump files dynamically, i.e. once per sentence, or dump
             all files at the end of extraction. Defaults to True.
-        selection_func : Callable[[int, str, Example], bool]
+        selection_func : Callable[[int, int, Example], bool]
             Function which determines if activations for a token should
             be extracted or not.
         create_avg_eos : bool, optional
@@ -116,7 +116,9 @@ class Extractor:
                 avg_eos_states = self._init_avg_eos_activations()
 
             for batch in tqdm(iterator, unit="batch"):
-                batch_examples = self.corpus.examples[n_sens: n_sens+batch.batch_size]
+                batch_examples = self.corpus.examples[
+                    n_sens : n_sens + batch.batch_size
+                ]
 
                 batch_activations, n_extracted = self._extract_sentence(
                     batch, batch_examples, selection_func
@@ -211,7 +213,7 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             for j in range(batch_size):
-                if i < sen_lens[j] and selection_func(i, tokens, examples[j]):
+                if i < sen_lens[j] and selection_func(i, tokens[j], examples[j]):
                     for layer, name in self.activation_names:
                         cur_activation = cur_activations[layer][name][j]
                         if self.model.array_type == "torch":
