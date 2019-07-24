@@ -22,8 +22,9 @@ from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import FullActivationDict, PartialArrayDict
 from diagnnose.typedefs.extraction import SelectFunc
 from diagnnose.typedefs.models import LanguageModel
+from diagnnose.utils.misc import suppress_print
 
-from .test_utils import create_sentence_dummy_activations, suppress_print
+from .test_utils import create_sentence_dummy_activations
 
 # GLOBALS
 ACTIVATION_DIM = 10
