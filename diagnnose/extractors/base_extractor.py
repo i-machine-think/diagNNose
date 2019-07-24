@@ -61,7 +61,7 @@ class Extractor:
         batch_size: int = 1,
         cutoff: int = -1,
         dynamic_dumping: bool = True,
-        selection_func: SelectFunc = lambda pos, token, item: True,
+        selection_func: SelectFunc = lambda sen_id, pos, item: True,
         create_avg_eos: bool = False,
         only_dump_avg_eos: bool = False,
     ) -> None:
@@ -116,12 +116,8 @@ class Extractor:
                 avg_eos_states = self._init_avg_eos_activations()
 
             for batch in tqdm(iterator, unit="batch"):
-                batch_examples = self.corpus.examples[
-                    n_sens : n_sens + batch.batch_size
-                ]
-
                 batch_activations, n_extracted = self._extract_sentence(
-                    batch, batch_examples, selection_func
+                    batch, n_sens, selection_func
                 )
 
                 if not only_dump_avg_eos:
@@ -176,7 +172,7 @@ class Extractor:
         )
 
     def _extract_sentence(
-        self, batch: Batch, examples: List[Example], selection_func: SelectFunc
+        self, batch: Batch, n_sens: int, selection_func: SelectFunc
     ) -> Tuple[BatchArrayDict, List[int]]:
         """ Generates the embeddings of a sentence and writes to file.
 
@@ -184,6 +180,9 @@ class Extractor:
         ----------
         batch : Batch
             Batch containing sentence and label information.
+        n_sens : int
+            Number of sentences extracted so far. Used for indexing the
+            items in the batch.
         selection_func : SelectFunc
             Function that determines whether activations for a token
             should be extracted or not.
@@ -196,11 +195,12 @@ class Extractor:
         n_extracted : Labels
             Number of extracted activations.
         """
-        batch_size = len(batch)
-        n_extracted: List[int] = [0] * batch_size
+        bsz = len(batch)
+        n_extracted: List[int] = [0] * bsz
 
-        batch_activations: BatchArrayDict = self._init_batch_activations(batch_size)
-        cur_activations: FullActivationDict = self.model.init_hidden(batch_size)
+        batch_activations: BatchArrayDict = self._init_batch_activations(bsz)
+        cur_activations: FullActivationDict = self.model.init_hidden(bsz)
+        examples = self.corpus.examples[n_sens: n_sens+bsz]
 
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
@@ -212,17 +212,18 @@ class Extractor:
                 )
 
             # Check whether current activations match criterion defined in selection_func
-            for j in range(batch_size):
-                if i < sen_lens[j] and selection_func(i, tokens[j], examples[j]):
+            for j in range(bsz):
+                if i < sen_lens[j] and selection_func(n_sens+j, i, examples[j]):
                     for layer, name in self.activation_names:
                         cur_activation = cur_activations[layer][name][j]
                         if self.model.array_type == "torch":
                             cur_activation = cur_activation.detach().numpy()
+
                         batch_activations[j][(layer, name)].append(cur_activation)
 
                     n_extracted[j] += 1
 
-        for j in range(batch_size):
+        for j in range(bsz):
             for a_name, arr in batch_activations[j].items():
                 batch_activations[j][a_name] = np.array(arr)
 

@@ -151,7 +151,7 @@ class TestExtractor(unittest.TestCase):
     def test_extract_sentence(self) -> None:
         """ Test _extract_sentence for extracting the activations of whole sentences. """
 
-        def selection_func(_pos: int, _token: int, _example: Example) -> bool:
+        def selection_func(_sen_id: int, _pos: int, _example: Example) -> bool:
             return True
 
         extracted_activations, extracted_labels = self._base_extract(selection_func)
@@ -168,7 +168,7 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_pos(self) -> None:
         """ Test the _extract_sentence function for extracting activations based on position. """
 
-        def selection_func(pos: int, _token: int, _example: Example) -> bool:
+        def selection_func(_sen_id: int, pos: int, _example: Example) -> bool:
             return pos == 2
 
         extracted_activations, extracted_labels = self._base_extract(selection_func)
@@ -197,7 +197,7 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_label(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
-        def selection_func(pos: int, _token: int, example: Example) -> bool:
+        def selection_func(_sen_id: int, pos: int, example: Example) -> bool:
             return (
                 getattr(example, "labels") is not None
                 and getattr(example, "labels")[pos] == 1
@@ -224,8 +224,11 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_token(self) -> None:
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
-        def selection_func(_pos: int, token: int, _example: Example) -> bool:
-            return token == int(self.corpus.vocab.stoi["hog"])
+        def selection_func(_sen_id: int, pos: int, example: Example) -> bool:
+            return (
+                getattr(example, "sen") is not None
+                and getattr(example, "sen")[pos] == "hog"
+            )
 
         extracted_activations, extracted_labels = self._base_extract(selection_func)
 
@@ -246,7 +249,7 @@ class TestExtractor(unittest.TestCase):
     def test_activation_extraction_by_misc_info(self) -> None:
         """ Test the _extract_sentence function for extracting activations based on misc info. """
 
-        def selection_func(_pos: int, _token: int, example: Example) -> bool:
+        def selection_func(_sen_id: int, _pos: int, example: Example) -> bool:
             return hasattr(example, "quality") and bool(
                 getattr(example, "quality", "") == "delicious"
             )
@@ -304,7 +307,7 @@ class TestExtractor(unittest.TestCase):
         sen_activations = []
         for i, batch in enumerate(self.iterator):
             sen_activation = self.extractor._extract_sentence(
-                batch, [self.examples[i]], selection_func
+                batch, i, selection_func
             )[0][0]
             sen_activations.append(sen_activation)
 
