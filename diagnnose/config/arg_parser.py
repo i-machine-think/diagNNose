@@ -87,7 +87,6 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions["activations"] = {
         # TODO: Provide explanation of activation names
         "activations_dir": {
-            "required": True,
             "help": "(required) Path to folder to which extracted embeddings will be written.",
         }
     }

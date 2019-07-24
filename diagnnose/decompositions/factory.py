@@ -27,11 +27,11 @@ class DecomposerFactory:
     ----------
     model : LanguageModel
         LanguageModel for which decomposition will be performed
-    decomposer : str
-        String of the decomposition class name, either CellDecomposer or
-        ContextualDecomposer
     activations_dir : str
         Path to folder containing extracted activations
+    decomposer : str
+        String of the decomposition class name, either `CellDecomposer`
+        or `ContextualDecomposer`. Defaults to `ContextualDecomposer`.
     decoder : Union[str, LinearDecoder]
         Path to a pickled decoder or a (w,b) decoder tuple
     """
@@ -39,8 +39,8 @@ class DecomposerFactory:
     def __init__(
         self,
         model: LanguageModel,
-        decomposer: str,
         activations_dir: str,
+        decomposer: str = "ContextualDecomposer",
         decoder: Optional[str] = None,
     ) -> None:
         module = import_module(f"diagnnose.decompositions")

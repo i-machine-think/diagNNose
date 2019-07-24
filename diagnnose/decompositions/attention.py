@@ -1,3 +1,7 @@
+import os
+import shutil
+import sys
+from itertools import chain
 from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -5,21 +9,27 @@ import numpy as np
 
 from diagnnose.decompositions import DecomposerFactory
 from diagnnose.decompositions.base_decomposer import BaseDecomposer
+from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.midpoint import MidPointNorm
+from diagnnose.utils.misc import suppress_print
 
 plt.rcParams["figure.figsize"] = 15, 10
+
+TMP_DIR = "tmp"
 
 
 class CDAttention:
     def __init__(
         self,
-        factory: DecomposerFactory,
+        model: LanguageModel,
         include_init: bool = True,
         cd_config: Optional[Dict[str, Any]] = None,
         plot_config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.factory = factory
+        self.model = model
         self.include_init = include_init
 
         if cd_config is None:
@@ -32,20 +42,31 @@ class CDAttention:
         else:
             self.plot_config = plot_config
 
-    def calc_by_sen_id(self, sen_id: int, corpus: Corpus) -> np.ndarray:
+    def calc_by_sen_id(
+        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str] = None
+    ) -> np.ndarray:
         sen: List[str] = corpus[sen_id].sen
         classes: List[int] = [corpus.vocab.stoi[w] for w in sen]
 
-        decomposer = self.factory.create(sen_id, classes=classes)
+        factory = self._create_factory(corpus, sen_id, activations_dir)
+        if activations_dir is None:
+            sen_id = 0
+
+        decomposer = factory.create(sen_id, classes=classes)
 
         arr = self.calc_attention(decomposer, len(sen))
 
+        if activations_dir is None:
+            shutil.rmtree(TMP_DIR)
+
         return arr
 
-    def plot_by_sen_id(self, sen_id: int, corpus: Corpus) -> np.ndarray:
+    def plot_by_sen_id(
+        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str] = None
+    ) -> np.ndarray:
         sen: List[str] = corpus[sen_id].sen
 
-        arr = self.calc_by_sen_id(sen_id, corpus)
+        arr = self.calc_by_sen_id(corpus, sen_id, activations_dir=activations_dir)
 
         self.plot_attention(arr, sen)
 
@@ -100,9 +121,9 @@ class CDAttention:
             cmin = clim[0]
             cmax = clim[1]
         else:
-            cmin = np.min(arr)
+            cmin = min(np.min(arr), 0)
             cmax = np.max(arr)
-        cmid = 0 if cmin < 0 < cmax else ((cmax - cmin) / 2)
+        cmid = 0 if cmin < 0 < cmax else np.min(arr)
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -147,3 +168,32 @@ class CDAttention:
             ax.set_title(self.plot_config["title"], fontsize=14)
 
         plt.show()
+
+    def _create_factory(
+        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str]
+    ) -> DecomposerFactory:
+        if activations_dir is None:
+            activations_dir = TMP_DIR
+            activation_names: ActivationNames = list(
+                chain.from_iterable(
+                    (((l, "cx"), (l, "hx")) for l in range(self.model.num_layers))
+                )
+            )
+            activation_names.append((0, "emb"))
+
+            corpus.examples = [corpus.examples[sen_id]]  # discard all other items
+            extractor = Extractor(self.model, corpus, activations_dir)
+
+            self._extract(extractor, activation_names)
+
+        factory = DecomposerFactory(self.model, activations_dir)
+
+        return factory
+
+    @staticmethod
+    @suppress_print
+    def _extract(extractor: Extractor, activation_names: ActivationNames) -> None:
+        extractor.extract(
+            activation_names,
+            dynamic_dumping=False,
+        )

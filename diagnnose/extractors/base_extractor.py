@@ -121,13 +121,15 @@ class Extractor:
                 )
 
                 if not only_dump_avg_eos:
-                    if dynamic_dumping:
-                        for j in batch_activations.keys():
+                    for j in batch_activations.keys():
+                        if len(next(iter(batch_activations[j].values()))) == 0:
+                            continue
+
+                        if dynamic_dumping:
                             self.activation_writer.dump_activations(
                                 batch_activations[j]
                             )
-                    else:
-                        for j in batch_activations.keys():
+                        else:
                             for name in all_activations.keys():
                                 all_activations[name].append(batch_activations[j][name])
 
