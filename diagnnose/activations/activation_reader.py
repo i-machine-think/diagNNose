@@ -11,7 +11,7 @@ from diagnnose.typedefs.activations import (
     PartialArrayDict,
 )
 from diagnnose.typedefs.extraction import ActivationRanges, Range
-from diagnnose.utils.paths import load_pickle
+from diagnnose.utils.pickle import load_pickle
 
 
 class ActivationReader:

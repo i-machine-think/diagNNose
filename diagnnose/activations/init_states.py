@@ -5,7 +5,7 @@ import torch
 
 from diagnnose.typedefs.activations import FullActivationDict
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.utils.paths import load_pickle
+from diagnnose.utils.pickle import load_pickle
 
 
 class InitStates:

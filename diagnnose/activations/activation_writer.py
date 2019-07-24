@@ -12,7 +12,7 @@ from diagnnose.typedefs.activations import (
     PartialArrayDict,
 )
 from diagnnose.typedefs.extraction import ActivationRanges
-from diagnnose.utils.paths import dump_pickle
+from diagnnose.utils.pickle import dump_pickle
 
 from .activation_reader import ActivationReader
 
