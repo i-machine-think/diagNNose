@@ -7,12 +7,14 @@ from torch import Tensor, nn
 from diagnnose.typedefs.activations import TensorDict
 
 
+SizeDict = Dict[int, Dict[str, int]]
+
+
 class LanguageModel(ABC, nn.Module):
-    array_type: str
     device: str = "cpu"
     forget_offset: int = 0
     ih_concat_order: List[str] = ["h", "i"]
-    sizes: Dict[int, Dict[str, int]] = {}
+    sizes: SizeDict = {}
     split_order: List[str]
 
     """ Abstract class for LM with intermediate activations """
@@ -47,6 +49,10 @@ class LanguageModel(ABC, nn.Module):
         -------
         out : torch.Tensor
             Torch Tensor of output distribution of vocabulary
-        activations : FullActivationDict
+        activations : TensorDict
             Dictionary mapping each layer to each activation name to a tensor
         """
+
+    @abstractmethod
+    def init_hidden(self, bsz: int) -> TensorDict:
+        """"""
