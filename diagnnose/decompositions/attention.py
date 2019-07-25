@@ -1,7 +1,4 @@
-import os
 import shutil
-import sys
-from itertools import chain
 from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -33,8 +30,10 @@ class CDAttention:
         self.include_init = include_init
 
         if cd_config is None:
+            self.decomposer = "ContextualDecomposer"
             self.cd_config: Dict[str, Any] = {}
         else:
+            self.decomposer = cd_config.pop("decomposer", "ContextualDecomposer")
             self.cd_config = cd_config
 
         if plot_config is None:
@@ -174,26 +173,39 @@ class CDAttention:
     ) -> DecomposerFactory:
         if activations_dir is None:
             activations_dir = TMP_DIR
-            activation_names: ActivationNames = list(
-                chain.from_iterable(
-                    (((l, "cx"), (l, "hx")) for l in range(self.model.num_layers))
-                )
-            )
-            activation_names.append((0, "emb"))
+            activation_names = self._get_activation_names()
 
+            all_examples = list(corpus.examples)
             corpus.examples = [corpus.examples[sen_id]]  # discard all other items
             extractor = Extractor(self.model, corpus, activations_dir)
 
             self._extract(extractor, activation_names)
+            corpus.examples = all_examples
 
-        factory = DecomposerFactory(self.model, activations_dir)
+        factory = DecomposerFactory(
+            self.model, activations_dir, decomposer=self.decomposer
+        )
 
         return factory
+
+    def _get_activation_names(self) -> ActivationNames:
+        activation_names: ActivationNames = []
+
+        if self.decomposer == "CellDecomposer":
+            activation_names.extend(
+                [
+                    (self.model.num_layers - 1, name)
+                    for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
+                ]
+            )
+        else:
+            for l in range(self.model.num_layers):
+                activation_names.extend([(l, "cx"), (l, "hx")])
+            activation_names.append((0, "emb"))
+
+        return activation_names
 
     @staticmethod
     @suppress_print
     def _extract(extractor: Extractor, activation_names: ActivationNames) -> None:
-        extractor.extract(
-            activation_names,
-            dynamic_dumping=False,
-        )
+        extractor.extract(activation_names, dynamic_dumping=False)
