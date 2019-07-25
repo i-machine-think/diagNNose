@@ -34,10 +34,11 @@ class LanguageModel(ABC, nn.Module):
 
         Parameters
         ----------
-        token : str
-            input token that is mapped to id
-        prev_activations : FullActivationDict
-            Dictionary mapping each layer to 'hx' and 'cx' to a tensor:
+        input_ : Tensor
+            Input batch, presumed to be mapped already to token id's
+            by `torchtext`.
+        prev_activations : TensorDict
+            Dict mapping each (layer, 'hx'/'cx') tuple to a tensor:
             {layer => {'hx'|'cx' => torch.Tensor}}
         compute_out : bool, optional
             Allows to skip softmax calculation, defaults to True.
