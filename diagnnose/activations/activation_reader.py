@@ -2,6 +2,9 @@ import os
 import pickle
 from typing import List, Optional, Tuple, Union
 
+import torch
+from torch import Tensor
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 import numpy as np
 
 from diagnnose.typedefs.activations import (
@@ -44,17 +47,18 @@ class ActivationReader:
         self, activations_dir: str, store_multiple_activations: bool = False
     ) -> None:
 
-        assert os.path.exists(activations_dir), 'Activations dir not found!'
+        assert os.path.exists(activations_dir), "Activations dir not found!"
         self.activations_dir = activations_dir
 
-        self._activations: PartialArrayDict = {}
+        self._tensor_dict: TensorDict = {}
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 
         self.activation_name: Optional[ActivationName] = None
         self.store_multiple_activations = store_multiple_activations
 
-    def __getitem__(self, key: ActivationKey) -> np.ma.MaskedArray:
+    # TODO: improve docs, clearer formatting etc.
+    def __getitem__(self, key: ActivationKey) -> Union[Tensor, PackedSequence]:
         """ Provides indexing of activations, indexed by sentence
         position or key, or indexing the activations itself. Indexing
         based on sentence returns all activations belonging to that
@@ -83,12 +87,13 @@ class ActivationReader:
         ]
 
         With
-            - indextype either 'pos', 'key' or 'all', defaults to 'pos'.
-            - a_name an activation name (layer, name) tuple.
-            - concat a boolean that indicates whether the activations
+            - `indextype` either 'pos', 'key' or 'all'. Defaults to 'pos'.
+            - `a_name` an activation name (layer, name) tuple.
+            - `concat` a boolean that indicates whether the activations
               should be concatenated or added as a separate tensor dim.
+              Defaults to False.
 
-        If activationname is not provided it should have been set
+        If `a_name` is not provided it should have been set
         beforehand like `reader.activations = activationname`.
 
         Examples:
@@ -105,32 +110,37 @@ class ActivationReader:
 
         if indextype == "all":
             return self.activations[index]
-        if indextype == "key":
-            ranges = self._create_range_from_key(index)
+        if indextype in ["key", "pos"]:
+            ranges: List[Range] = self._create_range_from_key(indextype, index)
         else:
-            ranges = np.array(list(self.activation_ranges.values()))[index]
+            raise KeyError(
+                "indextype not understood, should be one of all, key, or pos."
+            )
 
-        sen_indices = self._create_indices_from_range(ranges, concat)
+        lengths_list = [x[1] - x[0] for x in ranges]
+        sen_indices = self._create_indices_from_range(ranges, lengths_list, concat)
+        sen_indices = sen_indices.to(torch.long)
         if concat:
             return self.activations[sen_indices]
 
         activations = self.activations[sen_indices]
 
-        # MaskedArray mask is not broadcasted automatically: https://stackoverflow.com/a/24800917
-        mask = np.broadcast_to((sen_indices < 0)[..., np.newaxis], activations.shape)
-        activations = np.ma.masked_array(activations, mask=mask)
+        lengths_tensor = torch.tensor(lengths_list, dtype=torch.int)
+        activations = pack_padded_sequence(
+            activations, lengths_tensor, batch_first=True, enforce_sorted=False
+        )
 
         return activations
 
     def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str, bool]:
         indextype = "pos"
-        concat = True
+        concat = False
         # if key is a tuple it also contains a indextype and/or activation name
         if isinstance(key, tuple):
             index = key[0]
 
             indextype = key[1].get("indextype", "pos")
-            concat = key[1].get("concat", True)
+            concat = key[1].get("concat", False)
             if "a_name" in key[1]:
                 self.activations = key[1]["a_name"]
         else:
@@ -142,18 +152,36 @@ class ActivationReader:
         return index, indextype, concat
 
     def _create_range_from_key(
-        self, key: Union[int, slice, List[int], np.ndarray]
+        self, indextype: str, key: Union[int, slice, List[int], np.ndarray]
     ) -> List[Range]:
+        range_dict = self.activation_ranges
+        range_list = list(self.activation_ranges.values())
+        if indextype == "key":
+            all_ranges: Union[ActivationRanges, List[Range]] = range_dict
+        else:
+            all_ranges = range_list
+
         if isinstance(key, (list, np.ndarray)):
-            ranges = [self.activation_ranges[r] for r in key]
+            ranges = [all_ranges[r] for r in key]
+
+        elif isinstance(key, Tensor):
+            ranges = []
+            for i in range(key.size(0)):
+                idx = int(key[i].item())
+                ranges.append(all_ranges[idx])
 
         elif isinstance(key, slice):
             assert (
                 key.step is None or key.step == 1
             ), "Step slicing not supported for sen key index"
             start = key.start if key.start else 0
-            stop = key.stop if key.stop else max(self.activation_ranges.keys()) + 1
-            ranges = [r for k, r in self.activation_ranges.items() if start <= k < stop]
+
+            if indextype == "key":
+                stop = key.stop if key.stop else max(range_dict.keys())
+                ranges = [r for k, r in range_dict.items() if start <= k <= stop]
+            else:
+                stop = key.stop if key.stop else len(all_ranges)
+                ranges = [r for i, r in enumerate(range_list) if start <= i <= stop]
 
         else:
             raise KeyError("Type of index is incompatible")
@@ -162,19 +190,19 @@ class ActivationReader:
 
     @staticmethod
     def _create_indices_from_range(
-        ranges: List[Tuple[int, int]], concat: bool
-    ) -> np.ndarray:
+        ranges: List[Tuple[int, int]], lengths: List[int], concat: bool
+    ) -> Tensor:
         # Concatenate all range indices into a 1d array
         if concat:
-            return np.concatenate([range(*r) for r in ranges])
+            return torch.cat([torch.arange(*r) for r in ranges])
 
         # Create an index array with a separate row for each sentence range
-        maxrange = max(x[1] - x[0] for x in ranges)
+        maxrange = max(lengths)
 
-        indices = np.zeros((len(ranges), maxrange), dtype=int) - 1
+        indices = torch.zeros((len(ranges), maxrange), dtype=torch.int) - 1
 
         for i, r in enumerate(ranges):
-            indices[i, : r[1] - r[0]] = np.array(range(*r))
+            indices[i, : r[1] - r[0]] = torch.arange(*r)
 
         return indices
 
@@ -196,24 +224,26 @@ class ActivationReader:
         return self._activation_ranges
 
     @property
-    def activations(self) -> Optional[np.ndarray]:
-        return self._activations[self.activation_name]
+    def activations(self) -> Optional[Tensor]:
+        if self.activation_name is None:
+            return None
+        return self._tensor_dict[self.activation_name]
 
     @activations.setter
     def activations(self, activation_name: ActivationName) -> None:
         self.activation_name = activation_name
-        if activation_name not in self._activations:
+        if activation_name not in self._tensor_dict:
             activations = self.read_activations(activation_name)
             if self.store_multiple_activations:
-                self._activations[activation_name] = activations
+                self._tensor_dict[activation_name] = activations
             else:
-                self._activations = {activation_name: activations}
+                self._tensor_dict = {activation_name: activations}
 
     @activations.deleter
     def activations(self) -> None:
-        del self._activations
+        del self._tensor_dict
 
-    def read_activations(self, activation_name: ActivationName) -> np.ndarray:
+    def read_activations(self, activation_name: ActivationName) -> Tensor:
         """ Reads the pickled activations of activation_name
 
         Parameters
@@ -245,8 +275,8 @@ class ActivationReader:
                     # is created only after observing the first batch of activations.
                     if hidden_size is None:
                         hidden_size = sen_activations.shape[1]
-                        activations = np.empty(
-                            (self.data_len, hidden_size), dtype=np.float32
+                        activations = torch.empty(
+                            (self.data_len, hidden_size), dtype=torch.float32
                         )
 
                     i = len(sen_activations)
