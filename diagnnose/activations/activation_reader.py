@@ -8,9 +8,10 @@ from diagnnose.typedefs.activations import (
     ActivationIndex,
     ActivationKey,
     ActivationName,
-    PartialArrayDict,
+    ActivationRanges,
+    Range,
+    TensorDict,
 )
-from diagnnose.typedefs.extraction import ActivationRanges, Range
 from diagnnose.utils.pickle import load_pickle
 
 

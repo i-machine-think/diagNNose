@@ -21,8 +21,12 @@ FullActivationDict = Dict[int, NamedArrayDict]
 PartialActivationDict = Dict[ActivationName, Tensor]
 PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
 BatchArrayDict = Dict[int, PartialArrayDict]
+# EXTRACTION
+# sen_id, w position, batch item -> bool
+SelectFunc = Callable[[int, int, Example], bool]
 
-ParameterDict = Dict[int, Union[Tensor, np.ndarray]]
+Range = Tuple[int, int]
+ActivationRanges = Dict[int, Range]
 
 
 # Activation indexing, as done in ActivationReader

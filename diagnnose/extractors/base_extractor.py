@@ -13,9 +13,10 @@ from diagnnose.typedefs.activations import (
     BatchArrayDict,
     FullActivationDict,
     PartialArrayDict,
+    ActivationRanges,
+    SelectFunc,
 )
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.extraction import ActivationRanges, SelectFunc
 from diagnnose.typedefs.models import LanguageModel
 
 

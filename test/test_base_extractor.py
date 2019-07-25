@@ -20,7 +20,7 @@ from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import FullActivationDict, PartialArrayDict
-from diagnnose.typedefs.extraction import SelectFunc
+from diagnnose.typedefs.activations import TensorDict, SelectFunc
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
 

@@ -10,8 +10,8 @@ from diagnnose.typedefs.activations import (
     BatchArrayDict,
     FullActivationDict,
     PartialArrayDict,
+    ActivationRanges,
 )
-from diagnnose.typedefs.extraction import ActivationRanges
 from diagnnose.utils.pickle import dump_pickle
 
 from .activation_reader import ActivationReader

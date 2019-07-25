@@ -1,6 +1,6 @@
 import numpy as np
+from diagnnose.typedefs.activations import SelectFunc
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.extraction import SelectFunc
 
 
 def create_labels_from_corpus(
