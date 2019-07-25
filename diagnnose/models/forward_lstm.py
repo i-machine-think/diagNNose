@@ -6,12 +6,7 @@ from overrides import overrides
 from torch import Tensor
 
 from diagnnose.activations.init_states import InitStates
-from diagnnose.typedefs.activations import (
-    FullActivationDict,
-    NamedArrayDict,
-    ParameterDict,
-)
-
+from diagnnose.typedefs.activations import LayeredTensorDict, TensorDict
 from diagnnose.typedefs.models import LanguageModel
 
 
@@ -45,11 +40,11 @@ class ForwardLSTM(LanguageModel):
         print("Loading pretrained model...")
 
         with open(os.path.expanduser(state_dict), "rb") as mf:
-            params: NamedArrayDict = torch.load(mf, map_location=device)
+            params: Dict[str, Tensor] = torch.load(mf, map_location=device)
 
         self.device: str = device
-        self.weight: ParameterDict = {}
-        self.bias: ParameterDict = {}
+        self.weight: LayeredTensorDict = {}
+        self.bias: LayeredTensorDict = {}
 
         # LSTM weights
         layer = 0
@@ -89,10 +84,10 @@ class ForwardLSTM(LanguageModel):
         print("Model initialisation finished.")
 
     def forward_step(
-        self, layer: int, inp: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> NamedArrayDict:
         # (4*hidden_size,)
         ih_concat = torch.cat((prev_hx, inp), dim=1)
+        self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
+    ) -> TensorDict:
         proj = ih_concat @ self.weight[layer].t()
         if layer in self.bias:
             proj += self.bias[layer]
@@ -109,22 +104,22 @@ class ForwardLSTM(LanguageModel):
         hx: Tensor = o_g * torch.tanh(cx)
 
         return {
-            "emb": inp,
-            "hx": hx,
-            "cx": cx,
-            "f_g": f_g,
-            "i_g": i_g,
-            "o_g": o_g,
-            "c_tilde_g": c_tilde_g,
+            (layer, "emb"): emb,
+            (layer, "hx"): hx,
+            (layer, "cx"): cx,
+            (layer, "f_g"): f_g,
+            (layer, "i_g"): i_g,
+            (layer, "o_g"): o_g,
+            (layer, "c_tilde_g"): c_tilde_g,
         }
 
     @overrides
     def forward(
         self,
-        input_: torch.Tensor,
-        prev_activations: Optional[FullActivationDict] = None,
+        input_: Tensor,
+        prev_activations: Optional[TensorDict] = None,
         compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], FullActivationDict]:
+    ) -> Tuple[Optional[Tensor], TensorDict]:
 
         # Look up the embeddings of the input words
         embs = self.encoder[input_]
@@ -134,19 +129,18 @@ class ForwardLSTM(LanguageModel):
             prev_activations = self.init_hidden(bsz)
 
         # Iteratively compute and store intermediate rnn activations
-        activations: FullActivationDict = {}
+        activations: TensorDict = {}
         for l in range(self.num_layers):
-            prev_hx = prev_activations[l]["hx"]
-            prev_cx = prev_activations[l]["cx"]
-            activations[l] = self.forward_step(l, embs, prev_hx, prev_cx)
-            embs = activations[l]["hx"]
+            prev_hx = prev_activations[l, "hx"]
+            prev_cx = prev_activations[l, "cx"]
+            activations.update(self.forward_step(l, embs, prev_hx, prev_cx))
+            embs = activations[l, "hx"]
 
+        out: Optional[Tensor] = None
         if compute_out:
             out = self.decoder_w @ input_
             if self.decoder_b is not None:
                 out += self.decoder_b
-        else:
-            out = None
 
         return out, activations
 
@@ -159,8 +153,8 @@ class ForwardLSTM(LanguageModel):
             "bias_ih": f"{rnn_name}.bias_ih_l{layer}",
         }
 
-    def init_hidden(self, bsz: int) -> FullActivationDict:
+    def init_hidden(self, bsz: int) -> TensorDict:
         return self.init_lstm_states.create(bsz)
 
-    def final_hidden(self, hidden: FullActivationDict) -> torch.Tensor:
-        return hidden[self.num_layers - 1]["hx"].squeeze()
+    def final_hidden(self, hidden: TensorDict) -> torch.Tensor:
+        return hidden[self.num_layers - 1, "hx"].squeeze()

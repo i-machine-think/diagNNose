@@ -1,26 +1,26 @@
-from typing import BinaryIO, Dict, List, Union, Tuple
+from typing import BinaryIO, Callable, Dict, List, Tuple, Union
 
-import numpy as np
+from numpy import ndarray
 from torch import Tensor
+from torchtext.data import Example
 
 
-# TODO: Overhaul these names, as they have become cluttered/ambiguous
-
-# (layer, name)
-ActivationName = Tuple[int, str]
+# TENSOR DICTS
+ActivationName = Tuple[int, str]  # (layer, name)
 ActivationNames = List[ActivationName]
 
 ActivationFiles = Dict[ActivationName, BinaryIO]
 
-NamedArrayDict = Dict[str, Union[Tensor, np.ndarray]]
+# Maps a layer index to a tensor
+LayeredTensorDict = Dict[int, Tensor]
 
-# Nested dict with embeddings for each activation
-FullActivationDict = Dict[int, NamedArrayDict]
+TensorDict = Dict[ActivationName, Tensor]
+TensorListDict = Dict[ActivationName, List[Tensor]]
 
-# Dict with arbitrary number of activations
-PartialActivationDict = Dict[ActivationName, Tensor]
-PartialArrayDict = Dict[ActivationName, Union[np.ndarray, List[np.ndarray]]]
-BatchArrayDict = Dict[int, PartialArrayDict]
+BatchTensorDict = Dict[int, Dict[ActivationName, Tensor]]
+BatchTensorListDict = Dict[int, TensorListDict]
+
+
 # EXTRACTION
 # sen_id, w position, batch item -> bool
 SelectFunc = Callable[[int, int, Example], bool]
@@ -29,8 +29,9 @@ Range = Tuple[int, int]
 ActivationRanges = Dict[int, Range]
 
 
+# INDEXING
 # Activation indexing, as done in ActivationReader
-ActivationIndex = Union[int, slice, List[int], np.ndarray]
+ActivationIndex = Union[int, slice, List[int], ndarray, Tensor]
 
 IndexType = str  # 'pos', 'key' or 'all'
 ConcatToggle = bool

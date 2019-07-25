@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 from overrides import overrides
 from torch import Tensor, nn
 
-from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import TensorDict
 
 
 class LanguageModel(ABC, nn.Module):
@@ -28,8 +28,8 @@ class LanguageModel(ABC, nn.Module):
     @overrides
     @abstractmethod
     def forward(
-        self, token: str, prev_activations: FullActivationDict, compute_out: bool = True
-    ) -> Tuple[Tensor, FullActivationDict]:
+        self, input_: Tensor, prev_activations: TensorDict, compute_out: bool = True
+    ) -> Tuple[Tensor, TensorDict]:
         """
 
         Parameters

@@ -8,7 +8,6 @@ import unittest
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import torch
 from overrides import overrides
 from torch import Tensor
@@ -19,7 +18,6 @@ from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import FullActivationDict, PartialArrayDict
 from diagnnose.typedefs.activations import TensorDict, SelectFunc
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
@@ -62,11 +60,8 @@ class MockLanguageModel(LanguageModel):
 
     @overrides
     def forward(
-        self,
-        token: torch.Tensor,
-        _activations: FullActivationDict,
-        compute_out: bool = False,
-    ) -> Tuple[None, FullActivationDict]:
+        self, token: torch.Tensor, _activations: TensorDict, compute_out: bool = False
+    ) -> Tuple[None, TensorDict]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
         assert token.item() == next_token
@@ -74,9 +69,9 @@ class MockLanguageModel(LanguageModel):
         if len(next_activation.shape) == 1:
             next_activation = next_activation.unsqueeze(dim=0)
 
-        return None, {0: {"hx": next_activation, "cx": next_activation}}
+        return None, {(0, "hx"): next_activation, (0, "cx"): next_activation}
 
-    def init_hidden(self, bsz: int) -> FullActivationDict:
+    def init_hidden(self, bsz: int) -> TensorDict:
         return self.init_lstm_states.create(bsz)
 
     def reset(self) -> None:
@@ -158,7 +153,7 @@ class TestExtractor(unittest.TestCase):
         extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         self.assertTrue(
-            (extracted_activations == self.all_activations.numpy()).all(),
+            (extracted_activations == self.all_activations).all(),
             "Selection function didn't extract all activations",
         )
         self.assertTrue(
@@ -213,8 +208,8 @@ class TestExtractor(unittest.TestCase):
             "More than one sentence was extracted based on label",
         )
         extracted_positions = extracted_activations[:, 0] - 1
-        label_positions = np.array(
-            [example.labels.index(1) for example in self.examples]
+        label_positions = torch.tensor(
+            [example.labels.index(1) for example in self.examples], dtype=torch.float32
         )
         # Confirm that activations are from the position of the specified label
         self.assertTrue(
@@ -258,9 +253,7 @@ class TestExtractor(unittest.TestCase):
         extracted_activations, extracted_labels = self._base_extract(selection_func)
 
         # Confirm that only the first sentence was extracted
-        expected_activations = self.all_activations[
-            : len(self.corpus[0].sen), :
-        ].numpy()
+        expected_activations = self.all_activations[: len(self.corpus[0].sen), :]
         self.assertTrue(
             (extracted_activations == expected_activations).all(),
             "Wrong sentence extracted based on misc info.",
@@ -296,21 +289,20 @@ class TestExtractor(unittest.TestCase):
             "Function was called the wrong number of times.",
         )
         self.assertTrue(
-            self.is_partial_activation_dict(call_arg),
+            self.is_tensor_dict(call_arg),
             "Function was called with wrong type of variable, expected PartialActivationDict.",
         )
 
-    def _base_extract(
-        self, selection_func: SelectFunc
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def _base_extract(self, selection_func: SelectFunc) -> Tuple[Tensor, Tensor]:
         self.model.reset()
 
         sen_activations = []
         for i, batch in enumerate(self.iterator):
-            sen_activation = self.extractor._extract_sentence(
-                batch, i, selection_func
-            )[0][0]
-            sen_activations.append(sen_activation)
+            sen_activation = self.extractor._extract_sentence(batch, i, selection_func)[
+                0
+            ]
+            for j in sen_activation.keys():
+                sen_activations.append(sen_activation[j])
 
         extracted_activations = self._merge_sentence_activations(sen_activations)
         extracted_labels = create_labels_from_corpus(
@@ -320,48 +312,24 @@ class TestExtractor(unittest.TestCase):
         return extracted_activations, extracted_labels
 
     @staticmethod
-    def _merge_sentence_activations(
-        sentences_activations: List[PartialArrayDict]
-    ) -> np.ndarray:
+    def _merge_sentence_activations(sentences_activations: List[TensorDict]) -> Tensor:
         """ Merge activations from different sentences into one single numpy array. """
-        return np.array(
-            list(
-                itertools.chain(
-                    *[
-                        sentence_activations[(0, "hx")]
-                        for sentence_activations in sentences_activations
-                    ]
-                )
-            )
-        )
-
-    @staticmethod
-    def _merge_labels(sentence_labels: List[np.array]) -> np.ndarray:
-        """ Merge labels from different sentences into a single numpy array. """
-        return np.array(list(itertools.chain(*sentence_labels)))
-
-    @staticmethod
-    def is_full_activation_dict(var: Any) -> bool:
-        """ Check whether a variable is of type FullActivationDict. """
-
-        # This way of checking the type is rather awkward, but there seems to be no function
-        # to compare a variable against a subscripted generic - believe me, I also hate this
-        first_outer_key = list(var.keys())[0]
-        first_value = list(var.values())[0]
-        first_inner_key = list(var[first_outer_key].keys())[0]
-
-        return all(
+        return torch.cat(
             [
-                isinstance(var, dict),
-                isinstance(first_outer_key, int),
-                isinstance(first_value, dict),
-                isinstance(var[first_outer_key[first_inner_key]], Tensor),
-            ]
+                sentence_activations[(0, "hx")]
+                for sentence_activations in sentences_activations
+            ],
+            dim=0,
         )
 
     @staticmethod
-    def is_partial_activation_dict(var: Any) -> bool:
-        """ Check whether a variable is of type PartialActivationDict. """
+    def _merge_labels(sentence_labels: List[List[int]]) -> Tensor:
+        """ Merge labels from different sentences into a single numpy array. """
+        return torch.tensor([x for l in sentence_labels for x in l])
+
+    @staticmethod
+    def is_tensor_dict(var: Any) -> bool:
+        """ Check whether a variable is of type TensorDict. """
         first_key = list(var.keys())[0]
         first_value = list(var.values())[0]
 
@@ -371,6 +339,6 @@ class TestExtractor(unittest.TestCase):
                 isinstance(first_key, tuple),
                 isinstance(first_key[0], int),
                 isinstance(first_key[1], str),
-                isinstance(first_value, np.ndarray),
+                isinstance(first_value, Tensor),
             ]
         )

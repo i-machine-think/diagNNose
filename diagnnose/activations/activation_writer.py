@@ -7,10 +7,8 @@ from typing import BinaryIO, Optional
 from diagnnose.typedefs.activations import (
     ActivationFiles,
     ActivationNames,
-    BatchArrayDict,
-    FullActivationDict,
-    PartialArrayDict,
     ActivationRanges,
+    TensorDict,
 )
 from diagnnose.utils.pickle import dump_pickle
 
@@ -78,7 +76,7 @@ class ActivationWriter:
                 open(os.path.join(self.activations_dir, "avg_eos.pickle"), "wb")
             )
 
-    def dump_activations(self, activations: PartialArrayDict) -> None:
+    def dump_activations(self, activations: TensorDict) -> None:
         """ Dumps the generated activations to a list of opened files
 
         Parameters
@@ -92,16 +90,14 @@ class ActivationWriter:
                 layer,
                 name,
             ) in self.activation_files.keys(), "Activation file is not opened"
-            pickle.dump(
-                activations[(layer, name)], self.activation_files[(layer, name)]
-            )
+            pickle.dump(activations[layer, name], self.activation_files[layer, name])
 
     def dump_activation_ranges(self, activation_ranges: ActivationRanges) -> None:
         assert self.activation_ranges_file is not None
 
         pickle.dump(activation_ranges, self.activation_ranges_file)
 
-    def dump_avg_eos(self, avg_eos_states: FullActivationDict) -> None:
+    def dump_avg_eos(self, avg_eos_states: TensorDict) -> None:
         assert self.avg_eos_file is not None
 
         pickle.dump(avg_eos_states, self.avg_eos_file)

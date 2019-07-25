@@ -1,12 +1,13 @@
-import numpy as np
+import torch
+from torch import Tensor
+
 from diagnnose.typedefs.activations import SelectFunc
 from diagnnose.typedefs.corpus import Corpus
 
 
 def create_labels_from_corpus(
-    corpus: Corpus,
-    selection_func: SelectFunc = lambda sen_id, pos, example: True,
-) -> np.ndarray:
+    corpus: Corpus, selection_func: SelectFunc = lambda sen_id, pos, example: True
+) -> Tensor:
     """ Creates labels based on the selection_func that was used during
     extraction.
 
@@ -23,4 +24,4 @@ def create_labels_from_corpus(
             if selection_func(i, j, item):
                 labels.append(item.labels[j])
 
-    return np.array(labels)
+    return torch.tensor(labels)

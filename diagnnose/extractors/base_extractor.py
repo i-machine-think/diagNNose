@@ -1,20 +1,20 @@
 from contextlib import ExitStack
 from typing import List, Tuple
 
-import numpy as np
 import torch
-from torchtext.data import Batch, Example
+from torchtext.data import Batch
 from tqdm import tqdm
 
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.typedefs.activations import (
     ActivationNames,
-    BatchArrayDict,
-    FullActivationDict,
-    PartialArrayDict,
     ActivationRanges,
+    BatchTensorDict,
+    BatchTensorListDict,
     SelectFunc,
+    TensorDict,
+    TensorListDict,
 )
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
@@ -99,7 +99,7 @@ class Extractor:
 
         tot_extracted = n_sens = 0
 
-        all_activations: PartialArrayDict = self._init_sen_activations()
+        all_activations: TensorListDict = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
         iterator = create_iterator(
             self.corpus, batch_size=batch_size, device=self.model.device
@@ -123,9 +123,6 @@ class Extractor:
 
                 if not only_dump_avg_eos:
                     for j in batch_activations.keys():
-                        if len(next(iter(batch_activations[j].values()))) == 0:
-                            continue
-
                         if dynamic_dumping:
                             self.activation_writer.dump_activations(
                                 batch_activations[j]
@@ -138,18 +135,17 @@ class Extractor:
                     self._update_avg_eos_activations(avg_eos_states, batch_activations)
 
                 for j in batch_activations.keys():
-                    activation_ranges[n_sens] = (
+                    activation_ranges[n_sens + j] = (
                         tot_extracted,
                         tot_extracted + n_extracted[j],
                     )
-                    n_sens += 1
-
                     tot_extracted += n_extracted[j]
 
-                if cutoff == n_sens:
+                n_sens += batch.batch_size
+                if 0 < cutoff <= n_sens:
                     break
 
-            # clear up RAM usage for finall activation dump
+            # clear up RAM usage for final activation dump
             del self.model
 
             if create_avg_eos:
@@ -159,11 +155,12 @@ class Extractor:
             if not only_dump_avg_eos:
                 self.activation_writer.dump_activation_ranges(activation_ranges)
                 if not dynamic_dumping:
+                    concat_activations: TensorDict = {}
                     for name in all_activations.keys():
-                        all_activations[name] = np.concatenate(
-                            all_activations[name], axis=0
+                        concat_activations[name] = torch.cat(
+                            all_activations[name], dim=0
                         )
-                    self.activation_writer.dump_activations(all_activations)
+                    self.activation_writer.dump_activations(concat_activations)
 
         if dynamic_dumping and not only_dump_avg_eos:
             print("\nConcatenating sequentially dumped pickle files into 1 array...")
@@ -176,7 +173,7 @@ class Extractor:
 
     def _extract_sentence(
         self, batch: Batch, n_sens: int, selection_func: SelectFunc
-    ) -> Tuple[BatchArrayDict, List[int]]:
+    ) -> Tuple[BatchTensorDict, List[int]]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -192,18 +189,17 @@ class Extractor:
 
         Returns
         -------
-        sen_activations : PartialArrayDict
-            Extracted activations for this sentence. Activations are
-            converted to numpy arrays.
-        n_extracted : Labels
-            Number of extracted activations.
+        sen_activations : BatchTensorDict
+            Dict mapping batch id's to activation names to tensors.
+        n_extracted : List[int]
+            Number of extracted activations, per batch item.
         """
         bsz = len(batch)
         n_extracted: List[int] = [0] * bsz
 
-        batch_activations: BatchArrayDict = self._init_batch_activations(bsz)
-        cur_activations: FullActivationDict = self.model.init_hidden(bsz)
-        examples = self.corpus.examples[n_sens: n_sens+bsz]
+        batch_tensor_list: BatchTensorListDict = self._init_batch_activations(bsz)
+        cur_activations: TensorDict = self.model.init_hidden(bsz)
+        examples = self.corpus.examples[n_sens : n_sens + bsz]
 
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
@@ -216,35 +212,38 @@ class Extractor:
 
             # Check whether current activations match criterion defined in selection_func
             for j in range(bsz):
-                if i < sen_lens[j] and selection_func(n_sens+j, i, examples[j]):
+                if i < sen_lens[j] and selection_func(n_sens + j, i, examples[j]):
                     for layer, name in self.activation_names:
-                        cur_activation = cur_activations[layer][name][j]
-                        if self.model.array_type == "torch":
-                            cur_activation = cur_activation.detach().numpy()
+                        cur_activation = cur_activations[layer, name][j]
 
-                        batch_activations[j][(layer, name)].append(cur_activation)
+                        batch_tensor_list[j][(layer, name)].append(cur_activation)
 
                     n_extracted[j] += 1
 
+        batch_tensors: BatchTensorDict = {}
         for j in range(bsz):
-            for a_name, arr in batch_activations[j].items():
-                batch_activations[j][a_name] = np.array(arr)
+            batch_tensors[j] = {}
+            for a_name, tensor_list in batch_tensor_list[j].items():
+                if len(tensor_list) > 0:
+                    batch_tensors[j][a_name] = torch.stack(tensor_list)
+                else:
+                    del batch_tensors[j]
+                    break
 
-        return batch_activations, n_extracted
+        return batch_tensors, n_extracted
 
-    def _init_batch_activations(self, batch_size: int) -> BatchArrayDict:
+    def _init_batch_activations(self, batch_size: int) -> BatchTensorListDict:
         """ Initial dict of of activations for current batch. """
 
         return {i: self._init_sen_activations() for i in range(batch_size)}
 
-    def _init_sen_activations(self) -> PartialArrayDict:
+    def _init_sen_activations(self) -> TensorListDict:
         """ Initial dict for each activation that is extracted. """
 
         return {(layer, name): [] for (layer, name) in self.activation_names}
 
-    def _init_avg_eos_activations(self) -> FullActivationDict:
-        # TODO this might break now as init_states always adds batch dim
-        init_avg_eos_activations: FullActivationDict = self.init_lstm_states.create_zero_init_states()
+    def _init_avg_eos_activations(self) -> TensorDict:
+        init_avg_eos_activations: TensorDict = self.model.init_lstm_states.create_zero_state()
 
         for layer in range(self.model.num_layers):
             if (layer, "hx") not in self.activation_names:
@@ -254,24 +253,20 @@ class Extractor:
 
         return init_avg_eos_activations
 
+    @staticmethod
     def _update_avg_eos_activations(
-        self, prev_activations: FullActivationDict, new_activations: BatchArrayDict
+        prev_activations: TensorDict, new_activations: BatchTensorDict
     ) -> None:
         for j in new_activations.keys():
-            for layer in prev_activations.keys():
-                for name in prev_activations[layer].keys():
-                    eos_activation = new_activations[j][(layer, name)][-1]
-                    if self.model.array_type == "torch":
-                        prev_activations[layer][name] += torch.from_numpy(
-                            eos_activation
-                        )
-                    else:
-                        prev_activations[layer][name] += eos_activation
+            for layer, name in prev_activations.keys():
+                eos_activation = new_activations[j][layer, name][-1]
+                prev_activations[layer, name] += eos_activation
 
     @staticmethod
     def _normalize_avg_eos_activations(
-        avg_eos_activations: FullActivationDict, n_sens: int
+        avg_eos_activations: TensorDict, n_sens: int
     ) -> None:
-        for layer in avg_eos_activations.keys():
-            for name in avg_eos_activations[layer].keys():
-                avg_eos_activations[layer][name] /= n_sens
+        for layer, name in avg_eos_activations.keys():
+            avg_eos_activations[layer, name] = (
+                avg_eos_activations[layer, name][0] / n_sens
+            )

@@ -1,9 +1,8 @@
-from typing import Optional, Union
-
-import numpy as np
+from typing import Optional
+from itertools import chain
 import torch
 
-from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import TensorDict
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
@@ -28,14 +27,18 @@ class InitStates:
 
         self.init_lstm_states_path = init_lstm_states_path
 
-        self.use_np_arrays = model.array_type == "numpy"
-
-    def create(self, batch_size: int = 1) -> FullActivationDict:
+    def create(self, batch_size: int = 1) -> TensorDict:
         """ Set up the initial LM states.
 
         If no path is provided 0-initialized embeddings will be used.
         Note that the loaded init should provide tensors for `hx`
         and `cx` in all layers of the LM.
+
+        Arguments
+        ---------
+        batch_size : int, optional
+            Number of batch items, towards which the initial states
+            will be expanded. Defaults to 1.
 
         Returns
         -------
@@ -43,7 +46,7 @@ class InitStates:
             FullActivationDict containing init embeddings for each layer.
         """
         if self.init_lstm_states_path is not None:
-            init_states: FullActivationDict = load_pickle(self.init_lstm_states_path)
+            init_states: TensorDict = load_pickle(self.init_lstm_states_path)
 
             self._validate(init_states)
 
@@ -51,9 +54,23 @@ class InitStates:
 
             return init_states
 
-        return self.create_zero_init_states(batch_size)
+        return self.create_zero_state(batch_size)
 
-    def _validate(self, init_states: FullActivationDict) -> None:
+    def create_zero_state(self, batch_size: int = 1) -> TensorDict:
+        """Zero-initialized states if no init state is provided."""
+        init_states: TensorDict = {}
+
+        for layer in range(self.num_layers):
+            init_states[layer, "cx"] = self._create_zero_state(
+                self.sizes[layer]["c"], batch_size
+            )
+            init_states[layer, "hx"] = self._create_zero_state(
+                self.sizes[layer]["c"], batch_size
+            )
+
+        return init_states
+
+    def _validate(self, init_states: TensorDict) -> None:
         """ Performs a simple validation of the new initial states.
 
         Parameters
@@ -66,52 +83,39 @@ class InitStates:
             len(init_states) == self.num_layers
         ), "Number of initial layers not correct"
         for layer, layer_size in self.sizes.items():
-            init_state_dict = init_states[layer]
-
-            assert (
-                "hx" in init_state_dict.keys() and "cx" in init_state_dict.keys()
-            ), "Initial layer names not correct, should be hx and cx"
-
-            assert len(init_state_dict["hx"]) == self.sizes[layer]["h"], (
-                "Initial activation size for hx is incorrect: "
-                f'hx: {len(init_state_dict["hx"])}, should be {self.sizes[layer]["h"]}'
+            assert (layer, "hx") in init_states.keys() and (
+                layer,
+                "cx",
+            ) in init_states.keys(), (
+                "Initial layer names not correct, should be hx and cx"
             )
 
-            assert len(init_state_dict["cx"]) == self.sizes[layer]["c"], (
+            assert init_states[layer, "hx"].size(0) == self.sizes[layer]["h"], (
+                "Initial activation size for hx is incorrect: "
+                f'hx: {init_states[layer, "hx"].size(0)}, should be {self.sizes[layer]["h"]}'
+            )
+
+            assert init_states[layer, "cx"].size(0) == self.sizes[layer]["c"], (
                 "Initial activation size for cx is incorrect: "
-                f'cx: {len(init_state_dict["cx"])}, should be {self.sizes[layer]["c"]}'
+                f'cx: {init_states[layer, "cx"].size(0)}, should be {self.sizes[layer]["c"]}'
             )
 
     def _expand_batch_size(
-        self, init_states: FullActivationDict, batch_size: int
-    ) -> FullActivationDict:
-        return {
-            l: {
-                "cx": np.repeat(
-                    init_states[l]["cx"][np.newaxis, :], batch_size, axis=0
-                ),
-                "hx": np.repeat(
-                    init_states[l]["hx"][np.newaxis, :], batch_size, axis=0
-                ),
-            }
-            for l in range(self.num_layers)
-        }
+        self, init_states: TensorDict, batch_size: int
+    ) -> TensorDict:
+        """Expands the init_states in the batch dimension."""
+        batch_init_states: TensorDict = {}
 
-    def create_zero_init_states(
-        self, batch_size: Optional[int] = None
-    ) -> FullActivationDict:
-        """Zero-initialized states if no init state has been provided"""
-        return {
-            l: {
-                "cx": self._create_zero_state(self.sizes[l]["c"], batch_size),
-                "hx": self._create_zero_state(self.sizes[l]["h"], batch_size),
-            }
-            for l in range(self.num_layers)
-        }
+        for layer in range(self.num_layers):
+            batch_init_states[layer, "cx"] = torch.repeat_interleave(
+                init_states[layer, "cx"].unsqueeze(0), batch_size, dim=0
+            )
+            batch_init_states[layer, "hx"] = torch.repeat_interleave(
+                init_states[layer, "hx"].unsqueeze(0), batch_size, dim=0
+            )
 
-    def _create_zero_state(
-        self, size: int, batch_size: Optional[int] = None
-    ) -> Union[torch.Tensor, np.ndarray]:
-        if self.use_np_arrays:
-            return np.zeros((batch_size, size), dtype=np.float32)
+        return batch_init_states
+
+    @staticmethod
+    def _create_zero_state(size: int, batch_size: int) -> torch.Tensor:
         return torch.zeros((batch_size, size))
