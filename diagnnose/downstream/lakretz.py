@@ -94,7 +94,7 @@ def lakretz_downstream(
 
         for i, batch in enumerate(iterator):
             if print_results and i % items_per_class == 1 and i > 1:
-                prev_condition = ((i-1) // items_per_class) - 1
+                prev_condition = ((i - 1) // items_per_class) - 1
 
                 prev_acc = accs[prev_condition] / tots[prev_condition]
                 skipped = items_per_class - tots[prev_condition]

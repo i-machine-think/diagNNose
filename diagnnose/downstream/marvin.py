@@ -19,7 +19,7 @@ def marvin_downstream(
     marvin_path: str,
     marvin_tasks: Optional[List[str]] = None,
     device: str = "cpu",
-    print_results: bool = True
+    print_results: bool = True,
 ) -> Dict[str, float]:
     """ Performs the downstream tasks of Marvin & Linzen (2018)
 
@@ -55,13 +55,10 @@ def marvin_downstream(
     accs_dict: Dict[str, float] = {}
 
     for task in marvin_descriptions:
-        assert (
-            task in marvin_tasks
-        ), f"Provided task {task} is not recognised!"
+        assert task in marvin_tasks, f"Provided task {task} is not recognised!"
 
         corpus = import_corpus(
-            os.path.join(marvin_path, f"{task}.txt"),
-            vocab_path=vocab_path,
+            os.path.join(marvin_path, f"{task}.txt"), vocab_path=vocab_path
         )
 
         iterator = create_iterator(corpus, batch_size=2, device=device)
