@@ -87,7 +87,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions["activations"] = {
         # TODO: Provide explanation of activation names
         "activations_dir": {
-            "help": "(required) Path to folder to which extracted embeddings will be written.",
+            "help": "(required) Path to folder to which extracted embeddings will be written."
         }
     }
 
@@ -160,10 +160,46 @@ def create_arg_descriptions() -> ArgDescriptions:
 
     arg_descriptions["decompose"] = {
         "decomposer": {
-            "required": True,
             "help": "(required) Class name of decomposer constructor. As of now either "
-            "CellDecomposer or ContextualDecomposer",
-        }
+            "CellDecomposer or ContextualDecomposer. Defaults to ContextualDecomposer."
+        },
+        "decompose_o": {
+            "help": " Toggles decomposition of the output gate. Defaults to False."
+        },
+        "rel_interactions": {
+            "help": " Indicates the interactions that are part of the relevant decomposition. "
+            "Possible interactions are: rel-rel, rel-b and rel-irrel. Defaults to rel-rel, "
+            "rel-irrel & rel-b."
+        },
+        "bias_bias_only_in_phrase": {
+            "help": " Toggles whether the bias-bias interaction should only be added when inside "
+            "the relevant phrase. Defaults to True, indicating that only bias-bias "
+            "interactions inside the subphrase range are added to the relevant decomposition."
+        },
+        "only_source_rel": {
+            "help": " Relates to rel-irrel interactions. If set to true, only irrel_gate-rel_"
+            "source interactions will be added to rel, similar to LRP (Arras et al., 2017)."
+        },
+        "only_source_rel_b": {
+            "help": " Relates to rel-b interactions. If set to true, only b-rel_source "
+            "interactions will be added to rel, similar to LRP (Arras et al., 2017)."
+        },
+        "input_never_rel": {
+            "help": " Never add the Wx input to the rel part, useful when only investigating "
+            "the model biases. Defaults to False."
+        },
+        "init_states_rel": {
+            "help": " Directly add the initial cell/hidden states to the relevant part. "
+            "Defaults to False."
+        },
+        "use_extracted_activations": {
+            "help": " Allows previously extracted activations to be used to avoid unnecessary "
+            "recomputations of those activations. Defaults to True."
+        },
+        "only_return_dec": {
+            "help": " Only returns the decomposed cell states of the top layer, without "
+            "calculating the corresponding decoder scores. Defaults to False."
+        },
     }
 
     arg_descriptions["downstream"] = {
