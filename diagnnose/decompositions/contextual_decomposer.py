@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Callable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, List, Optional, Set, Tuple
 
 import torch
 from overrides import overrides
@@ -514,9 +514,12 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _calc_scores(self) -> NamedTensors:
         return {
-            "relevant": self.decompositions[self.toplayer]["rel_h"] @ self.decoder_w.T,
-            "irrelevant": self.decompositions[self.toplayer]["irrel_h"]
-            @ self.decoder_w.T,
+            "relevant": (
+                self.decompositions[self.toplayer]["rel_h"] @ self.decoder_w.t()
+            ),
+            "irrelevant": (
+                self.decompositions[self.toplayer]["irrel_h"] @ self.decoder_w.t()
+            ),
         }
 
 

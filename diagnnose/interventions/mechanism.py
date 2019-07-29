@@ -10,12 +10,13 @@ from typing import Callable, Dict, Tuple
 from torch import Tensor
 
 from diagnnose.model_wrappers.intervention_lstm import InterventionLSTM
-from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import ActivationTensors
 
 
 class InterventionMechanism(ABC):
     """
-    A callable class that is being used as an decorator function to provide an intervention functionality when
+    A callable class that is being used as an decorator function to
+    provide an intervention functionality when
     wrapped around model's forward() function.
 
     Example usage:
@@ -36,8 +37,8 @@ class InterventionMechanism(ABC):
         self.trigger_func = trigger_func
 
     def __call__(self, forward_func: Callable) -> Callable:
-        """
-        Wrap the intervention function about the models forward function and return the decorated function.
+        """Wrap the intervention function about the models forward
+        function and return the decorated function.
 
         Parameters
         ----------
@@ -52,8 +53,8 @@ class InterventionMechanism(ABC):
 
         @wraps(forward_func)
         def wrapped(
-            inp: str, prev_activations: FullActivationDict, **additional: Dict
-        ) -> Tuple[Tensor, FullActivationDict]:
+            inp: str, prev_activations: ActivationTensors, **additional: Dict
+        ) -> Tuple[Tensor, ActivationTensors]:
 
             out, activations = forward_func(inp, prev_activations)
 
@@ -64,8 +65,8 @@ class InterventionMechanism(ABC):
         return wrapped
 
     def apply(self) -> InterventionLSTM:
-        """
-        Return an instance of the model where the intervention function decorates the model's forward function.
+        """ Return an instance of the model where the intervention
+        function decorates the model's forward function.
 
         Returns
         -------
@@ -79,11 +80,11 @@ class InterventionMechanism(ABC):
     def intervention_func(
         self,
         inp: str,
-        prev_activations: FullActivationDict,
+        prev_activations: ActivationTensors,
         out: Tensor,
-        activations: FullActivationDict,
+        activations: ActivationTensors,
         **additional: Dict
-    ) -> Tuple[Tensor, FullActivationDict]:
+    ) -> Tuple[Tensor, ActivationTensors]:
         """
         Define the intervention logic here.
 

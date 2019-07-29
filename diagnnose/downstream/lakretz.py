@@ -89,6 +89,7 @@ def lakretz_downstream(
 
         iterator = create_iterator(corpus, batch_size=2, device=device)
 
+        skipped = 0
         accs = np.zeros(condition_specs["classes"])
         tots = np.zeros(condition_specs["classes"])
 

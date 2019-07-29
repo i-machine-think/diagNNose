@@ -95,10 +95,10 @@ class CDAttention:
 
             for j in range(1, end_id):
                 rel_scores[i, j - 1] = (
-                    decomposition["rel_h"][j - 1] @ decomposer.decoder_w[j].T
+                    decomposition["rel_h"][j - 1] @ decomposer.decoder_w[j].t()
                 )
                 irrel_scores[i, j - 1] = (
-                    decomposition["irrel_h"][j - 1] @ decomposer.decoder_w[j].T
+                    decomposition["irrel_h"][j - 1] @ decomposer.decoder_w[j].t()
                 )
 
         if normalize:

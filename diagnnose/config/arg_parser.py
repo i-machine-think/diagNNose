@@ -115,7 +115,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "only_dump_avg_eos": {
             "type": bool,
-            "help": "(optional) Set to true to only dump the avg eos activation. Defaults to false.",
+            "help": "(optional) Toggle to only dump the avg eos activation. Defaults to false.",
         },
         "cutoff": {
             "type": int,

@@ -1,6 +1,8 @@
 """
 Implementing a version of the intervention mechanism which relies on weak supervision, i.e. additional labels which
 provide information that is helpful to solve the task or enrich the model in any other way.
+
+NOTE: THIS MODULE HAS NOT BEEN MAINTAINED
 """
 
 import re
@@ -19,13 +21,14 @@ from torch.optim import SGD
 
 from diagnnose.interventions.mechanism import InterventionMechanism
 from diagnnose.model_wrappers.forward_lstm import ForwardLSTM
-from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.activations import ActivationTensors
 from diagnnose.typedefs.interventions import DiagnosticClassifierDict
 
 
 class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     """
-    Mechanism that triggers an intervention based on additional labels and Diagnostic classifiers [1][2].
+    Mechanism that triggers an intervention based on additional labels
+    and Diagnostic classifiers [1][2].
 
     [1] https://www.jair.org/index.php/jair/article/view/11196/26408
     [2] http://aclweb.org/anthology/W18-5426
@@ -40,17 +43,20 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     step_size: float
         Step size of the adjustment of the activations.
     masking: bool
-        Flag to indicate whether interventions should only be conducted when the prediction of the Diagnostic Classifier
-        is wrong (masking = True) or even when it is right (masking = False; in this case a gradient is still possible
-        to compute).
+        Flag to indicate whether interventions should only be conducted
+        when the prediction of the Diagnostic Classifier
+        is wrong (masking = True) or even when it is right (masking =
+        False; in this case a gradient is still possible to compute).
     redecode: bool
-        Flag to indicate whether the probability distribution over the vocabulary should be recomputed after adjusting
-        activations during interventions.
+        Flag to indicate whether the probability distribution over the
+        vocabulary should be recomputed after adjusting activations
+        during interventions.
     diagnostic_classifiers: dict
-        Dictionary of path to diagnostic classifiers to their respective diagnostic classifiers objects.
+        Dictionary of path to diagnostic classifiers to their respective
+        diagnostic classifiers objects.
     intervention_points: list
-        List of strings specifying on which layer for which activations interventions should be conducted, i.e.
-        ['hx_l0', 'cx_l1']
+        List of strings specifying on which layer for which activations
+        interventions should be conducted, i.e. ['hx_l0', 'cx_l1']
     """
 
     def __init__(
@@ -88,11 +94,11 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     def select_diagnostic_classifier(
         self,
         inp: str,
-        prev_activations: FullActivationDict,
+        prev_activations: ActivationTensors,
         layer: str,
         activation_type: str,
         **additional: dict
-    ):
+    ) -> None:
         """
         Select the appropriate Diagnostic Classifier based on data used in current forward pass.
 
@@ -114,8 +120,8 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     @abstractmethod
     def dc_trigger_func(
         self,
-        prev_activations: FullActivationDict,
-        activations: FullActivationDict,
+        prev_activations: ActivationTensors,
+        activations: ActivationTensors,
         out: Tensor,
         prediction: Tensor,
         **additional: dict
@@ -198,11 +204,11 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     def intervention_func(
         self,
         inp: str,
-        prev_activations: FullActivationDict,
+        prev_activations: ActivationTensors,
         out: Tensor,
-        activations: FullActivationDict,
+        activations: ActivationTensors,
         **additional: Dict
-    ) -> Tuple[Tensor, FullActivationDict]:
+    ) -> Tuple[Tensor, ActivationTensors]:
         """
         Conduct an intervention based on weak supervision signal.
 
@@ -235,7 +241,8 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
             weights, bias = self.diagnostic_classifier_to_vars(dc)
             label = torch.tensor([additional["label"]], dtype=torch.float)
 
-            # Calculate gradient of the diagnostic classifier's prediction w.r.t. the current activations
+            # Calculate gradient of the diagnostic classifier's prediction w.r.t.
+            # the current activations
             current_activations = activations[layer_num][activation_type]
             current_activations = self._wrap_in_var(
                 current_activations, requires_grad=True
