@@ -9,7 +9,7 @@ def import_model(model_config: Dict[str, Any]) -> LanguageModel:
     """
     Import a model from a json file.
 
-    Arguments
+    Parameters
     ----------
     model_config : str
         Dictionary containing the model config attributes that are
@@ -35,8 +35,8 @@ def import_decoder_from_model(
     Assumed to be a linear layer, that can be accessed by the decoder_w
     and decoder_b attributes of the model.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     model : LanguageModel
         LanguageModel that contains a linear decoding layer.
     decoder_w : str
@@ -46,10 +46,5 @@ def import_decoder_from_model(
     """
     w = getattr(model, decoder_w)
     b = getattr(model, decoder_b)
-
-    if model.array_type == "torch":
-        w = w.data.numpy()
-        if b is not None:
-            b = b.data.numpy()
 
     return w, b

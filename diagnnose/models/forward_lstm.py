@@ -6,7 +6,7 @@ from overrides import overrides
 from torch import Tensor
 
 from diagnnose.activations.init_states import InitStates
-from diagnnose.typedefs.activations import LayeredTensorDict, TensorDict
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.typedefs.lm import LanguageModel
 
 
@@ -19,7 +19,7 @@ class ForwardLSTM(LanguageModel):
     ----------
     state_dict : str
         Path to torch pickle containing the model parameter state dict.
-    init_lstm_states_path: str, optional
+    init_states_path: str, optional
         Path to pickled initial embeddings. These initial embeddings
         be created using the `Extractor` class. If not provided
         0-valued initial states will be used.
@@ -40,7 +40,7 @@ class ForwardLSTM(LanguageModel):
     def __init__(
         self,
         state_dict: str,
-        init_lstm_states_path: Optional[str] = None,
+        init_states_path: Optional[str] = None,
         device: str = "cpu",
         rnn_name: str = "rnn",
         encoder_name: str = "encoder",
@@ -53,8 +53,8 @@ class ForwardLSTM(LanguageModel):
             params: Dict[str, Tensor] = torch.load(mf, map_location=device)
 
         self.device: str = device
-        self.weight: LayeredTensorDict = {}
-        self.bias: LayeredTensorDict = {}
+        self.weight: LayeredTensors = {}
+        self.bias: LayeredTensors = {}
 
         # LSTM weights
         layer = 0
@@ -87,20 +87,20 @@ class ForwardLSTM(LanguageModel):
         if f"{decoder_name}.bias" in params:
             self.decoder_b = params[f"{decoder_name}.bias"]
 
-        self.init_lstm_states: InitStates = InitStates(self, init_lstm_states_path)
+        self.init_states: InitStates = InitStates(self.sizes, init_states_path)
 
         print("Model initialisation finished.")
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> TensorDict:
+    ) -> ActivationTensors:
         """ Performs the forward step of 1 RNN layer.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         layer : int
             Current RNN layer.
-        inp : Tensor
+        emb : Tensor
             Current input embedding. In higher layers this is h^l-1_t.
             Size: bsz x emb_size
         prev_hx : Tensor
@@ -147,13 +147,13 @@ class ForwardLSTM(LanguageModel):
     def forward(
         self,
         input_: Tensor,
-        prev_activations: Optional[TensorDict] = None,
+        prev_activations: Optional[ActivationTensors] = None,
         compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], TensorDict]:
+    ) -> Tuple[Optional[Tensor], ActivationTensors]:
         """Performs 1 (batched) forward step for a multi-layer RNN.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         input_ : Tensor
             Tensor containing a batch of token id's at the current
             sentence position.
@@ -175,7 +175,7 @@ class ForwardLSTM(LanguageModel):
             prev_activations = self.init_hidden(bsz)
 
         # Iteratively compute and store intermediate rnn activations
-        activations: TensorDict = {}
+        activations: ActivationTensors = {}
         for l in range(self.num_layers):
             prev_hx = prev_activations[l, "hx"]
             prev_cx = prev_activations[l, "cx"]
@@ -199,8 +199,5 @@ class ForwardLSTM(LanguageModel):
             "bias_ih": f"{rnn_name}.bias_ih_l{layer}",
         }
 
-    def init_hidden(self, bsz: int) -> TensorDict:
-        return self.init_lstm_states.create(bsz)
-
-    def final_hidden(self, hidden: TensorDict) -> torch.Tensor:
+    def final_hidden(self, hidden: ActivationTensors) -> torch.Tensor:
         return hidden[self.num_layers - 1, "hx"].squeeze()

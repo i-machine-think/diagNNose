@@ -18,8 +18,8 @@ from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import TensorDict, SelectFunc
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.typedefs.activations import ActivationTensors, SelectFunc
+from diagnnose.typedefs.lm import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
 from .test_utils import create_sentence_dummy_activations
@@ -54,14 +54,17 @@ class MockLanguageModel(LanguageModel):
         self.split_order = ["f", "i", "g", "o"]
         self.array_type = "torch"
 
-        self.init_lstm_states: InitStates = InitStates(self)
+        self.init_states: InitStates = InitStates(self.sizes)
 
         self.reset()
 
     @overrides
     def forward(
-        self, token: torch.Tensor, _activations: TensorDict, compute_out: bool = False
-    ) -> Tuple[None, TensorDict]:
+        self,
+        token: torch.Tensor,
+        _activations: ActivationTensors,
+        compute_out: bool = False,
+    ) -> Tuple[None, ActivationTensors]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
         assert token.item() == next_token
@@ -70,9 +73,6 @@ class MockLanguageModel(LanguageModel):
             next_activation = next_activation.unsqueeze(dim=0)
 
         return None, {(0, "hx"): next_activation, (0, "cx"): next_activation}
-
-    def init_hidden(self, bsz: int) -> TensorDict:
-        return self.init_lstm_states.create(bsz)
 
     def reset(self) -> None:
         """ Reset the activations for next test. """
@@ -312,7 +312,9 @@ class TestExtractor(unittest.TestCase):
         return extracted_activations, extracted_labels
 
     @staticmethod
-    def _merge_sentence_activations(sentences_activations: List[TensorDict]) -> Tensor:
+    def _merge_sentence_activations(
+        sentences_activations: List[ActivationTensors]
+    ) -> Tensor:
         """ Merge activations from different sentences into one single numpy array. """
         return torch.cat(
             [

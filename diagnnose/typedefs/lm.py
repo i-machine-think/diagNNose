@@ -5,10 +5,8 @@ from overrides import overrides
 from torch import Tensor, nn
 
 from diagnnose.activations.init_states import InitStates
-from diagnnose.typedefs.activations import TensorDict
-
-
-SizeDict = Dict[int, Dict[str, int]]
+from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.models import SizeDict
 
 
 class LanguageModel(ABC, nn.Module):
@@ -17,7 +15,7 @@ class LanguageModel(ABC, nn.Module):
     device: str = "cpu"
     forget_offset: int = 0
     ih_concat_order: List[str] = ["h", "i"]
-    init_states: Optional[InitStates] = None
+    init_states: InitStates
     sizes: SizeDict = {}
     split_order: List[str]
 
@@ -31,8 +29,11 @@ class LanguageModel(ABC, nn.Module):
     @overrides
     @abstractmethod
     def forward(
-        self, input_: Tensor, prev_activations: TensorDict, compute_out: bool = True
-    ) -> Tuple[Optional[Tensor], TensorDict]:
+        self,
+        input_: Tensor,
+        prev_activations: ActivationTensors,
+        compute_out: bool = True,
+    ) -> Tuple[Optional[Tensor], ActivationTensors]:
         """
 
         Parameters
@@ -59,8 +60,17 @@ class LanguageModel(ABC, nn.Module):
             tensor.
         """
 
-    def init_hidden(self, bsz: int) -> TensorDict:
-        """"""
-        assert self.init_states is not None, "Initial states must be provided"
+    def init_hidden(self, bsz: int) -> ActivationTensors:
+        """Creates a batch of initial states.
 
+        Parameters
+        ----------
+        bsz : int
+            Size of batch for which states are created.
+
+        Returns
+        -------
+        init_states : ActivationTensors
+            Dictionary mapping hidden and cell state to init tensors.
+        """
         return self.init_states.create(bsz)

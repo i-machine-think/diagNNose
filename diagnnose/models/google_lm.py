@@ -7,7 +7,7 @@ import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.typedefs.activations import LayeredTensorDict, TensorDict
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.typedefs.lm import LanguageModel
 from diagnnose.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
 
@@ -55,15 +55,15 @@ class GoogleLM(LanguageModel):
         return self.encoder.vocab
 
     @property
-    def weight(self) -> LayeredTensorDict:
+    def weight(self) -> LayeredTensors:
         return self.lstm.weight
 
     @property
-    def bias(self) -> LayeredTensorDict:
+    def bias(self) -> LayeredTensors:
         return self.lstm.bias
 
     @property
-    def peepholes(self) -> TensorDict:
+    def peepholes(self) -> ActivationTensors:
         return self.lstm.peepholes
 
     @property
@@ -76,8 +76,8 @@ class GoogleLM(LanguageModel):
 
     @overrides
     def forward(
-        self, token: str, prev_activations: TensorDict, compute_out: bool = True
-    ) -> Tuple[Optional[Tensor], TensorDict]:
+        self, token: str, prev_activations: ActivationTensors, compute_out: bool = True
+    ) -> Tuple[Optional[Tensor], ActivationTensors]:
         # Create the embeddings of the input words
         embs = self.encoder.encode(token)
 
@@ -158,13 +158,13 @@ class LSTM(nn.Module):
         self.forget_offset = forget_offset
 
         # Projects hidden+input (2*1024) onto cell state dimension (8192)
-        self.weight: LayeredTensorDict = {}
-        self.bias: LayeredTensorDict = {}
+        self.weight: LayeredTensors = {}
+        self.bias: LayeredTensors = {}
 
         # Projects cell state dimension (8192) back to hidden dimension (1024)
-        self.weight_P: LayeredTensorDict = {}
+        self.weight_P: LayeredTensors = {}
         # The 3 peepholes are weighted by a diagonal matrix
-        self.peepholes: TensorDict = {}
+        self.peepholes: ActivationTensors = {}
 
         self._load_lstm(ckpt_dir)
 
@@ -212,7 +212,7 @@ class LSTM(nn.Module):
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> TensorDict:
+    ) -> ActivationTensors:
         proj: Tensor = self.weight[layer] @ torch.cat((emb, prev_hx), dim=1)
         proj += self.bias[layer]
 
@@ -242,10 +242,10 @@ class LSTM(nn.Module):
 
     @overrides
     def forward(
-        self, input_: Tensor, prev_activations: TensorDict
-    ) -> Tuple[Optional[Tensor], TensorDict]:
+        self, input_: Tensor, prev_activations: ActivationTensors
+    ) -> Tuple[Optional[Tensor], ActivationTensors]:
         # Iteratively compute and store intermediate rnn activations
-        activations: TensorDict = {}
+        activations: ActivationTensors = {}
 
         for l in range(self.num_layers):
             prev_hx = prev_activations[l, "hx"]

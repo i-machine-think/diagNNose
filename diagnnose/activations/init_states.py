@@ -1,9 +1,9 @@
 from typing import Optional
-from itertools import chain
+
 import torch
 
-from diagnnose.typedefs.activations import TensorDict
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.models import SizeDict
 from diagnnose.utils.pickle import load_pickle
 
 
@@ -12,22 +12,22 @@ class InitStates:
 
     Attributes
     ----------
-    model : LanguageModel
+    sizes : SizeDict
         Language model for which init states will be created.
-    init_lstm_states_path : str, optional
+    init_states_path : str, optional
         Path to pickled file with initial lstm states. If not provided
         zero-valued init states will be created.
     """
 
     def __init__(
-        self, model: LanguageModel, init_lstm_states_path: Optional[str] = None
+        self, sizes: SizeDict, init_states_path: Optional[str] = None
     ) -> None:
-        self.sizes = model.sizes
-        self.num_layers = model.num_layers
+        self.sizes = sizes
+        self.num_layers = len(sizes)
 
-        self.init_lstm_states_path = init_lstm_states_path
+        self.init_states_path = init_states_path
 
-    def create(self, batch_size: int = 1) -> TensorDict:
+    def create(self, batch_size: int = 1) -> ActivationTensors:
         """ Set up the initial LM states.
 
         If no path is provided 0-initialized embeddings will be used.
@@ -42,11 +42,11 @@ class InitStates:
 
         Returns
         -------
-        init_states : FullActivationDict
-            FullActivationDict containing init embeddings for each layer.
+        init_states : TensorDict
+            TensorDict containing the initial states for each layer.
         """
-        if self.init_lstm_states_path is not None:
-            init_states: TensorDict = load_pickle(self.init_lstm_states_path)
+        if self.init_states_path is not None:
+            init_states: ActivationTensors = load_pickle(self.init_states_path)
 
             self._validate(init_states)
 
@@ -56,9 +56,9 @@ class InitStates:
 
         return self.create_zero_state(batch_size)
 
-    def create_zero_state(self, batch_size: int = 1) -> TensorDict:
+    def create_zero_state(self, batch_size: int = 1) -> ActivationTensors:
         """Zero-initialized states if no init state is provided."""
-        init_states: TensorDict = {}
+        init_states: ActivationTensors = {}
 
         for layer in range(self.num_layers):
             init_states[layer, "cx"] = self._create_zero_state(
@@ -70,12 +70,12 @@ class InitStates:
 
         return init_states
 
-    def _validate(self, init_states: TensorDict) -> None:
+    def _validate(self, init_states: ActivationTensors) -> None:
         """ Performs a simple validation of the new initial states.
 
         Parameters
         ----------
-        init_states: FullActivationDict
+        init_states: TensorDict
             New initial states that should have a structure that
             complies with the dimensions of the language model.
         """
@@ -101,10 +101,10 @@ class InitStates:
             )
 
     def _expand_batch_size(
-        self, init_states: TensorDict, batch_size: int
-    ) -> TensorDict:
+        self, init_states: ActivationTensors, batch_size: int
+    ) -> ActivationTensors:
         """Expands the init_states in the batch dimension."""
-        batch_init_states: TensorDict = {}
+        batch_init_states: ActivationTensors = {}
 
         for layer in range(self.num_layers):
             batch_init_states[layer, "cx"] = torch.repeat_interleave(
