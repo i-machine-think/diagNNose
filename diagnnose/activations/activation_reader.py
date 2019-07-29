@@ -1,19 +1,18 @@
 import os
 import pickle
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
+import numpy as np
 import torch
 from torch import Tensor
-from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
-import numpy as np
 
 from diagnnose.typedefs.activations import (
     ActivationIndex,
     ActivationKey,
     ActivationName,
     ActivationRanges,
+    ActivationTensors,
     Range,
-    TensorDict,
 )
 from diagnnose.utils.pickle import load_pickle
 
@@ -50,7 +49,7 @@ class ActivationReader:
         assert os.path.exists(activations_dir), "Activations dir not found!"
         self.activations_dir = activations_dir
 
-        self._tensor_dict: TensorDict = {}
+        self._tensor_dict: ActivationTensors = {}
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 
@@ -58,7 +57,7 @@ class ActivationReader:
         self.store_multiple_activations = store_multiple_activations
 
     # TODO: improve docs, clearer formatting etc.
-    def __getitem__(self, key: ActivationKey) -> Union[Tensor, PackedSequence]:
+    def __getitem__(self, key: ActivationKey) -> Sequence[Tensor]:
         """ Provides indexing of activations, indexed by sentence
         position or key, or indexing the activations itself. Indexing
         based on sentence returns all activations belonging to that
@@ -82,16 +81,12 @@ class ActivationReader:
         [index, {
             indextype?: 'pos' | 'key' | 'all',
             a_name?: (layer, name),
-            concat?: bool,
           }
         ]
 
         With
             - `indextype` either 'pos', 'key' or 'all'. Defaults to 'pos'.
             - `a_name` an activation name (layer, name) tuple.
-            - `concat` a boolean that indicates whether the activations
-              should be concatenated or added as a separate tensor dim.
-              Defaults to False.
 
         If `a_name` is not provided it should have been set
         beforehand like `reader.activations = activationname`.
@@ -105,11 +100,11 @@ class ActivationReader:
             reader[8, {'a_name': (0, 'cx')}]: the activations of the cell state in
                 the first layer of the 8th extracted sentence.
         """
-        index, indextype, concat = self._parse_key(key)
+        index, indextype = self._parse_key(key)
         assert self.activations is not None, "self.activations should be set first"
 
         if indextype == "all":
-            return self.activations[index]
+            return [self.activations[index]]
         if indextype in ["key", "pos"]:
             ranges: List[Range] = self._create_range_from_key(indextype, index)
         else:
@@ -117,42 +112,32 @@ class ActivationReader:
                 "indextype not understood, should be one of all, key, or pos."
             )
 
-        lengths_list = [x[1] - x[0] for x in ranges]
-        sen_indices = self._create_indices_from_range(ranges, lengths_list, concat)
-        sen_indices = sen_indices.to(torch.long)
-        if concat:
-            return self.activations[sen_indices]
-
+        lengths = [x[1] - x[0] for x in ranges]
+        sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
         activations = self.activations[sen_indices]
+        split_activations: Sequence[Tensor] = torch.split(activations, lengths)
 
-        lengths_tensor = torch.tensor(lengths_list, dtype=torch.int)
-        activations = pack_padded_sequence(
-            activations, lengths_tensor, batch_first=True, enforce_sorted=False
-        )
+        return split_activations
 
-        return activations
-
-    def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str, bool]:
-        indextype = "pos"
-        concat = False
+    def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str]:
         # if key is a tuple it also contains a indextype and/or activation name
         if isinstance(key, tuple):
             index = key[0]
-
             indextype = key[1].get("indextype", "pos")
-            concat = key[1].get("concat", False)
+
             if "a_name" in key[1]:
                 self.activations = key[1]["a_name"]
         else:
             index = key
+            indextype = "pos"
 
         if isinstance(index, (int, np.integer)):
             index = [index]
 
-        return index, indextype, concat
+        return index, indextype
 
     def _create_range_from_key(
-        self, indextype: str, key: Union[int, slice, List[int], np.ndarray]
+        self, indextype: str, index: Union[int, slice, List[int], np.ndarray]
     ) -> List[Range]:
         range_dict = self.activation_ranges
         range_list = list(self.activation_ranges.values())
@@ -161,50 +146,32 @@ class ActivationReader:
         else:
             all_ranges = range_list
 
-        if isinstance(key, (list, np.ndarray)):
-            ranges = [all_ranges[r] for r in key]
+        if isinstance(index, (list, np.ndarray)):
+            ranges = [all_ranges[r] for r in index]
 
-        elif isinstance(key, Tensor):
+        elif isinstance(index, Tensor):
             ranges = []
-            for i in range(key.size(0)):
-                idx = int(key[i].item())
+            for i in range(index.size(0)):
+                idx = int(index[i].item())
                 ranges.append(all_ranges[idx])
 
-        elif isinstance(key, slice):
+        elif isinstance(index, slice):
             assert (
-                key.step is None or key.step == 1
+                index.step is None or index.step == 1
             ), "Step slicing not supported for sen key index"
-            start = key.start if key.start else 0
+            start = index.start if index.start else 0
 
             if indextype == "key":
-                stop = key.stop if key.stop else max(range_dict.keys())
+                stop = index.stop if index.stop else max(range_dict.keys())
                 ranges = [r for k, r in range_dict.items() if start <= k <= stop]
             else:
-                stop = key.stop if key.stop else len(all_ranges)
+                stop = index.stop if index.stop else len(all_ranges)
                 ranges = [r for i, r in enumerate(range_list) if start <= i <= stop]
 
         else:
             raise KeyError("Type of index is incompatible")
 
         return ranges
-
-    @staticmethod
-    def _create_indices_from_range(
-        ranges: List[Tuple[int, int]], lengths: List[int], concat: bool
-    ) -> Tensor:
-        # Concatenate all range indices into a 1d array
-        if concat:
-            return torch.cat([torch.arange(*r) for r in ranges])
-
-        # Create an index array with a separate row for each sentence range
-        maxrange = max(lengths)
-
-        indices = torch.zeros((len(ranges), maxrange), dtype=torch.int) - 1
-
-        for i, r in enumerate(ranges):
-            indices[i, : r[1] - r[0]] = torch.arange(*r)
-
-        return indices
 
     def __len__(self) -> int:
         return self.data_len
