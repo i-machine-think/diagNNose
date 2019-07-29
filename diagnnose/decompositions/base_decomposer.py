@@ -1,11 +1,12 @@
 from typing import Any
 
-import numpy as np
+from torch import Tensor
+import torch
 
 from diagnnose.typedefs.activations import (
     ActivationName,
-    NamedArrayDict,
-    PartialArrayDict,
+    ActivationTensors,
+    NamedTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.lm import LanguageModel
@@ -20,9 +21,9 @@ class BaseDecomposer:
         LanguageModel for which decomposition will be performed
     activation_dict : PartialArrayDict
         Dictionary containing the necessary activations for decomposition
-    decoder : (np.ndarray, np.ndarray) ((num_classes, hidden_dim), (hidden_dim,))
+    decoder : (Tensor, Tensor) ((num_classes, hidden_dim), (hidden_dim,))
         (Coefficients, bias) tuple of the (linear) decoding layer
-    final_index : np.ndarray
+    final_index : int
         1-d numpy array with index of final element of a batch element.
         Due to masking for sentences of uneven length the final index
         can differ between batch elements.
@@ -31,41 +32,41 @@ class BaseDecomposer:
     def __init__(
         self,
         model: LanguageModel,
-        activation_dict: PartialArrayDict,
+        activation_dict: ActivationTensors,
         decoder: LinearDecoder,
-        final_index: np.ndarray,
+        final_index: int,
     ) -> None:
         self.model = model
         self.decoder_w, self.decoder_b = decoder
         self.activation_dict = activation_dict
 
         self.final_index = final_index
-        self.batch_size = len(final_index)
+        self.batch_size = 1  # TODO: Update when batchifying
         self.toplayer = model.num_layers - 1
 
         self._validate_activation_shapes()
         self._append_init_states()
 
-    def _decompose(self, *arg: Any, **kwargs: Any) -> NamedArrayDict:
+    def _decompose(self, *arg: Any, **kwargs: Any) -> NamedTensors:
         raise NotImplementedError
 
     def decompose(
         self, *arg: Any, append_bias: bool = False, **kwargs: Any
-    ) -> NamedArrayDict:
+    ) -> NamedTensors:
         decomposition = self._decompose(*arg, **kwargs)
 
         if append_bias:
             bias = self.decompose_bias()
-            bias = np.broadcast_to(bias, (self.batch_size, 1, len(bias)))
+            bias = torch.repeat_interleave(bias.unsqueeze(0), 2, dim=0).unsqueeze(1)
             for key, arr in decomposition.items():
-                decomposition[key] = np.concatenate((arr, bias), axis=1)
+                decomposition[key] = torch.cat((arr, bias), dim=1)
 
         return decomposition
 
-    def decompose_bias(self) -> np.ndarray:
-        return np.exp(self.decoder_b)
+    def decompose_bias(self) -> Tensor:
+        return torch.exp(self.decoder_b)
 
-    def calc_original_logits(self, normalize: bool = False) -> np.ndarray:
+    def calc_original_logits(self, normalize: bool = False) -> Tensor:
         assert (
             self.toplayer,
             "hx",
@@ -74,20 +75,20 @@ class BaseDecomposer:
         )
         final_hidden_state = self.get_final_activations((self.toplayer, "hx"))
 
-        original_logit = np.exp(
-            np.ma.dot(final_hidden_state, self.decoder_w.T) + self.decoder_b
+        original_logit = torch.exp(
+            (final_hidden_state @ self.decoder_w.t()) + self.decoder_b
         )
 
         if normalize:
             original_logit = (
-                np.exp(original_logit).T / np.sum(np.exp(original_logit), axis=1)
-            ).T
+                torch.exp(original_logit).t() / torch.sum(torch.exp(original_logit), dim=1)
+            ).t()
 
         return original_logit
 
     def get_final_activations(
         self, a_name: ActivationName, offset: int = 0
-    ) -> np.ndarray:
+    ) -> Tensor:
         return self.activation_dict[a_name][
             range(self.batch_size), self.final_index + offset
         ]
@@ -100,12 +101,12 @@ class BaseDecomposer:
             if name.startswith("i") and name[1:] in ["cx", "hx"]:
                 cell_type = name[1:]
                 if (layer, cell_type) in self.activation_dict:
-                    self.activation_dict[(layer, cell_type)] = np.ma.concatenate(
+                    self.activation_dict[(layer, cell_type)] = torch.cat(
                         (
                             self.activation_dict[(layer, name)],
                             self.activation_dict[(layer, cell_type)],
                         ),
-                        axis=1,
+                        dim=1,
                     )
 
                     if cell_type == "hx" and layer == self.toplayer:
@@ -113,12 +114,12 @@ class BaseDecomposer:
 
                     # 0cx activations should be concatenated in front of the icx activations.
                     if (layer, f"0{cell_type}") in self.activation_dict:
-                        self.activation_dict[(layer, cell_type)] = np.ma.concatenate(
+                        self.activation_dict[(layer, cell_type)] = torch.cat(
                             (
                                 self.activation_dict[(layer, f"0{cell_type}")],
                                 self.activation_dict[(layer, cell_type)],
                             ),
-                            axis=1,
+                            dim=1,
                         )
 
                         if cell_type == "hx" and layer == self.toplayer:

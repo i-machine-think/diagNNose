@@ -1,7 +1,7 @@
+from typing import Dict
+
 import numpy as np
 from overrides import overrides
-
-from diagnnose.typedefs.activations import NamedArrayDict
 
 from .base_decomposer import BaseDecomposer
 
@@ -15,7 +15,7 @@ class CellDecomposer(BaseDecomposer):
     """
 
     @overrides
-    def _decompose(self) -> NamedArrayDict:
+    def _decompose(self) -> Dict[str, np.ndarray]:
         return {"beta": self.calc_beta(), "gamma": self.calc_gamma()}
 
     def calc_beta(self) -> np.ndarray:
