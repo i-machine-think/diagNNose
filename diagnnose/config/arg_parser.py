@@ -12,7 +12,7 @@ def create_arg_descriptions() -> ArgDescriptions:
                 "required": True,
                 "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
             },
-            "init_lstm_states_path": {
+            "init_states_path": {
                 "help": "(optional) Location of initial lstm states of the model. "
                 "If no path is provided zero-initialized states will be used."
             },
