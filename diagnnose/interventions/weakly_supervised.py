@@ -18,7 +18,7 @@ from torch.nn.modules.loss import _Loss
 from torch.optim import SGD
 
 from diagnnose.interventions.mechanism import InterventionMechanism
-from diagnnose.models.forward_lstm import ForwardLSTM
+from diagnnose.model_wrappers.forward_lstm import ForwardLSTM
 from diagnnose.typedefs.activations import FullActivationDict
 from diagnnose.typedefs.interventions import DiagnosticClassifierDict
 

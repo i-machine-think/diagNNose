@@ -8,7 +8,7 @@ from overrides import overrides
 from torch import Tensor
 
 from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 from diagnnose.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
 
 

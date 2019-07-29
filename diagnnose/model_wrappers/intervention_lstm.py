@@ -2,7 +2,7 @@ from typing import Dict
 
 from overrides import overrides
 
-from diagnnose.models.forward_lstm import ForwardLSTM
+from diagnnose.model_wrappers.forward_lstm import ForwardLSTM
 from diagnnose.typedefs.activations import FullActivationDict
 
 

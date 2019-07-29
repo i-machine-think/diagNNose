@@ -4,7 +4,7 @@ from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 if __name__ == "__main__":
     arg_groups = {"model", "activations", "corpus", "vocab", "extract"}

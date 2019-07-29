@@ -5,9 +5,8 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.activations.init_states import InitStates
 from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 
 class ForwardLSTM(LanguageModel):
@@ -46,7 +45,6 @@ class ForwardLSTM(LanguageModel):
         encoder_name: str = "encoder",
         decoder_name: str = "decoder",
     ) -> None:
-        super().__init__()
         print("Loading pretrained model...")
 
         with open(os.path.expanduser(state_dict), "rb") as mf:
@@ -87,7 +85,7 @@ class ForwardLSTM(LanguageModel):
         if f"{decoder_name}.bias" in params:
             self.decoder_b = params[f"{decoder_name}.bias"]
 
-        self.init_states: InitStates = InitStates(self.sizes, init_states_path)
+        super().__init__(init_states_path=init_states_path)
 
         print("Model initialisation finished.")
 

@@ -7,7 +7,7 @@ import torch
 
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 lakretz_descriptions: Dict[str, Any] = {
     "adv": {"classes": 2, "items_per_class": 900, "conditions": ["S", "P"]},

@@ -6,7 +6,6 @@ from sklearn.externals import joblib
 from torch import Tensor
 
 from diagnnose.activations.activation_reader import ActivationReader
-from diagnnose.activations.init_states import InitStates
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.typedefs.activations import (
@@ -15,7 +14,7 @@ from diagnnose.typedefs.activations import (
     ActivationTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 from .base_decomposer import BaseDecomposer
 
@@ -52,8 +51,6 @@ class DecomposerFactory:
         self.model = model
 
         self.decoder_w, self.decoder_b = self._read_decoder(decoder)
-
-        self.init_states: InitStates = model.init_states
 
     # TODO: Batchify decompositions, sen_index -> ActivationKey
     def create(
@@ -154,7 +151,7 @@ class DecomposerFactory:
             )
 
         if subsen_index.start == 0 or subsen_index.start is None:
-            init_state: Tensor = self.init_states.create(batch_size)[layer, name[1:]]
+            init_state: Tensor = self.model.init_hidden(batch_size)[layer, name[1:]]
         else:
             activations = self._read_activations((layer, name[1:]), sen_index)
             init_state = activations[:, subsen_index.start - 1]

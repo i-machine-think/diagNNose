@@ -17,7 +17,7 @@ from diagnnose.typedefs.activations import (
     SelectFunc,
 )
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 
 class Extractor:
@@ -245,7 +245,7 @@ class Extractor:
         return {(layer, name): [] for (layer, name) in self.activation_names}
 
     def _init_avg_eos_activations(self) -> ActivationTensors:
-        init_avg_eos_activations: ActivationTensors = self.model.init_lstm_states.create_zero_state()
+        init_avg_eos_activations: ActivationTensors = self.model.init_states.create_zero_state()
 
         for layer in range(self.model.num_layers):
             if (layer, "hx") not in self.activation_names:
@@ -270,5 +270,5 @@ class Extractor:
     ) -> None:
         for layer, name in avg_eos_activations.keys():
             avg_eos_activations[layer, name] = (
-                avg_eos_activations[layer, name][0] / n_sens
+                avg_eos_activations[layer, name] / n_sens
             )

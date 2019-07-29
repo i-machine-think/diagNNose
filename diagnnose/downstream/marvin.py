@@ -5,7 +5,7 @@ import torch
 
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 marvin_descriptions: Dict[str, Any] = {
     "npi_no_the_ever": {"classes": 1},

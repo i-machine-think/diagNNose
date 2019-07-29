@@ -9,7 +9,7 @@ from diagnnose.typedefs.activations import (
     NamedTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 
 class BaseDecomposer:

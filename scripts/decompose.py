@@ -2,7 +2,7 @@ from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import ConfigSetup
 from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 if __name__ == "__main__":
     arg_groups = {"model", "activations", "decompose"}

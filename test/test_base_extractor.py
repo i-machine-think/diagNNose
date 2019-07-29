@@ -13,13 +13,12 @@ from overrides import overrides
 from torch import Tensor
 from torchtext.data import Example
 
-from diagnnose.activations.init_states import InitStates
 from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import ActivationTensors, SelectFunc
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
 from .test_utils import create_sentence_dummy_activations
@@ -42,7 +41,6 @@ class MockLanguageModel(LanguageModel):
         all_tokens: List[str],
         all_activations: Tensor,
     ) -> None:
-        super().__init__()
         self.all_tokens = all_tokens
         self.all_activations = all_activations
         self.all_pairs = None
@@ -54,9 +52,9 @@ class MockLanguageModel(LanguageModel):
         self.split_order = ["f", "i", "g", "o"]
         self.array_type = "torch"
 
-        self.init_states: InitStates = InitStates(self.sizes)
-
         self.reset()
+
+        super().__init__()
 
     @overrides
     def forward(

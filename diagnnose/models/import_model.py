@@ -2,7 +2,7 @@ from importlib import import_module
 from typing import Any, Dict, Type
 
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.typedefs.lm import LanguageModel
+from diagnnose.models.lm import LanguageModel
 
 
 def import_model(model_config: Dict[str, Any]) -> LanguageModel:

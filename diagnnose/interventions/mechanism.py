@@ -9,7 +9,7 @@ from typing import Callable, Dict, Tuple
 
 from torch import Tensor
 
-from diagnnose.models.intervention_lstm import InterventionLSTM
+from diagnnose.model_wrappers.intervention_lstm import InterventionLSTM
 from diagnnose.typedefs.activations import FullActivationDict
 
 
