@@ -21,7 +21,7 @@ def import_model(model_config: Dict[str, Any]) -> LanguageModel:
     """
     model_type = model_config.pop("model_type")
 
-    module = import_module("diagnnose.models")
+    module = import_module("diagnnose.model_wrappers")
     model_constructor: Type[LanguageModel] = getattr(module, model_type)
 
     return model_constructor(**model_config)
