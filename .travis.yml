@@ -3,10 +3,7 @@ sudo: false
 language: python
 cache: pip
 python:
-  - "3.6"
-
-notifications:
-  slack:
+  - "3.7"
 
 # command to install dependencies
 install:
