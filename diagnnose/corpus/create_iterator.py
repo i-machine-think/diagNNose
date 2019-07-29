@@ -1,4 +1,5 @@
 from torchtext.data import BucketIterator
+
 from diagnnose.typedefs.corpus import Corpus
 
 

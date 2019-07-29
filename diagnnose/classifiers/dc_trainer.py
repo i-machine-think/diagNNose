@@ -11,8 +11,8 @@ from sklearn.metrics import accuracy_score
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.classifiers import ResultsDict
-from diagnnose.utils.pickle import dump_pickle
 from diagnnose.typedefs.corpus import Corpus, Labels
+from diagnnose.utils.pickle import dump_pickle
 
 
 class DCTrainer:

@@ -3,9 +3,9 @@ Module to define a mechanism superclass to provide "interventions", or more spec
 in an RNNs during processing time based on some sort of intervention signal.
 """
 
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Callable, Tuple, Dict
+from typing import Callable, Dict, Tuple
 
 from torch import Tensor
 

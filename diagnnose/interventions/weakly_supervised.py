@@ -3,24 +3,24 @@ Implementing a version of the intervention mechanism which relies on weak superv
 provide information that is helpful to solve the task or enrich the model in any other way.
 """
 
-from abc import abstractmethod, ABC
-from collections import defaultdict
-from typing import Dict, Tuple, Callable, List
 import re
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV as LogReg
 import torch
+from overrides import overrides
+from sklearn.linear_model import LogisticRegressionCV as LogReg
 from torch import Tensor
 from torch.autograd import Variable
 from torch.nn.modules.loss import _Loss
 from torch.optim import SGD
-from overrides import overrides
 
 from diagnnose.interventions.mechanism import InterventionMechanism
 from diagnnose.models.forward_lstm import ForwardLSTM
-from diagnnose.typedefs.interventions import DiagnosticClassifierDict
 from diagnnose.typedefs.activations import FullActivationDict
+from diagnnose.typedefs.interventions import DiagnosticClassifierDict
 
 
 class WeaklySupervisedMechanism(InterventionMechanism, ABC):
