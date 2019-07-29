@@ -2,13 +2,13 @@ from typing import Any
 
 import numpy as np
 
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
     NamedArrayDict,
     PartialArrayDict,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.lm import LanguageModel
 
 
 class BaseDecomposer:

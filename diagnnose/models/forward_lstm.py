@@ -7,7 +7,7 @@ from torch import Tensor
 
 from diagnnose.activations.init_states import InitStates
 from diagnnose.typedefs.activations import LayeredTensorDict, TensorDict
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.typedefs.lm import LanguageModel
 
 
 class ForwardLSTM(LanguageModel):

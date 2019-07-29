@@ -9,7 +9,7 @@ from diagnnose.decompositions.base_decomposer import BaseDecomposer
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.typedefs.lm import LanguageModel
 from diagnnose.utils.midpoint import MidPointNorm
 from diagnnose.utils.misc import suppress_print
 

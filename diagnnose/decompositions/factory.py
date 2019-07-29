@@ -7,7 +7,6 @@ from sklearn.externals import joblib
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
 from diagnnose.models.import_model import import_decoder_from_model
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationKey,
     ActivationName,
@@ -16,6 +15,7 @@ from diagnnose.typedefs.activations import (
     PartialArrayDict,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.lm import LanguageModel
 
 from .base_decomposer import BaseDecomposer
 

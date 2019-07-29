@@ -1,9 +1,8 @@
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import ConfigSetup
-from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.downstream.suite import DownstreamSuite
-
+from diagnnose.models.import_model import import_model
+from diagnnose.typedefs.lm import LanguageModel
 
 if __name__ == "__main__":
     arg_groups = {"model", "vocab", "downstream"}
