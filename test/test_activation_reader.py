@@ -1,10 +1,14 @@
 """
 Test the code in rnnalayse.activations.activation_reader.py.
 """
-import unittest
 import os
+import unittest
+from typing import List, Sequence
+
+from torch import Tensor
 
 from diagnnose.activations.activation_reader import ActivationReader
+
 from .test_utils import create_and_dump_dummy_activations
 
 # GLOBALS
@@ -62,37 +66,39 @@ class TestActivationReader(unittest.TestCase):
         )
 
     def test_activation_indexing(self) -> None:
-        first_index = list(self.activation_reader.activation_ranges.keys())[0]
+        first_idx = list(self.activation_reader.activation_ranges.keys())[0]
+
+        def seq_shapes(tensors: Sequence[Tensor]) -> List[Sequence[int]]:
+            shapes = map(lambda t: tuple(t.shape), tensors)
+            return list(shapes)
+
         self.assertEqual(
-            self.activation_reader[0, {"a_name": (0, "hx"), "concat": True}].shape,
-            self.activation_reader[
-                first_index, {"indextype": "key", "a_name": (0, "hx"), "concat": True}
-            ].shape,
+            seq_shapes(
+                self.activation_reader[0, {"indextype": "pos", "a_name": (0, "hx")}]
+            ),
+            seq_shapes(
+                self.activation_reader[
+                    first_idx, {"indextype": "key", "a_name": (0, "hx")}
+                ]
+            ),
             "Activation shape of first sentence not equal by position/key indexing",
         )
         self.assertEqual(
-            self.activation_reader[0, {"a_name": (0, "hx")}].data.shape,
-            self.activation_reader[
-                first_index, {"indextype": "key", "a_name": (0, "hx")}
-            ].data.shape,
-            "Activation shape of first sentence not equal by position/key indexing",
-        )
-        self.assertEqual(
-            self.activation_reader[0:].data.shape,
-            self.activation_reader[
-                slice(0, None, None), {"indextype": "key"}
-            ].data.shape,
+            seq_shapes(self.activation_reader[0:]),
+            seq_shapes(
+                self.activation_reader[slice(0, None, None), {"indextype": "key"}]
+            ),
             "Indexing all activations by key and position yields different results",
         )
         self.assertEqual(
-            self.activation_reader[0].data.shape,
-            self.activation_reader[first_index, {"indextype": "key"}].data.shape,
+            seq_shapes(self.activation_reader[0]),
+            seq_shapes(self.activation_reader[first_idx, {"indextype": "key"}]),
             "Activation shape of first sentence not equal by position/key indexing",
         )
         data_len = self.activation_reader.data_len
         ashape = self.activation_reader[
             slice(0, data_len // 2, None), {"indextype": "all"}
-        ].data.shape
+        ].shape
         self.assertTrue(
             ashape == (data_len // 2, ACTIVATIONS_DIM),
             f"Indexing by all activations is not working: {ashape}",
