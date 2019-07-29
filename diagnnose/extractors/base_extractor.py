@@ -10,14 +10,14 @@ from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.typedefs.activations import (
     ActivationNames,
     ActivationRanges,
-    BatchTensorDict,
-    BatchTensorListDict,
+    ActivationTensorLists,
+    ActivationTensors,
+    BatchActivationTensorLists,
+    BatchActivationTensors,
     SelectFunc,
-    TensorDict,
-    TensorListDict,
 )
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.typedefs.lm import LanguageModel
 
 
 class Extractor:
@@ -99,7 +99,7 @@ class Extractor:
 
         tot_extracted = n_sens = 0
 
-        all_activations: TensorListDict = self._init_sen_activations()
+        all_activations: ActivationTensorLists = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
         iterator = create_iterator(
             self.corpus, batch_size=batch_size, device=self.model.device
@@ -155,7 +155,7 @@ class Extractor:
             if not only_dump_avg_eos:
                 self.activation_writer.dump_activation_ranges(activation_ranges)
                 if not dynamic_dumping:
-                    concat_activations: TensorDict = {}
+                    concat_activations: ActivationTensors = {}
                     for name in all_activations.keys():
                         concat_activations[name] = torch.cat(
                             all_activations[name], dim=0
@@ -173,7 +173,7 @@ class Extractor:
 
     def _extract_sentence(
         self, batch: Batch, n_sens: int, selection_func: SelectFunc
-    ) -> Tuple[BatchTensorDict, List[int]]:
+    ) -> Tuple[BatchActivationTensors, List[int]]:
         """ Generates the embeddings of a sentence and writes to file.
 
         Parameters
@@ -197,8 +197,10 @@ class Extractor:
         bsz = len(batch)
         n_extracted: List[int] = [0] * bsz
 
-        batch_tensor_list: BatchTensorListDict = self._init_batch_activations(bsz)
-        cur_activations: TensorDict = self.model.init_hidden(bsz)
+        batch_tensor_list: BatchActivationTensorLists = self._init_batch_activations(
+            bsz
+        )
+        cur_activations: ActivationTensors = self.model.init_hidden(bsz)
         examples = self.corpus.examples[n_sens : n_sens + bsz]
 
         sentence, sen_lens = batch.sen
@@ -220,7 +222,7 @@ class Extractor:
 
                     n_extracted[j] += 1
 
-        batch_tensors: BatchTensorDict = {}
+        batch_tensors: BatchActivationTensors = {}
         for j in range(bsz):
             batch_tensors[j] = {}
             for a_name, tensor_list in batch_tensor_list[j].items():
@@ -232,18 +234,18 @@ class Extractor:
 
         return batch_tensors, n_extracted
 
-    def _init_batch_activations(self, batch_size: int) -> BatchTensorListDict:
+    def _init_batch_activations(self, batch_size: int) -> BatchActivationTensorLists:
         """ Initial dict of of activations for current batch. """
 
         return {i: self._init_sen_activations() for i in range(batch_size)}
 
-    def _init_sen_activations(self) -> TensorListDict:
+    def _init_sen_activations(self) -> ActivationTensorLists:
         """ Initial dict for each activation that is extracted. """
 
         return {(layer, name): [] for (layer, name) in self.activation_names}
 
-    def _init_avg_eos_activations(self) -> TensorDict:
-        init_avg_eos_activations: TensorDict = self.model.init_lstm_states.create_zero_state()
+    def _init_avg_eos_activations(self) -> ActivationTensors:
+        init_avg_eos_activations: ActivationTensors = self.model.init_lstm_states.create_zero_state()
 
         for layer in range(self.model.num_layers):
             if (layer, "hx") not in self.activation_names:
@@ -255,7 +257,7 @@ class Extractor:
 
     @staticmethod
     def _update_avg_eos_activations(
-        prev_activations: TensorDict, new_activations: BatchTensorDict
+        prev_activations: ActivationTensors, new_activations: BatchActivationTensors
     ) -> None:
         for j in new_activations.keys():
             for layer, name in prev_activations.keys():
@@ -264,7 +266,7 @@ class Extractor:
 
     @staticmethod
     def _normalize_avg_eos_activations(
-        avg_eos_activations: TensorDict, n_sens: int
+        avg_eos_activations: ActivationTensors, n_sens: int
     ) -> None:
         for layer, name in avg_eos_activations.keys():
             avg_eos_activations[layer, name] = (
