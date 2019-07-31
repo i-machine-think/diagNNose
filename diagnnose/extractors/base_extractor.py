@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from contextlib import ExitStack
-from typing import List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import torch
 from torchtext.data import Batch
@@ -17,7 +19,10 @@ from diagnnose.typedefs.activations import (
     SelectFunc,
 )
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.models.lm import LanguageModel
+
+# https://stackoverflow.com/a/39757388/3511979
+if TYPE_CHECKING:
+    from diagnnose.models.lm import LanguageModel
 
 
 class Extractor:
@@ -32,8 +37,10 @@ class Extractor:
         Language model that inherits from LanguageModel.
     corpus : Corpus
         Corpus containing sentences to be extracted.
-    activations_dir : str
-        Directory to which activations will be written
+    activations_dir : str, optional
+        Directory to which activations will be written. Should always
+        be provided unless `only_return_avg_eos` is set to True in
+        `self.extract`.
 
     Attributes
     ----------
@@ -46,26 +53,31 @@ class Extractor:
     """
 
     def __init__(
-        self, model: LanguageModel, corpus: Corpus, activations_dir: str
+        self,
+        model: LanguageModel,
+        corpus: Corpus,
+        activations_dir: Optional[str] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
 
         self.activation_names: ActivationNames = []
 
-        self.activation_writer = ActivationWriter(activations_dir)
+        if activations_dir is not None:
+            self.activation_writer = ActivationWriter(activations_dir)
 
     # TODO: refactor
     def extract(
         self,
-        activation_names: ActivationNames,
+        activation_names: Optional[ActivationNames] = None,
         batch_size: int = 1,
         cutoff: int = -1,
         dynamic_dumping: bool = True,
         selection_func: SelectFunc = lambda sen_id, pos, item: True,
         create_avg_eos: bool = False,
         only_dump_avg_eos: bool = False,
-    ) -> None:
+        only_return_avg_eos: bool = False,
+    ) -> Optional[ActivationTensors]:
         """ Extracts embeddings from a corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
@@ -92,12 +104,22 @@ class Extractor:
         create_avg_eos : bool, optional
             Toggle to save average end of sentence activations. Will be
             stored in in `self.output_dir`.
-        only_dump_avg_eos : bool , optional
+        only_dump_avg_eos : bool, optional
             Toggle to only save the average eos activations.
+        only_return_avg_eos: bool, optional
+            Toggle to only return the average eos activations, without
+            dumping any other activations.
         """
-        self.activation_names = activation_names
+        self.activation_names: ActivationNames = activation_names or []
 
         tot_extracted = n_sens = 0
+
+        dump_activations = not (only_dump_avg_eos or only_return_avg_eos)
+        dump_avg_eos = create_avg_eos and not only_return_avg_eos
+        if dump_activations or dump_avg_eos:
+            assert hasattr(
+                self, "activation_writer"
+            ), "Attempting to dump activations but no activation_dir has been provided"
 
         all_activations: ActivationTensorLists = self._init_sen_activations()
         activation_ranges: ActivationRanges = {}
@@ -109,9 +131,13 @@ class Extractor:
         print(f"\nStarting extraction of {tot_num} sentences...")
 
         with ExitStack() as stack:
-            self.activation_writer.create_output_files(
-                stack, activation_names, create_avg_eos, only_dump_avg_eos
-            )
+            if dump_activations or dump_avg_eos:
+                self.activation_writer.create_output_files(
+                    stack,
+                    self.activation_names,
+                    dump_activations=dump_activations,
+                    dump_avg_eos=dump_avg_eos,
+                )
 
             if create_avg_eos:
                 avg_eos_states = self._init_avg_eos_activations()
@@ -121,7 +147,7 @@ class Extractor:
                     batch, n_sens, selection_func
                 )
 
-                if not only_dump_avg_eos:
+                if dump_activations:
                     for j in batch_activations.keys():
                         if dynamic_dumping:
                             self.activation_writer.dump_activations(
@@ -150,9 +176,12 @@ class Extractor:
 
             if create_avg_eos:
                 self._normalize_avg_eos_activations(avg_eos_states, n_sens)
-                self.activation_writer.dump_avg_eos(avg_eos_states)
+                if only_return_avg_eos:
+                    return avg_eos_states
+                else:
+                    self.activation_writer.dump_avg_eos(avg_eos_states)
 
-            if not only_dump_avg_eos:
+            if dump_activations:
                 self.activation_writer.dump_activation_ranges(activation_ranges)
                 if not dynamic_dumping:
                     concat_activations: ActivationTensors = {}
@@ -162,7 +191,7 @@ class Extractor:
                         )
                     self.activation_writer.dump_activations(concat_activations)
 
-        if dynamic_dumping and not only_dump_avg_eos:
+        if dynamic_dumping and dump_activations:
             print("\nConcatenating sequentially dumped pickle files into 1 array...")
             self.activation_writer.concat_pickle_dumps()
 
@@ -170,6 +199,8 @@ class Extractor:
         print(
             f"{n_sens} sentences have been extracted, yielding {tot_extracted} data points."
         )
+
+        return None
 
     def _extract_sentence(
         self, batch: Batch, n_sens: int, selection_func: SelectFunc
@@ -194,14 +225,14 @@ class Extractor:
         n_extracted : List[int]
             Number of extracted activations, per batch item.
         """
-        bsz = len(batch)
-        n_extracted: List[int] = [0] * bsz
+        batch_size = len(batch)
+        n_extracted: List[int] = [0] * batch_size
 
         batch_tensor_list: BatchActivationTensorLists = self._init_batch_activations(
-            bsz
+            batch_size
         )
-        cur_activations: ActivationTensors = self.model.init_hidden(bsz)
-        examples = self.corpus.examples[n_sens : n_sens + bsz]
+        cur_activations: ActivationTensors = self.model.init_hidden(batch_size)
+        examples = self.corpus.examples[n_sens : n_sens + batch_size]
 
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
@@ -213,7 +244,7 @@ class Extractor:
                 )
 
             # Check whether current activations match criterion defined in selection_func
-            for j in range(bsz):
+            for j in range(batch_size):
                 if i < sen_lens[j] and selection_func(n_sens + j, i, examples[j]):
                     for layer, name in self.activation_names:
                         cur_activation = cur_activations[layer, name][j]
@@ -223,7 +254,7 @@ class Extractor:
                     n_extracted[j] += 1
 
         batch_tensors: BatchActivationTensors = {}
-        for j in range(bsz):
+        for j in range(batch_size):
             batch_tensors[j] = {}
             for a_name, tensor_list in batch_tensor_list[j].items():
                 if len(tensor_list) > 0:
@@ -269,6 +300,4 @@ class Extractor:
         avg_eos_activations: ActivationTensors, n_sens: int
     ) -> None:
         for layer, name in avg_eos_activations.keys():
-            avg_eos_activations[layer, name] = (
-                avg_eos_activations[layer, name] / n_sens
-            )
+            avg_eos_activations[layer, name] = avg_eos_activations[layer, name] / n_sens

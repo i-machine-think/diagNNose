@@ -3,7 +3,7 @@ from typing import List, Optional
 from torchtext.data import Field, RawField, TabularDataset
 from torchtext.vocab import Vocab
 
-from diagnnose.vocab import create_vocab_from_corpus, create_vocab_from_path
+from diagnnose.vocab import create_vocab
 
 
 def import_corpus(
@@ -76,10 +76,8 @@ def import_corpus(
 
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None or vocab_from_corpus:
-        if vocab_path is not None:
-            vocab = create_vocab_from_path(vocab_path)
-        else:
-            vocab = create_vocab_from_corpus(corpus_path)
+        vocab = create_vocab(vocab_path or corpus_path)
+
         fields["sen"].vocab = Vocab({}, specials=[])
         fields["sen"].vocab.stoi = vocab
         fields["sen"].vocab.itos = list(vocab.keys())

@@ -12,9 +12,13 @@ def create_arg_descriptions() -> ArgDescriptions:
                 "required": True,
                 "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
             },
-            "init_states_path": {
-                "help": "(optional) Location of initial lstm states of the model. "
+            "init_states_pickle": {
+                "help": "(optional) Path to pickle of the initial lstm states of the model. "
                 "If no path is provided zero-initialized states will be used."
+            },
+            "init_states_corpus": {
+                "help": "(optional) Path to corpus for which the final activation will be used as "
+                "initial states to the model."
             },
         }
     }

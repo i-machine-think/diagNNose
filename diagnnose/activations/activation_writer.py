@@ -46,8 +46,8 @@ class ActivationWriter:
         self,
         stack: ExitStack,
         activation_names: ActivationNames,
-        create_avg_eos: bool = False,
-        only_dump_avg_eos: bool = False,
+        dump_activations: bool = True,
+        dump_avg_eos: bool = False,
     ) -> None:
         """ Opens a file for each to-be-extracted activation. """
         self.activation_names = activation_names
@@ -58,7 +58,7 @@ class ActivationWriter:
         if os.listdir(self.activations_dir):
             warnings.warn("Output directory %s is not empty" % self.activations_dir)
 
-        if not only_dump_avg_eos:
+        if dump_activations:
             self.activation_files = {
                 (layer, name): stack.enter_context(
                     open(
@@ -71,7 +71,7 @@ class ActivationWriter:
             self.activation_ranges_file = stack.enter_context(
                 open(os.path.join(self.activations_dir, "ranges.pickle"), "wb")
             )
-        if create_avg_eos:
+        if dump_avg_eos:
             self.avg_eos_file = stack.enter_context(
                 open(os.path.join(self.activations_dir, "avg_eos.pickle"), "wb")
             )

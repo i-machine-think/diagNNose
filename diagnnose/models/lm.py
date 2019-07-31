@@ -1,12 +1,17 @@
+import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 from overrides import overrides
 from torch import Tensor, nn
 
+from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.pickle import load_pickle
+from diagnnose.utils.misc import suppress_print
 
 SizeDict = Dict[int, Dict[str, int]]
 
@@ -21,12 +26,17 @@ class LanguageModel(ABC, nn.Module):
     split_order: List[str]
 
     def __init__(
-        self, *args: Any, init_states_pickle: Optional[str] = None, **kwargs: Any
+        self,
+        init_states_pickle: Optional[str] = None,
+        init_states_corpus: Optional[str] = None,
+        vocab_path: Optional[str] = None,
     ) -> None:
         super().__init__()
 
         self.init_states: ActivationTensors = self.set_init_states(
-            init_states_pickle=init_states_pickle
+            init_states_pickle=init_states_pickle,
+            init_states_corpus=init_states_corpus,
+            vocab_path=vocab_path,
         )
 
     @property
@@ -86,6 +96,7 @@ class LanguageModel(ABC, nn.Module):
         self,
         init_states_pickle: Optional[str] = None,
         init_states_corpus: Optional[str] = None,
+        vocab_path: Optional[str] = None,
     ) -> ActivationTensors:
         """ Set up the initial LM states.
 
@@ -104,6 +115,10 @@ class LanguageModel(ABC, nn.Module):
         init_states_corpus : int, optional
             Path to corpus of which the final hidden state will be used
             as initial states.
+        vocab_path : str, optional
+            Path to the model vocabulary, which should a file containing a
+            vocab entry at each line. Must be provided when creating
+            the init states from a corpus.
 
         Returns
         -------
@@ -114,7 +129,11 @@ class LanguageModel(ABC, nn.Module):
             init_states: ActivationTensors = load_pickle(init_states_pickle)
             self._validate(init_states)
         elif init_states_corpus is not None:
-            init_states = self._create_init_states_from_corpus(init_states_corpus)
+            assert (
+                vocab_path is not None
+            ), "Vocab path must be provided when creating init states from corpus"
+            print("Creating init states from provided corpus")
+            init_states = self._create_init_states_from_corpus(init_states_corpus, vocab_path)
         else:
             init_states = self.create_zero_state()
 
@@ -130,8 +149,23 @@ class LanguageModel(ABC, nn.Module):
 
         return init_states
 
-    def _create_init_states_from_corpus(self, init_states_corpus: str) -> ActivationTensors:
-        pass
+    @suppress_print
+    def _create_init_states_from_corpus(
+        self, init_states_corpus: str, vocab_path: str
+    ) -> ActivationTensors:
+        corpus: Corpus = import_corpus(
+            init_states_corpus, vocab_path=vocab_path
+        )
+
+        self.init_states = self.create_zero_state()
+        extractor = Extractor(self, corpus)
+        init_states = extractor.extract(
+            create_avg_eos=True,
+            only_return_avg_eos=True,
+        )
+        assert init_states is not None
+
+        return init_states
 
     def _validate(self, init_states: ActivationTensors) -> None:
         """ Performs a simple validation of the new initial states.
@@ -171,7 +205,7 @@ class LanguageModel(ABC, nn.Module):
         for layer in range(self.num_layers):
             for hc in ["hx", "cx"]:
                 batch_init_states[layer, hc] = torch.repeat_interleave(
-                    init_states[layer, hc].unsqueeze(0), batch_size, dim=0
+                    init_states[layer, hc], batch_size, dim=0
                 )
 
         return batch_init_states

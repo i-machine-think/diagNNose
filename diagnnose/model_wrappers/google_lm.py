@@ -9,7 +9,7 @@ from torch import Tensor
 
 from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.models.lm import LanguageModel
-from diagnnose.vocab import C2I, create_vocab_from_corpus, create_vocab_from_path
+from diagnnose.vocab import C2I, create_vocab
 
 
 class GoogleLM(LanguageModel):
@@ -37,10 +37,7 @@ class GoogleLM(LanguageModel):
         super().__init__()
         print("Loading pretrained model...")
 
-        if corpus_vocab_path is None:
-            vocab: C2I = create_vocab_from_path(full_vocab_path, create_char_vocab=True)
-        else:
-            vocab = create_vocab_from_corpus(corpus_vocab_path, create_char_vocab=True)
+        vocab: C2I = create_vocab(corpus_vocab_path or full_vocab_path, create_char_vocab=True)
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(

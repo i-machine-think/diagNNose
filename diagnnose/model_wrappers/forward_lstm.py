@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from overrides import overrides
@@ -18,7 +18,7 @@ class ForwardLSTM(LanguageModel):
     ----------
     state_dict : str
         Path to torch pickle containing the model parameter state dict.
-    init_states_path: str, optional
+    init_states_pickle: str, optional
         Path to pickled initial embeddings. These initial embeddings
         be created using the `Extractor` class. If not provided
         0-valued initial states will be used.
@@ -39,11 +39,11 @@ class ForwardLSTM(LanguageModel):
     def __init__(
         self,
         state_dict: str,
-        init_states_path: Optional[str] = None,
         device: str = "cpu",
         rnn_name: str = "rnn",
         encoder_name: str = "encoder",
         decoder_name: str = "decoder",
+        **kwargs: Any,
     ) -> None:
         print("Loading pretrained model...")
 
@@ -85,7 +85,7 @@ class ForwardLSTM(LanguageModel):
         if f"{decoder_name}.bias" in params:
             self.decoder_b = params[f"{decoder_name}.bias"]
 
-        super().__init__(init_states_path=init_states_path)
+        super().__init__(**kwargs)
 
         print("Model initialisation finished.")
 
