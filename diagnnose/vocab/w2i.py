@@ -11,7 +11,7 @@ class W2I(dict):
     ---------
     w2i : Dict[str, int]
         Dictionary that maps strings to indices. This dictionary can be
-        created using `create_vocab_from_path`.
+        created using `create_vocab`.
     unk_token : str, optional
         The unk token to which unknown words will be mapped. Defaults to
         <unk>.
