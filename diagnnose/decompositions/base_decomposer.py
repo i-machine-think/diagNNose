@@ -81,22 +81,20 @@ class BaseDecomposer:
 
         if normalize:
             original_logit = (
-                torch.exp(original_logit).t() / torch.sum(torch.exp(original_logit), dim=1)
+                torch.exp(original_logit).t()
+                / torch.sum(torch.exp(original_logit), dim=1)
             ).t()
 
         return original_logit
 
-    def get_final_activations(
-        self, a_name: ActivationName, offset: int = 0
-    ) -> Tensor:
-        return self.activation_dict[a_name][
-            range(self.batch_size), self.final_index + offset
-        ]
+    def get_final_activations(self, a_name: ActivationName, offset: int = 0) -> Tensor:
+        return self.activation_dict[a_name][self.final_index + offset]
 
     def _validate_activation_shapes(self) -> None:
         pass
 
     def _append_init_states(self) -> None:
+        """Append icx/ihx to cx/hx activations."""
         for layer, name in self.activation_dict:
             if name.startswith("i") and name[1:] in ["cx", "hx"]:
                 cell_type = name[1:]
@@ -106,7 +104,7 @@ class BaseDecomposer:
                             self.activation_dict[(layer, name)],
                             self.activation_dict[(layer, cell_type)],
                         ),
-                        dim=1,
+                        dim=0,
                     )
 
                     if cell_type == "hx" and layer == self.toplayer:
@@ -119,7 +117,7 @@ class BaseDecomposer:
                                 self.activation_dict[(layer, f"0{cell_type}")],
                                 self.activation_dict[(layer, cell_type)],
                             ),
-                            dim=1,
+                            dim=0,
                         )
 
                         if cell_type == "hx" and layer == self.toplayer:

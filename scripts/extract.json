@@ -6,6 +6,7 @@
   "corpus_header": ["sen", "type", "correct", "idx"],
   "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
   "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
+  "init_states_corpus": "../lm_data/corpora/init_sentence.txt",
   "dynamic_dumping": true,
   "batch_size": 1024
 }

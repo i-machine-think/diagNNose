@@ -85,12 +85,13 @@ class ActivationWriter:
             The Tensors for each activation that was specifed by
             self.activation_names at initialization.
         """
-        for layer, name in self.activation_names:
+        for activation_name in self.activation_names:
             assert (
-                layer,
-                name,
-            ) in self.activation_files.keys(), "Activation file is not opened"
-            pickle.dump(activations[layer, name], self.activation_files[layer, name])
+                activation_name in self.activation_files.keys()
+            ), "Activation file is not opened"
+            pickle.dump(
+                activations[activation_name], self.activation_files[activation_name]
+            )
 
     def dump_activation_ranges(self, activation_ranges: ActivationRanges) -> None:
         assert self.activation_ranges_file is not None

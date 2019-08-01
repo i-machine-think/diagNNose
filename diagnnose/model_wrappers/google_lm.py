@@ -214,7 +214,7 @@ class LSTM(nn.Module):
         proj += self.bias[layer]
 
         split_proj: Dict[str, Tensor] = dict(
-            zip(self.split_order, torch.split(proj, 4, dim=1))
+            zip(self.split_order, torch.chunk(proj, 4, dim=1))
         )
 
         f_g = torch.sigmoid(

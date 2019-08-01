@@ -105,9 +105,9 @@ class ContextualDecomposer(BaseDecomposer):
         self._set_rel_interactions(rel_interactions)
 
         start_index = max(0, start) if use_extracted_activations else 0
-        slen = self.activation_dict[0, "emb"].shape[1]
+        slen = self.activation_dict[0, "emb"].shape[0]
 
-        self._set_model_weights()
+        self._split_model_bias()
         self._reset_decompositions(start, slen, use_extracted_activations)
 
         self.bias_bias_only_in_phrase = bias_bias_only_in_phrase
@@ -148,7 +148,7 @@ class ContextualDecomposer(BaseDecomposer):
         """
         if layer == 0:
             if inside_phrase and not input_never_rel:
-                rel_input = self.activation_dict[0, "emb"][0][i]
+                rel_input = self.activation_dict[0, "emb"][i]
                 irrel_input = torch.zeros(
                     self.model.sizes[layer]["x"], dtype=torch.float32
                 )
@@ -156,7 +156,7 @@ class ContextualDecomposer(BaseDecomposer):
                 rel_input = torch.zeros(
                     self.model.sizes[layer]["x"], dtype=torch.float32
                 )
-                irrel_input = self.activation_dict[0, "emb"][0][i]
+                irrel_input = self.activation_dict[0, "emb"][i]
         else:
             rel_input = self.decompositions[layer - 1]["rel_h"][i]
             irrel_input = self.decompositions[layer - 1]["irrel_h"][i]
@@ -164,22 +164,22 @@ class ContextualDecomposer(BaseDecomposer):
         prev_rel_h, prev_irrel_h = self._get_prev_cells(layer, i, start, "h")
 
         if self.model.ih_concat_order == ["h", "i"]:
-            rel_concat = torch.cat((prev_rel_h, rel_input), dim=1)
-            irrel_concat = torch.cat((prev_irrel_h, irrel_input), dim=1)
+            rel_concat = torch.cat((prev_rel_h, rel_input), dim=0)
+            irrel_concat = torch.cat((prev_irrel_h, irrel_input), dim=0)
         else:
-            rel_concat = torch.cat((rel_input, prev_rel_h), dim=1)
-            irrel_concat = torch.cat((irrel_input, prev_irrel_h), dim=1)
+            rel_concat = torch.cat((rel_input, prev_rel_h), dim=0)
+            irrel_concat = torch.cat((irrel_input, prev_irrel_h), dim=0)
 
         # Weights are stored as 1 big array that project both input and hidden state.
         rel_proj = self.model.weight[layer] @ rel_concat
         irrel_proj = self.model.weight[layer] @ irrel_concat
 
         rel_names = map(lambda x: f"rel_{x}", self.model.split_order)
-        self.activations.update(dict(zip(rel_names, torch.split(rel_proj, 4, dim=1))))
+        self.activations.update(dict(zip(rel_names, torch.chunk(rel_proj, 4, dim=0))))
 
         irrel_names = map(lambda x: f"irrel_{x}", self.model.split_order)
         self.activations.update(
-            dict(zip(irrel_names, torch.split(irrel_proj, 4, dim=1)))
+            dict(zip(irrel_names, torch.chunk(irrel_proj, 4, dim=0)))
         )
 
         if hasattr(self.model, "peepholes"):
@@ -312,11 +312,11 @@ class ContextualDecomposer(BaseDecomposer):
             prev_irrel = self.decompositions[layer][f"irrel_{cell_type}"][i - 1]
         else:
             if start < 0 or self.init_states_rel:
-                prev_rel = self.activation_dict[layer, f"i{cell_type}x"][0, 0]
+                prev_rel = self.activation_dict[layer, f"i{cell_type}x"][0]
                 prev_irrel = torch.zeros(hidden_size, dtype=torch.float32)
             else:
                 prev_rel = torch.zeros(hidden_size, dtype=torch.float32)
-                prev_irrel = self.activation_dict[layer, f"i{cell_type}x"][0, 0]
+                prev_irrel = self.activation_dict[layer, f"i{cell_type}x"][0]
 
         return prev_rel, prev_irrel
 
@@ -454,10 +454,10 @@ class ContextualDecomposer(BaseDecomposer):
                 for i in range(start):
                     self.decompositions[l]["irrel_c"][i] = self.activation_dict[
                         (l, "cx")
-                    ][0][i + 1]
+                    ][i + 1]
                     self.decompositions[l]["irrel_h"][i] = self.activation_dict[
                         (l, "hx")
-                    ][0][i + 1]
+                    ][i + 1]
 
     def _set_rel_interactions(self, rel_interactions: Optional[List[str]]) -> None:
         all_interactions = {
@@ -477,25 +477,22 @@ class ContextualDecomposer(BaseDecomposer):
             {"irrel-irrel", "irrel-b"}
         ), "irrel-irrel and irrel-b can't be part of rel interactions"
 
-    def _set_model_weights(self) -> None:
+    def _split_model_bias(self) -> None:
         for layer in range(self.model.num_layers):
             bias = self.model.bias[layer]
-
-            if isinstance(self.model.weight[layer], torch.Tensor):
-                self.model.weight[layer] = self.model.weight[layer].detach().numpy()
 
             self.bias.update(
                 {
                     (layer, name): tensor
                     for name, tensor in zip(
-                        self.model.split_order, torch.split(bias, 4, dim=1)
+                        self.model.split_order, torch.chunk(bias, 4, dim=0)
                     )
                 }
             )
 
     def _validate_decomposition(self, scores: NamedTensors) -> None:
         final_hidden_state = self.get_final_activations((self.toplayer, "hx"))
-        original_score = final_hidden_state[0] @ self.decoder_w.t()
+        original_score = final_hidden_state @ self.decoder_w.t()
 
         decomposed_score = scores["relevant"][-1] + scores["irrelevant"][-1]
 

@@ -6,5 +6,5 @@
   "corpus_path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
   "corpus_header": ["sen", "type", "correct", "idx"],
   "activation_names": ["hx1", "emb0", "hx0", "f_g0"],
-  "init_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle"
+  "init_states_corpus": "../lm_data/corpora/init_sentence.txt"
 }

@@ -126,7 +126,7 @@ class DecomposerFactory:
                 )
             else:
                 activation = self._read_activations(a_name, sen_index)
-                activation = activation[:, subsen_index]
+                activation = activation[subsen_index]
 
             activation_dict[a_name] = activation
 
@@ -163,11 +163,12 @@ class DecomposerFactory:
 
         cell_states = self._read_activations((0, "cx"), sen_index)
 
-        final_index = cell_states.size(1)
+        final_index = cell_states.size(0)
         if subsen_index.stop:
             assert (
                 final_index >= subsen_index.stop - 1
             ), "Subsentence index can't be longer than sentence itself"
+            final_index = subsen_index.stop - 1
 
         start = subsen_index.start if subsen_index.start else 0
         assert start >= 0, "Subsentence index can't be negative"

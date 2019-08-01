@@ -2,7 +2,7 @@
   "model_type": "ForwardLSTM",
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "init_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle",
+  "init_states_pickle": "../lm_data/activations/extracted/init/avg_eos.pickle",
   "lakretz_path": "../lm_data/corpora/downstream/lakretz",
   "lakretz_tasks": ["nounpp", "simple"],
   "marvin_path": "../lm_data/corpora/downstream/marvin"

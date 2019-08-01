@@ -5,17 +5,17 @@ from diagnnose.models.import_model import import_model
 from diagnnose.models.lm import LanguageModel
 
 if __name__ == "__main__":
-    arg_groups = {"model", "activations", "decompose"}
+    arg_groups = {"model", "activations", "decompose", "vocab"}
     arg_parser, required_args = create_arg_parser(arg_groups)
 
     config_dict = ConfigSetup(arg_parser, required_args, arg_groups).config_dict
 
-    model: LanguageModel = import_model(config_dict["model"])
+    model: LanguageModel = import_model({**config_dict["model"], **config_dict["vocab"]})
 
     decompose_args = {**config_dict["decompose"], **config_dict["activations"]}
 
     constructor = DecomposerFactory(model, **decompose_args)
-    decomposer = constructor.create(0, slice(0, 1, 1), classes=[0])
+    decomposer = constructor.create(0, slice(0, 3, 1), classes=[0])
 
-    cd = decomposer.decompose(-1, 1, ["rel-rel", "rel-b"])
+    cd = decomposer.decompose(-1, 0, ["rel-rel", "rel-b"])
     print(cd["relevant"], cd["irrelevant"])

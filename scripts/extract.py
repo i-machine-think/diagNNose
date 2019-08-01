@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     config_dict = ConfigSetup(arg_parser, required_args, arg_groups).config_dict
 
-    model: LanguageModel = import_model(config_dict["model"])
+    model: LanguageModel = import_model({**config_dict["model"], **config_dict["vocab"]})
     corpus: Corpus = import_corpus(
         vocab_path=config_dict["vocab"]["vocab_path"], **config_dict["corpus"]
     )

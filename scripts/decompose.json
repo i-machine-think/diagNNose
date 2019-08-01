@@ -1,8 +1,8 @@
 {
   "model_type": "ForwardLSTM",
-  "activations_dir": "../lm_data/activations/extracted/batch_test",
+  "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "decomposer": "ContextualDecomposer",
-  "init_states_path": "../lm_data/activations/extracted/init/avg_eos.pickle"
+  "init_states_corpus": "../lm_data/corpora/init_sentence.txt"
 }
