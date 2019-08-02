@@ -7,9 +7,9 @@ import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.models.lm import LanguageModel
-from diagnnose.vocab import C2I, create_vocab
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
+from diagnnose.vocab import C2I, create_char_vocab
 
 
 class GoogleLM(LanguageModel):
@@ -20,12 +20,32 @@ class GoogleLM(LanguageModel):
 
     This implementation allows for only a subset of the SoftMax to be
     loaded in, to alleviate RAM usage.
+    
+    Parameters
+    ----------
+    pbtxt_path : str
+        Path to the .pbtxt file containing the GraphDef model setup.
+    ckpt_dir : str
+        Path to folder containing parameter checkpoint files.
+    full_vocab_path : str
+        Path to the full model vocabulary of 800k tokens. Note that
+        `vocab_path` can be passed along as well, pointing toward the
+        corpus that will be extracted. In that case only a subset of
+        the model softmax will be loaded in.
+    corpus_vocab_path : str, optional
+        Path to the corpus for which a vocabulary will be created. This
+        allows for only a subset of the model softmax to be loaded in.
+    create_decoder : bool
+        Toggle to load in the (partial) softmax weights. Can be set to
+        false in case no decoding projection needs to be made, as is
+        the case during activation extraction, for example.
     """
 
     forget_offset = 1
     ih_concat_order = ["i", "h"]
     sizes = {l: {"x": 1024, "h": 1024, "c": 8192} for l in range(2)}
     split_order = ["i", "g", "f", "o"]
+    use_char_embs = True
 
     def __init__(
         self,
@@ -33,17 +53,19 @@ class GoogleLM(LanguageModel):
         ckpt_dir: str,
         full_vocab_path: str,
         corpus_vocab_path: Optional[str] = None,
+        create_decoder: bool = True,
     ) -> None:
         super().__init__()
         print("Loading pretrained model...")
 
-        vocab: C2I = create_vocab(corpus_vocab_path or full_vocab_path, create_char_vocab=True)
+        vocab: C2I = create_char_vocab(corpus_vocab_path or full_vocab_path)
 
         self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
         self.lstm = LSTM(
             ckpt_dir, self.num_layers, self.split_order, self.forget_offset
         )
-        self.decoder = SoftMax(vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"])
+        if create_decoder:
+            self.decoder = SoftMax(vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"])
 
         print("Model initialisation finished.")
 
@@ -73,10 +95,13 @@ class GoogleLM(LanguageModel):
 
     @overrides
     def forward(
-        self, token: str, prev_activations: ActivationTensors, compute_out: bool = True
+        self,
+        tokens: List[str],
+        prev_activations: ActivationTensors,
+        compute_out: bool = True,
     ) -> Tuple[Optional[Tensor], ActivationTensors]:
         # Create the embeddings of the input words
-        embs = self.encoder.encode(token)
+        embs = self.encoder(tokens)
 
         logits, activations = self.lstm(embs, prev_activations)
 
@@ -88,9 +113,10 @@ class GoogleLM(LanguageModel):
         return out, activations
 
 
-class CharCNN:
+class CharCNN(nn.Module):
     def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I) -> None:
         print("Loading CharCNN...")
+        super().__init__()
 
         self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
         self.cnn_embs: Dict[str, Tensor] = {}
@@ -124,22 +150,20 @@ class CharCNN:
 
         return sess, t
 
-    def encode(self, token: str) -> Tensor:
-        if token in self.cnn_embs:
-            return self.cnn_embs[token]
+    @overrides
+    def forward(self, tokens: List[str]) -> Tensor:
+        embs = torch.zeros((len(tokens), 1024), dtype=torch.float32)
+        for i, token in enumerate(tokens):
+            if token not in self.cnn_embs:
+                char_ids = self.vocab.token_to_char_ids(token)
+                input_dict = {self.cnn_t["char_inputs_in"]: char_ids}
+                emb = torch.from_numpy(self.cnn_sess.run(self.cnn_t["all_embs"], input_dict))
+                self.cnn_embs[token] = emb
+            else:
+                emb = self.cnn_embs[token]
+            embs[i] = emb
 
-        input_dict = {
-            self.cnn_t["char_inputs_in"]: self.vocab.word_to_char_ids(token).reshape(
-                [-1, 1, self.vocab.max_word_length]
-            )
-        }
-        emb = torch.from_numpy(
-            self.cnn_sess.run(self.cnn_t["all_embs"], input_dict)[0]
-        ).to(torch.float32)
-
-        self.cnn_embs[token] = emb
-
-        return emb
+        return embs
 
 
 class LSTM(nn.Module):
@@ -172,26 +196,25 @@ class LSTM(nn.Module):
 
         for l in range(self.num_layers):
             # Model weights are divided into 8 chunks
-            # Shape: (32768, 2048)
-            self.weight[l] = torch.stack(
+            # Shape: (2048, 32768)
+            self.weight[l] = torch.cat(
                 [
-                    torch.from_numpy(
-                        lstm_reader.get_tensor(f"lstm/lstm_{l}/W_{i}") for i in range(8)
-                    )
-                ]
-            ).t()
+                    torch.from_numpy(lstm_reader.get_tensor(f"lstm/lstm_{l}/W_{i}"))
+                    for i in range(8)
+                ],
+                dim=0,
+            )
 
             # Shape: (32768,)
             self.bias[l] = torch.from_numpy(lstm_reader.get_tensor(f"lstm/lstm_{l}/B"))
 
             # Shape: (8192, 1024)
-            self.weight_P[l] = torch.stack(
+            self.weight_P[l] = torch.cat(
                 [
-                    torch.from_numpy(
-                        lstm_reader.get_tensor(f"lstm/lstm_{l}/W_P_{i}")
-                        for i in range(8)
-                    )
-                ]
+                    torch.from_numpy(lstm_reader.get_tensor(f"lstm/lstm_{l}/W_P_{i}"))
+                    for i in range(8)
+                ],
+                dim=0,
             )
 
             for p in ["f", "i", "o"]:
@@ -210,7 +233,7 @@ class LSTM(nn.Module):
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
     ) -> ActivationTensors:
-        proj: Tensor = self.weight[layer] @ torch.cat((emb, prev_hx), dim=1)
+        proj: Tensor = torch.cat((emb, prev_hx), dim=1) @ self.weight[layer]
         proj += self.bias[layer]
 
         split_proj: Dict[str, Tensor] = dict(
@@ -247,7 +270,7 @@ class LSTM(nn.Module):
         for l in range(self.num_layers):
             prev_hx = prev_activations[l, "hx"]
             prev_cx = prev_activations[l, "cx"]
-            activations = self.forward_step(l, input_, prev_hx, prev_cx)
+            activations.update(self.forward_step(l, input_, prev_hx, prev_cx))
             input_ = activations[l, "hx"]
 
         return input_, activations
@@ -272,17 +295,17 @@ class SoftMax:
             full_vocab: List[str] = f.read().strip().split("\n")
 
         bias_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-softmax8"))
-        full_bias = bias_reader.get_tensor("softmax/b")
+        full_bias = torch.from_numpy(bias_reader.get_tensor("softmax/b"))
+        full_bias = full_bias.to(torch.float32)
 
         # SoftMax is chunked into 8 arrays of size 100000x1024
         for i in range(8):
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f"ckpt-softmax{i}"))
 
-            sm_chunk = torch.from_numpy(sm_reader.get_tensor(f"softmax/W_{i}")).to(
-                torch.float32
-            )
-            bias_chunk = full_bias[i : len(full_bias) : 8]
-            vocab_chunk = full_vocab[i : len(full_bias) : 8]
+            sm_chunk = torch.from_numpy(sm_reader.get_tensor(f"softmax/W_{i}"))
+            sm_chunk = sm_chunk.to(torch.float32)
+            bias_chunk = full_bias[i : full_bias.size(0) : 8]
+            vocab_chunk = full_vocab[i : full_bias.size(0) : 8]
 
             for j, w in enumerate(vocab_chunk):
                 sm = sm_chunk[j]
