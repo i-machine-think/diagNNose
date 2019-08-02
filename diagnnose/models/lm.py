@@ -1,6 +1,5 @@
-import os
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from overrides import overrides
@@ -24,20 +23,11 @@ class LanguageModel(ABC, nn.Module):
     ih_concat_order: List[str] = ["h", "i"]
     sizes: SizeDict = {}
     split_order: List[str]
+    use_char_embs: bool = False
 
-    def __init__(
-        self,
-        init_states_pickle: Optional[str] = None,
-        init_states_corpus: Optional[str] = None,
-        vocab_path: Optional[str] = None,
-    ) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__()
-
-        self.init_states: ActivationTensors = self.set_init_states(
-            init_states_pickle=init_states_pickle,
-            init_states_corpus=init_states_corpus,
-            vocab_path=vocab_path,
-        )
+        self.init_states: ActivationTensors = {}
 
     @property
     def num_layers(self) -> int:
@@ -92,12 +82,30 @@ class LanguageModel(ABC, nn.Module):
         """
         return self._expand_batch_size(self.init_states, batch_size)
 
+    def final_hidden(self, hidden: ActivationTensors) -> Tensor:
+        """ Returns the final hidden state.
+
+        Parameters
+        ----------
+        hidden : ActivationTensors
+            Dictionary of extracted activations.
+
+        Returns
+        -------
+        final_hidden : Tensor
+            Tensor of the final hidden state.
+        """
+        return hidden[self.num_layers - 1, "hx"].squeeze()
+
     def set_init_states(
         self,
         init_states_pickle: Optional[str] = None,
         init_states_corpus: Optional[str] = None,
+        save_init_states_to: Optional[str] = None,
         vocab_path: Optional[str] = None,
-    ) -> ActivationTensors:
+        full_vocab_path: Optional[str] = None,
+        corpus_vocab_path: Optional[str] = None,
+    ) -> None:
         """ Set up the initial LM states.
 
         If no path is provided 0-valued embeddings will be used.
@@ -109,16 +117,23 @@ class LanguageModel(ABC, nn.Module):
 
         Arguments
         ---------
-        init_states_pickle : int, optional
+        init_states_pickle : str, optional
             Path to pickled file with initial lstm states. If not
             provided zero-valued init states will be created.
-        init_states_corpus : int, optional
+        init_states_corpus : str, optional
             Path to corpus of which the final hidden state will be used
             as initial states.
+        save_init_states_to : str, optional
+            Path to which the newly computed init_states will be saved.
+            If not provided these states won't be dumped.
         vocab_path : str, optional
             Path to the model vocabulary, which should a file containing a
             vocab entry at each line. Must be provided when creating
             the init states from a corpus.
+        full_vocab_path : str, optional
+            Full model vocab path that is used for GoogleLM.
+        corpus_vocab_path : str, optional
+            Subvocab corpus path that can be used for GoogleLM.
 
         Returns
         -------
@@ -129,15 +144,19 @@ class LanguageModel(ABC, nn.Module):
             init_states: ActivationTensors = load_pickle(init_states_pickle)
             self._validate(init_states)
         elif init_states_corpus is not None:
-            assert (
-                vocab_path is not None
+            assert any(
+                [vocab_path, full_vocab_path, corpus_vocab_path]
             ), "Vocab path must be provided when creating init states from corpus"
             print("Creating init states from provided corpus")
-            init_states = self._create_init_states_from_corpus(init_states_corpus, vocab_path)
+            init_states = self._create_init_states_from_corpus(
+                init_states_corpus,
+                vocab_path or corpus_vocab_path or full_vocab_path,
+                save_init_states_to,
+            )
         else:
             init_states = self.create_zero_state()
 
-        return init_states
+        self.init_states = init_states
 
     def create_zero_state(self, batch_size: int = 1) -> ActivationTensors:
         """Zero-initialized states if no init state is provided."""
@@ -151,17 +170,15 @@ class LanguageModel(ABC, nn.Module):
 
     @suppress_print
     def _create_init_states_from_corpus(
-        self, init_states_corpus: str, vocab_path: str
+        self, init_states_corpus: str, vocab_path: str, save_init_states_to: Optional[str]
     ) -> ActivationTensors:
-        corpus: Corpus = import_corpus(
-            init_states_corpus, vocab_path=vocab_path
-        )
+        corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
 
         self.init_states = self.create_zero_state()
-        extractor = Extractor(self, corpus)
+        extractor = Extractor(self, corpus, save_init_states_to)
         init_states = extractor.extract(
             create_avg_eos=True,
-            only_return_avg_eos=True,
+            only_return_avg_eos=(save_init_states_to is None),
         )
         assert init_states is not None
 
@@ -176,8 +193,9 @@ class LanguageModel(ABC, nn.Module):
             New initial states that should have a structure that
             complies with the dimensions of the language model.
         """
+        # Multiplied by 2 because there are hx & cx for each layer
         assert (
-            len(init_states) == self.num_layers
+            len(init_states) == self.num_layers*2
         ), "Number of initial layers not correct"
 
         for layer, layer_size in self.sizes.items():
@@ -189,7 +207,7 @@ class LanguageModel(ABC, nn.Module):
                     f"Activation {layer},{hc}x is not found in init states"
                 )
 
-                init_size = init_states[layer, f"{hc}x"].size(0)
+                init_size = init_states[layer, f"{hc}x"].size(1)
                 model_size = self.sizes[layer][hc]
                 assert init_size == model_size, (
                     f"Initial activation size for {hc}x is incorrect: "

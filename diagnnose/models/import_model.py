@@ -5,15 +5,19 @@ from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.models.lm import LanguageModel
 
 
-def import_model(model_config: Dict[str, Any]) -> LanguageModel:
+def import_model(
+    model_config: Dict[str, Any], init_states_config: Dict[str, Any]
+) -> LanguageModel:
     """
     Import a model from a json file.
 
     Parameters
     ----------
-    model_config : str
+    model_config : Dict[str, Any]
         Dictionary containing the model config attributes that are
         specific to that specific model.
+    init_states_config : Dict[str, Any]
+        Dictionary containing the init states config attributes.
 
     Returns
     --------
@@ -23,8 +27,11 @@ def import_model(model_config: Dict[str, Any]) -> LanguageModel:
 
     module = import_module("diagnnose.model_wrappers")
     model_constructor: Type[LanguageModel] = getattr(module, model_type)
+    model: LanguageModel = model_constructor(**model_config)
 
-    return model_constructor(**model_config)
+    model.set_init_states(**init_states_config)
+
+    return model
 
 
 def import_decoder_from_model(

@@ -43,8 +43,8 @@ class ForwardLSTM(LanguageModel):
         rnn_name: str = "rnn",
         encoder_name: str = "encoder",
         decoder_name: str = "decoder",
-        **kwargs: Any,
     ) -> None:
+        super().__init__()
         print("Loading pretrained model...")
 
         with open(os.path.expanduser(state_dict), "rb") as mf:
@@ -67,7 +67,7 @@ class ForwardLSTM(LanguageModel):
             w_i = params[rnn_names["weight_ih"]]
 
             # Shape: (emb_size+nhid_h, 4*nhid_c)
-            self.weight[layer] = torch.cat((w_h, w_i), dim=1)
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t()
 
             if rnn_names["bias_hh"] in params:
                 # Shape: (4*nhid_c,)
@@ -84,8 +84,6 @@ class ForwardLSTM(LanguageModel):
         self.decoder_b: Optional[Tensor] = None
         if f"{decoder_name}.bias" in params:
             self.decoder_b = params[f"{decoder_name}.bias"]
-
-        super().__init__(**kwargs)
 
         print("Model initialisation finished.")
 
@@ -114,7 +112,7 @@ class ForwardLSTM(LanguageModel):
         # Shape: (bsz, nhid_h+emb_size)
         ih_concat = torch.cat((prev_hx, emb), dim=1)
         # Shape: (bsz, 4*nhid_c)
-        proj = ih_concat @ self.weight[layer].t()
+        proj = ih_concat @ self.weight[layer]
         if layer in self.bias:
             proj += self.bias[layer]
 
@@ -196,6 +194,3 @@ class ForwardLSTM(LanguageModel):
             "bias_hh": f"{rnn_name}.bias_hh_l{layer}",
             "bias_ih": f"{rnn_name}.bias_ih_l{layer}",
         }
-
-    def final_hidden(self, hidden: ActivationTensors) -> torch.Tensor:
-        return hidden[self.num_layers - 1, "hx"].squeeze()

@@ -126,6 +126,7 @@ class TestExtractor(unittest.TestCase):
             all_tokens=cls.all_tokens,
             all_activations=cls.all_activations,
         )
+        cls.model.set_init_states()
 
         # Init extractor
         cls.extractor = Extractor(
