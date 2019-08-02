@@ -28,11 +28,13 @@ class W2I(dict):
         if eos_token not in w2i:
             w2i[eos_token] = len(w2i)
 
+        super().__init__(w2i)
+
         self.unk_idx = w2i[unk_token]
         self.unk_token = unk_token
         self.eos_token = eos_token
 
-        super().__init__(w2i)
+        self.i2w = list(w2i.keys())
 
     @property
     def w2i(self) -> Dict[str, int]:

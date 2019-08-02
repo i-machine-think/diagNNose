@@ -38,14 +38,13 @@ class C2I(W2I):
         chars_set |= {self.eos_char, self.bow_char, self.eow_char, self.pad_char}
 
         self._char_set = chars_set
-        num_words = len(w2i)
 
-        self._word_char_ids = np.zeros([num_words, max_word_length], dtype=np.int32)
+        self._word_char_ids: Dict[str, np.ndarray] = {}
 
         self.eos_chars = self._convert_word_to_char_ids(self.eos_char)
 
-        for w, i in self.w2i.items():
-            self._word_char_ids[i] = self._convert_word_to_char_ids(w)
+        for w in self.w2i.keys():
+            self._word_char_ids[w] = self._convert_word_to_char_ids(w)
 
     @property
     def max_word_length(self) -> int:
@@ -60,10 +59,13 @@ class C2I(W2I):
         cur_word = self.bow_char + word + self.eow_char
         for j in range(len(cur_word)):
             code[j] = ord(cur_word[j])
-        return code
+        return code.reshape((1, 1, -1))
 
-    def word_to_char_ids(self, word: str) -> np.ndarray:
-        if word in self.w2i:
-            return self._word_char_ids[self.w2i[word]]
+    def token_to_char_ids(self, token: str) -> np.ndarray:
+        if token in self._word_char_ids:
+            char_ids = self._word_char_ids[token]
         else:
-            return self._convert_word_to_char_ids(word)
+            char_ids = self._convert_word_to_char_ids(token)
+            self._word_char_ids[token] = char_ids
+
+        return char_ids
