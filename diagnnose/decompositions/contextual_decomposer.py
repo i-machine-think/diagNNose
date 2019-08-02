@@ -171,8 +171,8 @@ class ContextualDecomposer(BaseDecomposer):
             irrel_concat = torch.cat((irrel_input, prev_irrel_h), dim=0)
 
         # Weights are stored as 1 big array that project both input and hidden state.
-        rel_proj = self.model.weight[layer] @ rel_concat
-        irrel_proj = self.model.weight[layer] @ irrel_concat
+        rel_proj = rel_concat @ self.model.weight[layer]
+        irrel_proj = irrel_concat @ self.model.weight[layer]
 
         rel_names = map(lambda x: f"rel_{x}", self.model.split_order)
         self.activations.update(dict(zip(rel_names, torch.chunk(rel_proj, 4, dim=0))))

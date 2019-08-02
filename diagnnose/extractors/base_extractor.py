@@ -75,7 +75,6 @@ class Extractor:
         dynamic_dumping: bool = True,
         selection_func: SelectFunc = lambda sen_id, pos, item: True,
         create_avg_eos: bool = False,
-        only_dump_avg_eos: bool = False,
         only_return_avg_eos: bool = False,
     ) -> Optional[ActivationTensors]:
         """ Extracts embeddings from a corpus.
@@ -102,19 +101,16 @@ class Extractor:
             Function which determines if activations for a token should
             be extracted or not.
         create_avg_eos : bool, optional
-            Toggle to save average end of sentence activations. Will be
-            stored in in `self.output_dir`.
-        only_dump_avg_eos : bool, optional
-            Toggle to only save the average eos activations.
-        only_return_avg_eos: bool, optional
-            Toggle to only return the average eos activations, without
-            dumping any other activations.
+            Toggle to save average end of sentence activations. If set
+            to True other activations won't be dumped.
+        only_return_avg_eos : bool, optional
+            Toggle to not dump the avg eos activations.
         """
         self.activation_names: ActivationNames = activation_names or []
 
         tot_extracted = n_sens = 0
 
-        dump_activations = not (only_dump_avg_eos or only_return_avg_eos)
+        dump_activations = not create_avg_eos
         dump_avg_eos = create_avg_eos and not only_return_avg_eos
         if dump_activations or dump_avg_eos:
             assert hasattr(
@@ -176,10 +172,9 @@ class Extractor:
 
             if create_avg_eos:
                 self._normalize_avg_eos_activations(avg_eos_states, n_sens)
-                if only_return_avg_eos:
-                    return avg_eos_states
-                else:
+                if dump_avg_eos:
                     self.activation_writer.dump_avg_eos(avg_eos_states)
+                return avg_eos_states
 
             if dump_activations:
                 self.activation_writer.dump_activation_ranges(activation_ranges)
@@ -236,7 +231,10 @@ class Extractor:
 
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
-            tokens = sentence[:, i]
+            if self.model.use_char_embs:
+                tokens = [e.sen[i] for e in examples]  # TODO: fix for uneven sen lens
+            else:
+                tokens = sentence[:, i]
 
             with torch.no_grad():
                 _out, cur_activations = self.model(
