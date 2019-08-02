@@ -5,16 +5,19 @@ from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.models.lm import LanguageModel
+from diagnnose.vocab import get_vocab_from_config
 
 if __name__ == "__main__":
-    arg_groups = {"model", "activations", "corpus", "vocab", "extract"}
+    arg_groups = {"model", "activations", "corpus", "extract", "init_states", "vocab"}
     arg_parser, required_args = create_arg_parser(arg_groups)
 
     config_dict = ConfigSetup(arg_parser, required_args, arg_groups).config_dict
 
-    model: LanguageModel = import_model({**config_dict["model"], **config_dict["vocab"]})
+    model: LanguageModel = import_model(
+        config_dict["model"], config_dict["init_states"]
+    )
     corpus: Corpus = import_corpus(
-        vocab_path=config_dict["vocab"]["vocab_path"], **config_dict["corpus"]
+        vocab_path=get_vocab_from_config(config_dict), **config_dict["corpus"]
     )
 
     extractor = Extractor(model, corpus, **config_dict["activations"])

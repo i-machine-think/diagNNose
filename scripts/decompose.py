@@ -5,12 +5,14 @@ from diagnnose.models.import_model import import_model
 from diagnnose.models.lm import LanguageModel
 
 if __name__ == "__main__":
-    arg_groups = {"model", "activations", "decompose", "vocab"}
+    arg_groups = {"model", "activations", "decompose", "init_states"}
     arg_parser, required_args = create_arg_parser(arg_groups)
 
     config_dict = ConfigSetup(arg_parser, required_args, arg_groups).config_dict
 
-    model: LanguageModel = import_model({**config_dict["model"], **config_dict["vocab"]})
+    model: LanguageModel = import_model(
+        config_dict["model"], config_dict["init_states"]
+    )
 
     decompose_args = {**config_dict["decompose"], **config_dict["activations"]}
 

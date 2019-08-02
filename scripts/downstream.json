@@ -2,8 +2,17 @@
   "model_type": "ForwardLSTM",
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "init_states_pickle": "../lm_data/activations/extracted/init/avg_eos.pickle",
+  "init_states_corpus": "../lm_data/corpora/init_sentence.txt",
   "lakretz_path": "../lm_data/corpora/downstream/lakretz",
   "lakretz_tasks": ["nounpp", "simple"],
-  "marvin_path": "../lm_data/corpora/downstream/marvin"
+  "marvin_path": "../lm_data/corpora/downstream/marvin",
+  "task_activations": {
+    "lakretz": {
+      "nounpp": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
+      "simple": "../lm_data/activations/extracted/lakretz_simple"
+    },
+    "marvin": {
+      "npi_no_the_ever": "../lm_data/activations/extracted/marvin_no_the_ever"
+    }
+  }
 }
