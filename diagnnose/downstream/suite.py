@@ -5,10 +5,11 @@ from diagnnose.downstream.marvin import marvin_downstream
 from diagnnose.models.lm import LanguageModel
 
 
-# TODO: add functionality to calculate this for extracted activations
+# TODO: add docstring
 class DownstreamSuite:
     def __init__(
         self,
+        task_activations: Optional[Dict[str, Dict[str, str]]] = None,
         lakretz_path: Optional[str] = None,
         lakretz_tasks: Optional[List[str]] = None,
         marvin_path: Optional[str] = None,
@@ -16,6 +17,7 @@ class DownstreamSuite:
         device: str = "cpu",
         print_results: bool = True,
     ) -> None:
+        self.task_activations = task_activations or {}
         self.lakretz_path = lakretz_path
         self.lakretz_tasks = lakretz_tasks
         self.marvin_path = marvin_path
@@ -23,7 +25,11 @@ class DownstreamSuite:
         self.device = device
         self.print_results = print_results
 
-    def perform_tasks(self, model: LanguageModel, vocab_path: str) -> Dict[str, Any]:
+    def perform_tasks(
+        self,
+        model: LanguageModel,
+        vocab_path: str,
+    ) -> Dict[str, Any]:
         results: Dict[str, Any] = {}
         model.eval()
 
@@ -35,6 +41,7 @@ class DownstreamSuite:
                 model,
                 vocab_path,
                 self.lakretz_path,
+                lakretz_activations=self.task_activations.get("lakretz", None),
                 lakretz_tasks=self.lakretz_tasks,
                 device=self.device,
                 print_results=self.print_results,
@@ -47,6 +54,7 @@ class DownstreamSuite:
                 model,
                 vocab_path,
                 self.marvin_path,
+                marvin_activations=self.task_activations.get("marvin", None),
                 marvin_tasks=self.marvin_tasks,
                 device=self.device,
                 print_results=self.print_results,

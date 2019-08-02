@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
+from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
@@ -17,6 +18,7 @@ def marvin_downstream(
     model: LanguageModel,
     vocab_path: str,
     marvin_path: str,
+    marvin_activations: Optional[Dict[str, str]] = None,
     marvin_tasks: Optional[List[str]] = None,
     device: str = "cpu",
     print_results: bool = True,
@@ -35,6 +37,10 @@ def marvin_downstream(
     marvin_path : str
         Path to directory containing the Marvin datasets that can be
         found in the github repo.
+    marvin_activations : str, optional
+        Dictionary mapping task names to directories to which the
+        Marvin task embeddings have been extracted. If a task is not
+        provided the activations will be created during the task.
     marvin_tasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
@@ -49,6 +55,8 @@ def marvin_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
+    marvin_activations = marvin_activations or {}
+
     if marvin_tasks is None:
         marvin_tasks = list(marvin_descriptions.keys())
 
@@ -56,6 +64,11 @@ def marvin_downstream(
 
     for task in marvin_descriptions:
         assert task in marvin_tasks, f"Provided task {task} is not recognised!"
+
+        activation_dir = marvin_activations.get(task, None)
+        activation_reader = (
+            ActivationReader(activation_dir) if activation_dir is not None else None
+        )
 
         corpus = import_corpus(
             os.path.join(marvin_path, f"{task}.txt"), vocab_path=vocab_path
@@ -65,17 +78,37 @@ def marvin_downstream(
 
         acc = 0.0
 
-        for batch in iterator:
+        for i, batch in enumerate(iterator):
             sen = batch.sen[0]
 
-            hidden = model.init_hidden(2)
-            for i in range(sen.size(1)):
-                with torch.no_grad():
-                    _, hidden = model(sen[:, i], hidden, compute_out=False)
+            if activation_dir is None:
+                hidden = model.init_hidden(2)
+                for j in range(sen.size(1)):
+                    if model.use_char_embs:
+                        tokens = [
+                            corpus.examples[i * 2].sen[j],
+                            corpus.examples[i * 2 + 1].sen[j],
+                        ]
+                    else:
+                        tokens = sen[:, j]
+                    with torch.no_grad():
+                        _, hidden = model(tokens, hidden, compute_out=False)
+
+                final_hidden = model.final_hidden(hidden)
+            else:
+                assert activation_reader is not None  # mypy being annoying
+                layer = model.num_layers - 1
+                sen_ids = [i * 2, i * 2 + 1]
+                final_hidden = torch.stack(
+                    [
+                        t[-1]
+                        for t in activation_reader[sen_ids, {"a_name": (layer, "hx")}]
+                    ],
+                    0,
+                )
 
             classes = [[corpus.vocab.stoi["ever"]]]
 
-            final_hidden = model.final_hidden(hidden)
             probs = final_hidden @ model.decoder_w[classes].squeeze()
             probs += model.decoder_b[classes]
 

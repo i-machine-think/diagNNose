@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import torch
 
+from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
@@ -32,6 +33,7 @@ def lakretz_downstream(
     model: LanguageModel,
     vocab_path: str,
     lakretz_path: str,
+    lakretz_activations: Optional[Dict[str, str]] = None,
     lakretz_tasks: Optional[List[str]] = None,
     device: str = "cpu",
     print_results: bool = True,
@@ -46,11 +48,15 @@ def lakretz_downstream(
     ----------
     model : LanguageModel
         Language model for which the accuracy is calculated.
+    vocab_path : str
+        Path to vocabulary file of the Language Model.
     lakretz_path : str
         Path to directory containing the datasets that can be found
         in the github repo.
-    vocab_path : str
-        Path to vocabulary file of the Language Model.
+    lakretz_activations : str, optional
+        Dictionary mapping task names to directories to which the
+        Lakretz task embeddings have been extracted. If a task is not
+        provided the activations will be created during the task.
     lakretz_tasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
@@ -68,6 +74,8 @@ def lakretz_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
+    lakretz_activations = lakretz_activations or {}
+
     if lakretz_tasks is None:
         lakretz_tasks = list(lakretz_descriptions.keys())
 
@@ -75,6 +83,11 @@ def lakretz_downstream(
 
     for task in lakretz_tasks:
         assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
+
+        activation_dir = lakretz_activations.get(task, None)
+        activation_reader = (
+            ActivationReader(activation_dir) if activation_dir is not None else None
+        )
 
         if print_results:
             print(task)
@@ -105,12 +118,24 @@ def lakretz_downstream(
                 if skipped:
                     print(f"{skipped:.0f}/{items_per_class} items were skipped.")
 
-            sen = batch.sen[0][0][:-1]
+            if activation_dir is None:
+                if model.use_char_embs:
+                    sen = corpus.examples[i * 2].sen[:-1]
+                else:
+                    sen = batch.sen[0][0][:-1]
 
-            hidden = model.init_hidden(1)
-            for w in sen:
-                with torch.no_grad():
-                    _, hidden = model(w.view(1), hidden, compute_out=False)
+                hidden = model.init_hidden(1)
+                for w in sen:
+                    w = [w] if model.use_char_embs else w.view(1)
+                    with torch.no_grad():
+                        _, hidden = model(w, hidden, compute_out=False)
+
+                final_hidden = model.final_hidden(hidden)
+            else:
+                assert activation_reader is not None  # mypy being annoying
+                final_hidden = activation_reader[
+                    i * 2, {"a_name": (model.num_layers-1, "hx")}
+                ][0][-2]
 
             w1 = batch.sen[0][0][-1]
             w2 = batch.sen[0][1][-1]
@@ -127,7 +152,6 @@ def lakretz_downstream(
 
             classes = [[w1, w2]]
 
-            final_hidden = model.final_hidden(hidden)
             probs = model.decoder_w[classes] @ final_hidden
             probs += model.decoder_b[classes]
 
@@ -137,7 +161,8 @@ def lakretz_downstream(
 
         if print_results:
             print(f"{condition_specs['conditions'][-1]}:\t{accs[-1]/tots[-1]:.3f}\n")
-            print(f"{skipped:.0f}/{items_per_class} items were skipped.")
+            if skipped:
+                print(f"{skipped:.0f}/{items_per_class} items were skipped.")
         accs_dict[task] = dict(zip(condition_specs["conditions"], accs / tots))
 
     return accs_dict
