@@ -46,7 +46,7 @@ class ActivationReader:
         self, activations_dir: str, store_multiple_activations: bool = False
     ) -> None:
 
-        assert os.path.exists(activations_dir), "Activations dir not found!"
+        assert os.path.exists(activations_dir), f"Activations dir not found: {activations_dir}"
         self.activations_dir = activations_dir
 
         self._tensor_dict: ActivationTensors = {}
@@ -137,7 +137,7 @@ class ActivationReader:
         return index, indextype
 
     def _create_range_from_key(
-        self, indextype: str, index: Union[int, slice, List[int], np.ndarray]
+        self, indextype: str, index: ActivationIndex
     ) -> List[Range]:
         range_dict = self.activation_ranges
         range_list = list(self.activation_ranges.values())
