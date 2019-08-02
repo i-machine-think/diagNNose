@@ -11,15 +11,7 @@ def create_arg_descriptions() -> ArgDescriptions:
             "model_type": {
                 "required": True,
                 "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
-            },
-            "init_states_pickle": {
-                "help": "(optional) Path to pickle of the initial lstm states of the model. "
-                "If no path is provided zero-initialized states will be used."
-            },
-            "init_states_corpus": {
-                "help": "(optional) Path to corpus for which the final activation will be used as "
-                "initial states to the model."
-            },
+            }
         }
     }
 
@@ -53,15 +45,50 @@ def create_arg_descriptions() -> ArgDescriptions:
             "ckpt_dir": {
                 "help": "Path to folder containing parameter checkpoint files."
             },
-            "corpus_vocab_path": {
-                "help": "Path to the corpus for which a vocabulary will be created. This allows "
-                "for only a subset of the model softmax to be loaded in."
-            },
             "full_vocab_path": {
-                "help": "Path to the full model vocabulary of 800k tokens."
+                "help": "Path to the full model vocabulary of 800k tokens. Note that `vocab_path` "
+                "can be passed along as well, pointing toward the corpus that will be extracted. "
+                "In that case only a subset of the model softmax will be loaded in."
+            },
+            "corpus_vocab_path": {
+                "help": "(optional) Path to the corpus for which a vocabulary will be created. "
+                "This allows for only a subset of the model softmax to be loaded in."
+            },
+            "create_decoder": {
+                "help": "(optional) Toggle to load in the (partial) softmax weights. Can be set to "
+                "false in case no decoding projection needs to be made, as is the case during "
+                "activation extraction, for example."
             },
         }
     )
+
+    arg_descriptions["init_states"] = {
+        "init_states_pickle": {
+            "help": "(optional) Path to pickle of the initial lstm states of the model. "
+            "If no path is provided zero-initialized states will be used."
+        },
+        "init_states_corpus": {
+            "help": "(optional) Path to corpus for which the final activation will be used as "
+            "initial states to the model."
+        },
+        "save_init_states_to": {
+            "help": "Path to which the newly computed init_states will be saved. "
+            "If not provided these states won't be dumped."
+        },
+        "vocab_path": {
+            "help": "Path to the model vocabulary, which should a file containing a vocab "
+            "entry at each line."
+        },
+        "full_vocab_path": {
+            "help": "Path to the full model vocabulary of 800k tokens. Note that `vocab_path` "
+            "can be passed along as well, pointing toward the corpus that will be extracted. "
+            "In that case only a subset of the model softmax will be loaded in."
+        },
+        "corpus_vocab_path": {
+            "help": "(optional) Path to the corpus for which a vocabulary will be created. "
+            "This allows for only a subset of the model softmax to be loaded in."
+        },
+    }
 
     arg_descriptions["corpus"] = {
         "corpus_path": {"required": True, "help": "(required) Path to a corpus file."},
@@ -207,6 +234,11 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["downstream"] = {
+        "task_activations": {
+            "help": "(optional) Dictionary mapping task names to subtasks to directories to which "
+            "the task embeddings have been extracted. If a task is not provided the "
+            "activations will be created during the task."
+        },
         "lakretz_path": {
             "help": "(optional) Path to directory containing the Lakretz datasets that can be "
             "found in the github repo. If not provided the Lakretz tasks will not be tested."
