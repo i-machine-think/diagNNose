@@ -91,9 +91,9 @@ class ConfigSetup:
         """ Overwrite provided config values with commandline args """
         for arg, val in init_arg_dict.items():
             if val is not None and arg != "config":
-                arg_dict[arg] = val
-                if json_provided:
+                if json_provided and arg in arg_dict:
                     print(f"Overwriting {arg} value that was provided in config json")
+                arg_dict[arg] = val
 
     @staticmethod
     def _cast_activation_names(arg_dict: ArgDict) -> None:

@@ -253,20 +253,23 @@ def create_arg_parser(arg_groups: Set[str]) -> Tuple[ArgumentParser, Set[str]]:
 
     arg_descriptions = create_arg_descriptions()
 
-    required_args = set()
+    required_args: Set[str] = set()
+    parsed_args: Set[str] = set()
 
     for group in arg_groups:
         group_args = arg_descriptions[group]
 
         for arg, arg_config in group_args.items():
-            from_cmd.add_argument(
-                f"--{arg}",
-                nargs=arg_config.get("nargs", None),
-                type=arg_config.get("type", str),
-                help=arg_config["help"],
-            )
+            if arg not in parsed_args:
+                parsed_args.add(arg)
+                from_cmd.add_argument(
+                    f"--{arg}",
+                    nargs=arg_config.get("nargs", None),
+                    type=arg_config.get("type", str),
+                    help=arg_config["help"],
+                )
 
-            if arg_config.get("required", False):
-                required_args.add(arg)
+                if arg_config.get("required", False):
+                    required_args.add(arg)
 
     return parser, required_args
