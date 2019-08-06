@@ -191,16 +191,17 @@ def create_arg_descriptions() -> ArgDescriptions:
 
     arg_descriptions["decompose"] = {
         "decomposer": {
-            "help": "(required) Class name of decomposer constructor. As of now either "
+            "help": "Class name of decomposer constructor. As of now either "
             "CellDecomposer or ContextualDecomposer. Defaults to ContextualDecomposer."
         },
         "decompose_o": {
             "help": " Toggles decomposition of the output gate. Defaults to False."
         },
         "rel_interactions": {
+            "nargs": "*",
             "help": " Indicates the interactions that are part of the relevant decomposition. "
             "Possible interactions are: rel-rel, rel-b and rel-irrel. Defaults to rel-rel, "
-            "rel-irrel & rel-b."
+            "rel-irrel & rel-b.",
         },
         "bias_bias_only_in_phrase": {
             "help": " Toggles whether the bias-bias interaction should only be added when inside "
@@ -230,6 +231,22 @@ def create_arg_descriptions() -> ArgDescriptions:
         "only_return_dec": {
             "help": " Only returns the decomposed cell states of the top layer, without "
             "calculating the corresponding decoder scores. Defaults to False."
+        },
+    }
+
+    arg_descriptions["plot_attention"] = {
+        "title": {"help": "(optional) Title of the plot."},
+        "clim": {
+            "nargs": "*",
+            "help": "(optional) Color limits. Should be be provided as [cmin, cmax], "
+            "or [cmin, cmid, cmax].",
+        },
+        "cmap": {"help": "(optional) Pyplot colormap. Defaults to `coolwarm`."},
+        "plot_values": {
+            "help": "(optional) Toggle to plot the individual values. Defaults to True."
+        },
+        "value_font_size": {
+            "help": "(optional) Font size of the individual plotted values."
         },
     }
 
