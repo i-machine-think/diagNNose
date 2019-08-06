@@ -3,13 +3,19 @@ from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from torch import Tensor
 
+from diagnnose.activations.activation_index import (
+    activation_index_len,
+    activation_index_to_iterable,
+)
 from diagnnose.decompositions import DecomposerFactory
 from diagnnose.decompositions.base_decomposer import BaseDecomposer
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import ActivationNames
-from diagnnose.typedefs.corpus import Corpus
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.activations import ActivationIndex, ActivationNames
+from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.midpoint import MidPointNorm
 from diagnnose.utils.misc import suppress_print
 
@@ -22,11 +28,13 @@ class CDAttention:
     def __init__(
         self,
         model: LanguageModel,
+        corpus: Corpus,
         include_init: bool = True,
         cd_config: Optional[Dict[str, Any]] = None,
         plot_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.model = model
+        self.corpus = corpus
         self.include_init = include_init
 
         if cd_config is None:
@@ -41,88 +49,99 @@ class CDAttention:
         else:
             self.plot_config = plot_config
 
+    def plot_by_sen_id(
+        self,
+        sen_ids: ActivationIndex,
+        activations_dir: Optional[str] = None,
+        avg_decs: bool = False,
+    ) -> Tensor:
+        arr = self.calc_by_sen_id(sen_ids, activations_dir=activations_dir)
+
+        if avg_decs:
+            avg_arr = torch.mean(arr, dim=0)
+            self.plot_attention(avg_arr)
+        else:
+            sen_ids = activation_index_to_iterable(sen_ids)
+            batch_size = arr.size(0)
+            for i in range(batch_size):
+                sen_id = sen_ids[i]  # mypy error fixable with PEP 544
+                self.plot_attention(arr[i], self.corpus[sen_id].sen)
+
+        return arr
+
     def calc_by_sen_id(
-        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str] = None
-    ) -> np.ndarray:
-        sen: List[str] = corpus[sen_id].sen
-        classes: List[int] = [corpus.vocab.stoi[w] for w in sen]
-
-        factory = self._create_factory(corpus, sen_id, activations_dir)
+        self, sen_ids: ActivationIndex, activations_dir: Optional[str] = None
+    ) -> Tensor:
+        if isinstance(sen_ids, int):
+            sen_ids = [sen_ids]
+        classes = self._create_output_classes(sen_ids)
+        factory = self._create_factory(sen_ids, activations_dir)
         if activations_dir is None:
-            sen_id = 0
+            # We index by extraction position, so if N non-consecutive corpus items are being
+            # decomposed we should pass a slice of N items along from here.
+            sen_ids = slice(0, activation_index_len(sen_ids), 1)
 
-        decomposer = factory.create(sen_id, classes=classes)
+        decomposer = factory.create(sen_ids, classes=classes)
 
-        arr = self.calc_attention(decomposer, len(sen))
+        arr = self.calc_attention(decomposer)
 
         if activations_dir is None:
             shutil.rmtree(TMP_DIR)
 
         return arr
 
-    def plot_by_sen_id(
-        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str] = None
-    ) -> np.ndarray:
-        sen: List[str] = corpus[sen_id].sen
-
-        arr = self.calc_by_sen_id(corpus, sen_id, activations_dir=activations_dir)
-
-        self.plot_attention(arr, sen)
-
-        return arr
-
     def calc_attention(
-        self, decomposer: BaseDecomposer, sen_len: int, normalize: bool = True
-    ) -> np.ndarray:
+        self, decomposer: BaseDecomposer, normalize: bool = True
+    ) -> Tensor:
         start_id = 0 if self.include_init else 1
-        end_id = sen_len
+        sen_len = int(decomposer.final_index[0])
 
         # Number of input features to be decomposed (init + w0 -- wn-1)
         ndecomp = sen_len - 1 + int(self.include_init)
         # Number of output classes (w1 -- wn)
         noutput = sen_len - 1
 
-        rel_scores = np.zeros((ndecomp, noutput))
-        irrel_scores = np.zeros((ndecomp, noutput))
+        rel_scores = torch.zeros((decomposer.batch_size, ndecomp, noutput))
+        irrel_scores = torch.zeros((decomposer.batch_size, ndecomp, noutput))
 
-        for i in range(start_id, end_id):
-            decomposition = decomposer.decompose(
-                i - 1, i, only_return_dec=True, **self.cd_config
-            )
-
+        for i in range(start_id, sen_len):
+            # Note that this can slightly be improved, as we calculate the decoder score for each
+            # output class at each time step. But for now this suffices.
+            # Shape: (batch_size, ninput, noutput
+            decomposition = decomposer.decompose(i - 1, i, **self.cd_config)
             if not self.include_init:
                 i -= 1
-
-            for j in range(1, end_id):
-                rel_scores[i, j - 1] = (
-                    decomposition["rel_h"][j - 1] @ decomposer.decoder_w[j].t()
-                )
-                irrel_scores[i, j - 1] = (
-                    decomposition["irrel_h"][j - 1] @ decomposer.decoder_w[j].t()
-                )
+            rel_scores[:, i] = torch.diagonal(
+                decomposition["relevant"][:, :, 1:], dim1=1, dim2=2
+            )
+            irrel_scores[:, i] = torch.diagonal(
+                decomposition["irrelevant"][:, :, 1:], dim1=1, dim2=2
+            )
 
         if normalize:
-            return rel_scores / (rel_scores + irrel_scores)
+            bias = decomposer.decoder_b[:, 1:].unsqueeze(1)
+            norm_scores = rel_scores / (rel_scores + irrel_scores + bias)
+            return norm_scores
 
         return rel_scores
 
-    def plot_attention(self, arr: np.ndarray, sen: List[str]) -> None:
+    def plot_attention(self, arr: Tensor, sen: Optional[List[str]] = None) -> None:
+        arr = arr.numpy()
         arr_mask = np.ma.masked_array(arr, mask=(arr != 0.0))
         arr = np.ma.masked_array(arr, mask=(arr == 0))
 
-        xtext = sen[1:]
-        ytext = sen[:-1]
-        if self.include_init:
-            ytext = ["INIT"] + ytext
-
+        # clim can be provided as [cmin, cmax], or [cmin, cmid, cmax]
         if self.plot_config.get("clim", None) is not None:
             clim = self.plot_config["clim"]
             cmin = clim[0]
-            cmax = clim[1]
+            cmax = clim[1] if len(clim) == 2 else clim[2]
         else:
             cmin = min(np.min(arr), 0)
             cmax = np.max(arr)
-        cmid = 0 if cmin < 0 < cmax else np.min(arr)
+        if len(self.plot_config.get("clim", [])) == 3:
+            cmid = self.plot_config["clim"][1]
+        else:
+            cmid = 0 if cmin < 0 < cmax else np.min(arr)
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -135,26 +154,36 @@ class CDAttention:
         )
         ax.imshow(arr_mask, cmap="gist_yarg")
 
-        ax.set_xticks(range(len(xtext)))
-        ax.set_xticklabels(xtext, rotation=35, ha="left", rotation_mode="anchor")
-        ax.set_yticks(range(len(ytext)))
-        ax.set_yticklabels(ytext)
+        if sen is not None:
+            xtext = sen[1:]
+            ytext = sen[:-1]
+            if self.include_init:
+                ytext = ["INIT"] + ytext
 
-        ax.tick_params(axis="y", which="both", labelsize=30)
-        ax.tick_params(axis="x", which="both", labelsize=26)
+            ax.set_xticks(range(len(xtext)))
+            ax.set_xticklabels(xtext, rotation=35, ha="left", rotation_mode="anchor")
+            ax.set_yticks(range(len(ytext)))
+            ax.set_yticklabels(ytext)
+
+            ax.tick_params(axis="y", which="both", labelsize=30)
+            ax.tick_params(axis="x", which="both", labelsize=26)
+        else:
+            ax.set_xticks([])
+            ax.set_yticks([])
 
         if self.plot_config.get("plot_values", True):
+            fs = self.plot_config.get("value_font_size", 20)
             for (j, i), label in np.ndenumerate(arr):
                 if label == 0.0:
                     continue
                 beta = np.round(label, 2)
                 if (cmin / 1.5) < beta < (cmax / 1.5):
                     ax.text(
-                        i, j, beta, ha="center", va="center", fontsize=22, color="black"
+                        i, j, beta, ha="center", va="center", fontsize=fs, color="black"
                     )
                 else:
                     ax.text(
-                        i, j, beta, ha="center", va="center", fontsize=22, color="white"
+                        i, j, beta, ha="center", va="center", fontsize=fs, color="white"
                     )
 
         ax.set_ylabel("Decomposed token", fontsize=24)
@@ -164,23 +193,39 @@ class CDAttention:
         ax.xaxis.set_label_position("top")
 
         if self.plot_config.get("title", None) is not None:
-            ax.set_title(self.plot_config["title"], fontsize=14)
+            title = ax.set_title(self.plot_config["title"], fontsize=30)
+            title.set_position([0.5, 1.2])
 
         plt.show()
 
+    def _create_output_classes(self, sen_ids: ActivationIndex) -> Tensor:
+        classes: List[List[int]] = []
+        for i, sen_id in enumerate(activation_index_to_iterable(sen_ids)):
+            sen = self.corpus[sen_id].sen
+            classes.append([self.corpus.vocab.stoi[w] for w in sen])
+            if i > 0:
+                assert len(sen) == len(
+                    classes[0]
+                ), "Unequal sentence lengths are not supported yet"
+
+        return torch.tensor(classes)
+
     def _create_factory(
-        self, corpus: Corpus, sen_id: int, activations_dir: Optional[str]
+        self, sen_ids: ActivationIndex, activations_dir: Optional[str]
     ) -> DecomposerFactory:
         if activations_dir is None:
             activations_dir = TMP_DIR
             activation_names = self._get_activation_names()
 
-            all_examples = list(corpus.examples)
-            corpus.examples = [corpus.examples[sen_id]]  # discard all other items
-            extractor = Extractor(self.model, corpus, activations_dir)
+            all_examples = list(self.corpus.examples)  # create copy of full corpus
+            self.corpus.examples = [
+                self.corpus.examples[idx]
+                for idx in activation_index_to_iterable(sen_ids)
+            ]  # discard all other items
+            extractor = Extractor(self.model, self.corpus, activations_dir)
 
             self._extract(extractor, activation_names)
-            corpus.examples = all_examples
+            self.corpus.examples = all_examples  # restore initial corpus
 
         factory = DecomposerFactory(
             self.model, activations_dir, decomposer=self.decomposer
