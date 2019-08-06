@@ -1,3 +1,5 @@
+import torch
+
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import ConfigSetup
 from diagnnose.decompositions.factory import DecomposerFactory
@@ -17,7 +19,10 @@ if __name__ == "__main__":
     decompose_args = {**config_dict["decompose"], **config_dict["activations"]}
 
     constructor = DecomposerFactory(model, **decompose_args)
-    decomposer = constructor.create(0, slice(0, 3, 1), classes=[0])
+    decomposer = constructor.create(
+        [0, 1], slice(0, 3, 1), classes=torch.tensor([[0], [1]])
+    )
 
     cd = decomposer.decompose(-1, 0, ["rel-rel", "rel-b"])
-    print(cd["relevant"], cd["irrelevant"])
+    print(cd["relevant"])
+    print(cd["irrelevant"])

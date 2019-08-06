@@ -25,11 +25,7 @@ class DownstreamSuite:
         self.device = device
         self.print_results = print_results
 
-    def perform_tasks(
-        self,
-        model: LanguageModel,
-        vocab_path: str,
-    ) -> Dict[str, Any]:
+    def perform_tasks(self, model: LanguageModel, vocab_path: str) -> Dict[str, Any]:
         results: Dict[str, Any] = {}
         model.eval()
 

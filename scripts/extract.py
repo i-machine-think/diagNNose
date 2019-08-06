@@ -3,8 +3,8 @@ from diagnnose.config.setup import ConfigSetup
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.corpus import Corpus
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.corpus import Corpus
 from diagnnose.vocab import get_vocab_from_config
 
 if __name__ == "__main__":

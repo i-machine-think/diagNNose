@@ -9,8 +9,8 @@ from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs.activations import ActivationTensors
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.utils.pickle import load_pickle
 from diagnnose.utils.misc import suppress_print
+from diagnnose.utils.pickle import load_pickle
 
 SizeDict = Dict[int, Dict[str, int]]
 
@@ -170,15 +170,17 @@ class LanguageModel(ABC, nn.Module):
 
     @suppress_print
     def _create_init_states_from_corpus(
-        self, init_states_corpus: str, vocab_path: str, save_init_states_to: Optional[str]
+        self,
+        init_states_corpus: str,
+        vocab_path: str,
+        save_init_states_to: Optional[str],
     ) -> ActivationTensors:
         corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
 
         self.init_states = self.create_zero_state()
         extractor = Extractor(self, corpus, save_init_states_to)
         init_states = extractor.extract(
-            create_avg_eos=True,
-            only_return_avg_eos=(save_init_states_to is None),
+            create_avg_eos=True, only_return_avg_eos=(save_init_states_to is None)
         )
         assert init_states is not None
 
@@ -195,7 +197,7 @@ class LanguageModel(ABC, nn.Module):
         """
         # Multiplied by 2 because there are hx & cx for each layer
         assert (
-            len(init_states) == self.num_layers*2
+            len(init_states) == self.num_layers * 2
         ), "Number of initial layers not correct"
 
         for layer, layer_size in self.sizes.items():
@@ -222,8 +224,9 @@ class LanguageModel(ABC, nn.Module):
 
         for layer in range(self.num_layers):
             for hc in ["hx", "cx"]:
-                batch_init_states[layer, hc] = torch.repeat_interleave(
-                    init_states[layer, hc], batch_size, dim=0
+                # Shape: (batch_size, nhid)
+                batch_init_states[layer, hc] = init_states[layer, hc].repeat(
+                    batch_size, 1
                 )
 
         return batch_init_states

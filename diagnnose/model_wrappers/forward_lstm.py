@@ -5,8 +5,8 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
-from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 
 
 class ForwardLSTM(LanguageModel):

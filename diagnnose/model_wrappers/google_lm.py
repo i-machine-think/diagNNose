@@ -157,7 +157,9 @@ class CharCNN(nn.Module):
             if token not in self.cnn_embs:
                 char_ids = self.vocab.token_to_char_ids(token)
                 input_dict = {self.cnn_t["char_inputs_in"]: char_ids}
-                emb = torch.from_numpy(self.cnn_sess.run(self.cnn_t["all_embs"], input_dict))
+                emb = torch.from_numpy(
+                    self.cnn_sess.run(self.cnn_t["all_embs"], input_dict)
+                )
                 self.cnn_embs[token] = emb
             else:
                 emb = self.cnn_embs[token]

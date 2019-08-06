@@ -1,8 +1,8 @@
 from importlib import import_module
 from typing import Any, Dict, Type
 
-from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.classifiers import LinearDecoder
 
 
 def import_model(

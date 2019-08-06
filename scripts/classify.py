@@ -4,7 +4,6 @@ from diagnnose.config.setup import ConfigSetup
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.typedefs.corpus import Corpus
 
-
 if __name__ == "__main__":
     arg_groups = {"activations", "classify", "corpus", "train_dc"}
     arg_parser, required_args = create_arg_parser(arg_groups)

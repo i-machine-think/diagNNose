@@ -134,7 +134,7 @@ def lakretz_downstream(
             else:
                 assert activation_reader is not None  # mypy being annoying
                 final_hidden = activation_reader[
-                    i * 2, {"a_name": (model.num_layers-1, "hx")}
+                    i * 2, {"a_name": (model.num_layers - 1, "hx")}
                 ][0][-2]
 
             w1 = batch.sen[0][0][-1]
