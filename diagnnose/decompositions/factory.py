@@ -1,20 +1,27 @@
 from importlib import import_module
-from typing import List, Optional, Tuple, Type, Union
+from typing import Optional, Tuple, Type
 
 import torch
+from numpy import ndarray
 from sklearn.externals import joblib
 from torch import Tensor
+from torch.nn.utils.rnn import pad_sequence
 
+from diagnnose.activations.activation_index import (
+    activation_index_len,
+    activation_index_to_iterable,
+)
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
 from diagnnose.models.import_model import import_decoder_from_model
+from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
+    ActivationIndex,
     ActivationName,
     ActivationNames,
     ActivationTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.models.lm import LanguageModel
 
 from .base_decomposer import BaseDecomposer
 
@@ -31,8 +38,6 @@ class DecomposerFactory:
     decomposer : str
         String of the decomposition class name, either `CellDecomposer`
         or `ContextualDecomposer`. Defaults to `ContextualDecomposer`.
-    decoder : Union[str, LinearDecoder]
-        Path to a pickled decoder or a (w,b) decoder tuple
     """
 
     def __init__(
@@ -40,7 +45,6 @@ class DecomposerFactory:
         model: LanguageModel,
         activations_dir: str,
         decomposer: str = "ContextualDecomposer",
-        decoder: Optional[str] = None,
     ) -> None:
         module = import_module(f"diagnnose.decompositions")
         self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
@@ -50,21 +54,18 @@ class DecomposerFactory:
         )
         self.model = model
 
-        self.decoder_w, self.decoder_b = self._read_decoder(decoder)
-
-    # TODO: Batchify decompositions, sen_index -> ActivationKey
     def create(
         self,
-        sen_index: int,
+        sen_ids: ActivationIndex,
         subsen_index: slice = slice(None, None, None),
-        classes: Union[slice, List[int]] = slice(None, None, None),
+        classes: ActivationIndex = slice(None, None, None),
     ) -> BaseDecomposer:
         """ Creates an instance of a BaseDecomposer.
 
         Parameters
         ----------
-        sen_index : int
-            Denotes the sentence index for which the decomposition 
+        sen_ids : ActivationIndex
+            Denotes the sentence indices for which the decomposition
             should be performed.
         subsen_index : slice, optional
             Denotes slice of sentences on which decomposition should be
@@ -81,8 +82,8 @@ class DecomposerFactory:
             BaseDecomposer instance pertaining to the provided
             parameters.
         """
-
-        decoder = self.decoder_w[classes], self.decoder_b[classes]
+        batch_size = activation_index_len(sen_ids)
+        decoder = self._read_decoder(classes, batch_size)
 
         if issubclass(self.decomposer_constructor, CellDecomposer):
             activation_names = [
@@ -98,7 +99,7 @@ class DecomposerFactory:
             raise ValueError("Decomposer constructor not understood")
 
         activation_dict, final_index = self._create_activations(
-            activation_names, sen_index, subsen_index
+            activation_names, sen_ids, subsen_index
         )
 
         decomposer = self.decomposer_constructor(
@@ -107,81 +108,136 @@ class DecomposerFactory:
 
         return decomposer
 
-    def _read_activations(self, a_name: ActivationName, sen_index: int) -> Tensor:
-        activation_key_config = {"indextype": "key", "a_name": a_name}
-        return self.activation_reader[sen_index, activation_key_config][0]
-
     def _create_activations(
         self,
         activation_names: ActivationNames,
-        sen_index: int,
+        sen_ids: ActivationIndex,
         subsen_index: slice = slice(None, None, None),
-    ) -> Tuple[ActivationTensors, int]:
+    ) -> Tuple[ActivationTensors, Tensor]:
         activation_dict: ActivationTensors = {}
+
+        final_index = self._create_final_index(sen_ids, subsen_index)
+        batch_size = final_index.size(0)
 
         for a_name in activation_names:
             if a_name[1] in ["icx", "0cx", "ihx", "0hx"]:
-                activation = self._create_init_activations(
-                    a_name, sen_index, subsen_index
+                activations = self._create_init_activations(
+                    a_name, sen_ids, subsen_index, batch_size
                 )
             else:
-                activation = self._read_activations(a_name, sen_index)
-                activation = activation[subsen_index]
+                activations = self._read_activations(a_name, sen_ids)
+                activations = activations[:, subsen_index]
 
-            activation_dict[a_name] = activation
-
-        final_index = self._create_final_index(sen_index, subsen_index)
+            activation_dict[a_name] = activations
 
         return activation_dict, final_index
 
     def _create_init_activations(
-        self, activation_name: ActivationName, sen_index: int, subsen_index: slice
+        self,
+        activation_name: ActivationName,
+        sen_ids: ActivationIndex,
+        subsen_index: slice,
+        batch_size: int,
     ) -> Tensor:
         """ Creates the init state activations. """
 
         # name can only be icx/ihx or 0cx/0hx
         layer, name = activation_name
 
-        batch_size = 1  # TODO: update bsz when batchification has been added
-
         if name[0] == "0":
             cell_type = name[1]
             return torch.zeros(
-                (batch_size, 1, self.model.sizes[layer][cell_type]), dtype=torch.float32
+                (batch_size, self.model.sizes[layer][cell_type]), dtype=torch.float32
             )
 
         if subsen_index.start == 0 or subsen_index.start is None:
             init_state: Tensor = self.model.init_hidden(batch_size)[layer, name[1:]]
         else:
-            activations = self._read_activations((layer, name[1:]), sen_index)
+            activations = self._read_activations((layer, name[1:]), sen_ids)
             init_state = activations[:, subsen_index.start - 1]
 
+        # Shape: (batch_size, nhid)
         return init_state
 
-    def _create_final_index(self, sen_index: int, subsen_index: slice) -> int:
+    def _create_final_index(
+        self, sen_ids: ActivationIndex, subsen_index: slice
+    ) -> Tensor:
         """ Computes the final index of each sentence in the batch. """
+        final_indices = self._calc_batch_lens(sen_ids) - 1
+        batch_size = final_indices.size(0)
 
-        cell_states = self._read_activations((0, "cx"), sen_index)
-
-        final_index = cell_states.size(0)
         if subsen_index.stop:
             assert (
-                final_index >= subsen_index.stop - 1
+                torch.min(final_indices) >= subsen_index.stop - 1
             ), "Subsentence index can't be longer than sentence itself"
-            final_index = subsen_index.stop - 1
+            final_indices = torch.tensor([subsen_index.stop - 1] * batch_size)
 
         start = subsen_index.start if subsen_index.start else 0
         assert start >= 0, "Subsentence index can't be negative"
-        final_index -= start
+        final_indices -= start
 
-        return final_index
+        return final_indices.to(torch.long)
 
-    def _read_decoder(self, decoder_path: Optional[str]) -> LinearDecoder:
+    def _calc_batch_lens(self, sen_ids: ActivationIndex) -> Tensor:
+        """ Returns final indices of current batch.
+
+        Parameters
+        ----------
+        sen_ids : ActivationIndex
+            Indices of the current batch.
+
+        Returns
+        -------
+        batch_lens : Tensor
+            Tensor of the sentence length of each batch item.
+        """
+        activation_key_config = {"indextype": "pos", "a_name": (0, "cx")}
+        cell_states = self.activation_reader[sen_ids, activation_key_config]
+        batch_lens = torch.tensor([cx.size(0) for cx in cell_states])
+
+        return batch_lens
+
+    def _read_activations(
+        self, a_name: ActivationName, sen_ids: ActivationIndex
+    ) -> Tensor:
+        activation_key_config = {"indextype": "pos", "a_name": a_name}
+        activations = self.activation_reader[sen_ids, activation_key_config]
+        padded_activations: Tensor = pad_sequence(
+            list(activations), batch_first=True, padding_value=float("nan")
+        )
+        return padded_activations
+
+    def _read_decoder(
+        self,
+        classes: ActivationIndex,
+        batch_size: int,
+        decoder_path: Optional[str] = None,
+    ) -> LinearDecoder:
         if decoder_path is not None:
             classifier = joblib.load(decoder_path)
             decoder_w = classifier.coef_
             decoder_b = classifier.intercept_
         else:
             decoder_w, decoder_b = import_decoder_from_model(self.model)
+
+        if isinstance(classes, int):
+            classes = torch.tensor([classes])
+        elif isinstance(classes, list):
+            classes = torch.tensor(classes)
+        elif isinstance(classes, ndarray):
+            classes = torch.from_numpy(classes)
+        elif isinstance(classes, slice):
+            classes = torch.tensor(activation_index_to_iterable(classes))
+
+        if len(classes.shape) == 1:
+            classes = classes.repeat(batch_size, 1)
+        else:
+            assert classes.size(0) == batch_size, (
+                f"First dimension of classes not equal to batch_size:"
+                f" {classes.size(0)} != {batch_size} (bsz)"
+            )
+
+        decoder_w = decoder_w[classes].permute(0, 2, 1)
+        decoder_b = decoder_b[classes]
 
         return decoder_w, decoder_b

@@ -1,15 +1,15 @@
 from typing import Any
 
-from torch import Tensor
 import torch
+from torch import Tensor
 
+from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationTensors,
     NamedTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.models.lm import LanguageModel
 
 
 class BaseDecomposer:
@@ -23,8 +23,8 @@ class BaseDecomposer:
         Dictionary containing the necessary activations for decomposition
     decoder : (Tensor, Tensor) ((num_classes, hidden_dim), (hidden_dim,))
         (Coefficients, bias) tuple of the (linear) decoding layer
-    final_index : int
-        1-d numpy array with index of final element of a batch element.
+    final_index : Tensor
+        1-d Tensor with index of final element of a batch element.
         Due to masking for sentences of uneven length the final index
         can differ between batch elements.
     """
@@ -34,14 +34,14 @@ class BaseDecomposer:
         model: LanguageModel,
         activation_dict: ActivationTensors,
         decoder: LinearDecoder,
-        final_index: int,
+        final_index: Tensor,
     ) -> None:
         self.model = model
         self.decoder_w, self.decoder_b = decoder
         self.activation_dict = activation_dict
 
         self.final_index = final_index
-        self.batch_size = 1  # TODO: Update when batchifying
+        self.batch_size = final_index.size(0)
         self.toplayer = model.num_layers - 1
 
         self._validate_activation_shapes()
@@ -88,7 +88,9 @@ class BaseDecomposer:
         return original_logit
 
     def get_final_activations(self, a_name: ActivationName, offset: int = 0) -> Tensor:
-        return self.activation_dict[a_name][self.final_index + offset]
+        return self.activation_dict[a_name][
+            range(self.batch_size), self.final_index + offset
+        ]
 
     def _validate_activation_shapes(self) -> None:
         pass
@@ -101,10 +103,10 @@ class BaseDecomposer:
                 if (layer, cell_type) in self.activation_dict:
                     self.activation_dict[(layer, cell_type)] = torch.cat(
                         (
-                            self.activation_dict[(layer, name)],
+                            self.activation_dict[(layer, name)].unsqueeze(1),
                             self.activation_dict[(layer, cell_type)],
                         ),
-                        dim=0,
+                        dim=1,
                     )
 
                     if cell_type == "hx" and layer == self.toplayer:
@@ -114,10 +116,12 @@ class BaseDecomposer:
                     if (layer, f"0{cell_type}") in self.activation_dict:
                         self.activation_dict[(layer, cell_type)] = torch.cat(
                             (
-                                self.activation_dict[(layer, f"0{cell_type}")],
+                                self.activation_dict[
+                                    (layer, f"0{cell_type}")
+                                ].unsqueeze(1),
                                 self.activation_dict[(layer, cell_type)],
                             ),
-                            dim=0,
+                            dim=1,
                         )
 
                         if cell_type == "hx" and layer == self.toplayer:
