@@ -46,7 +46,9 @@ class ActivationReader:
         self, activations_dir: str, store_multiple_activations: bool = False
     ) -> None:
 
-        assert os.path.exists(activations_dir), f"Activations dir not found: {activations_dir}"
+        assert os.path.exists(
+            activations_dir
+        ), f"Activations dir not found: {activations_dir}"
         self.activations_dir = activations_dir
 
         self._tensor_dict: ActivationTensors = {}
@@ -156,17 +158,23 @@ class ActivationReader:
                 ranges.append(all_ranges[idx])
 
         elif isinstance(index, slice):
-            assert (
-                index.step is None or index.step == 1
-            ), "Step slicing not supported for sen key index"
             start = index.start if index.start else 0
+            step = index.step or 1
 
             if indextype == "key":
-                stop = index.stop if index.stop else max(range_dict.keys())
-                ranges = [r for k, r in range_dict.items() if start <= k <= stop]
+                stop = index.stop or max(range_dict.keys())
+                ranges = [
+                    r
+                    for k, r in range_dict.items()
+                    if start <= k < stop and (k + start) % step == 0
+                ]
             else:
-                stop = index.stop if index.stop else len(all_ranges)
-                ranges = [r for i, r in enumerate(range_list) if start <= i <= stop]
+                stop = index.stop or len(all_ranges)
+                ranges = [
+                    r
+                    for i, r in enumerate(range_list)
+                    if start <= i < stop and (i + start) % step == 0
+                ]
 
         else:
             raise KeyError("Type of index is incompatible")
