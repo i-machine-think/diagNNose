@@ -4,5 +4,5 @@
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "decomposer": "ContextualDecomposer",
-  "init_states_corpus": "../lm_data/corpora/init_sentence.txt"
+  "init_states_pickle": "../lm_data/activations/extracted/init_gulordava/avg_eos.pickle"
 }

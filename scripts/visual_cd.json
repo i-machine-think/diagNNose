@@ -5,5 +5,8 @@
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "corpus_path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
   "corpus_header": ["sen", "type", "correct", "idx"],
-  "init_states_pickle": "../lm_data/activations/extracted/init_gulorava/avg_eos.pickle"
+  "init_states_pickle": "../lm_data/activations/extracted/init_gulordava/avg_eos.pickle",
+  "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
+  "rel_interactions": ["rel-rel", "rel-b", "rel-irrel"],
+  "only_source_rel": true
 }
