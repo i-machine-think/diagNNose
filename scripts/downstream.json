@@ -3,16 +3,22 @@
   "state_dict": "../lm_data/models/gulordava/state_dict.pt",
   "vocab_path": "../lm_data/models/gulordava/vocab.txt",
   "init_states_corpus": "../lm_data/corpora/init_sentence.txt",
-  "lakretz_path": "../lm_data/corpora/downstream/lakretz",
-  "lakretz_tasks": ["nounpp", "simple"],
-  "marvin_path": "../lm_data/corpora/downstream/marvin",
-  "task_activations": {
+  "downstream_config": {
+    "linzen": {
+      "path": "../lm_data/corpora/downstream/linzen/1attr_sample.tsv"
+    },
     "lakretz": {
-      "nounpp": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
-      "simple": "../lm_data/activations/extracted/lakretz_simple"
+      "path": "../lm_data/corpora/downstream/lakretz",
+      "tasks": ["nounpp", "simple"],
+      "task_activations": {
+        "nounpp": "../lm_data/activations/extracted/lakretz_nounpp_TORCH"
+      }
     },
     "marvin": {
-      "npi_no_the_ever": "../lm_data/activations/extracted/marvin_no_the_ever"
+      "path": "../lm_data/corpora/downstream/marvin",
+      "tasks": ["npi_no_the_ever", "npi_no_some_ever"],
+      "task_activations": {
+      }
     }
   }
 }

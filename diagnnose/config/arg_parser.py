@@ -232,6 +232,9 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": " Only returns the decomposed cell states of the top layer, without "
             "calculating the corresponding decoder scores. Defaults to False."
         },
+        "normalize": {
+            "help": "Toggle to normalize the relevant scores by the full model logits."
+        }
     }
 
     arg_descriptions["plot_attention"] = {
@@ -251,29 +254,9 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["downstream"] = {
-        "task_activations": {
-            "help": "(optional) Dictionary mapping task names to subtasks to directories to which "
-            "the task embeddings have been extracted. If a task is not provided the "
-            "activations will be created during the task."
-        },
-        "lakretz_path": {
-            "help": "(optional) Path to directory containing the Lakretz datasets that can be "
-            "found in the github repo. If not provided the Lakretz tasks will not be tested."
-        },
-        "lakretz_tasks": {
-            "help": "(optional) The downstream Lakretz tasks that will be tested. If not provided "
-            "this will default to the full set of conditions."
-        },
-        "marvin_path": {
-            "help": "(optional) Path to directory containing the Marvin datasets that can be "
-            "found in the github repo. If not provided the Marvin tasks will not be tested."
-        },
-        "marvin_tasks": {
-            "help": "(optional) The downstream Marvin tasks that will be tested. If not provided "
-            "this will default to the full set of conditions."
-        },
-        "print_results": {
-            "help": "(optional) Toggle on to print task results directly. Defaults to True."
+        "downstream_config": {
+            "help": "Dictionary mapping a downstream task to a config dict relating to that task."
+            "Current supported tasks are `linzen`, `marvin`, and `lakretz`. "
         },
     }
 

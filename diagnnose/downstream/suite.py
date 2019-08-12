@@ -1,27 +1,27 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from diagnnose.downstream.lakretz import lakretz_downstream
 from diagnnose.downstream.marvin import marvin_downstream
+from diagnnose.downstream.linzen import linzen_downstream
 from diagnnose.models.lm import LanguageModel
+
+
+task_defs: Dict[str, Callable] = {
+    "lakretz": lakretz_downstream,
+    "marvin": marvin_downstream,
+    "linzen": linzen_downstream,
+}
 
 
 # TODO: add docstring
 class DownstreamSuite:
     def __init__(
         self,
-        task_activations: Optional[Dict[str, Dict[str, str]]] = None,
-        lakretz_path: Optional[str] = None,
-        lakretz_tasks: Optional[List[str]] = None,
-        marvin_path: Optional[str] = None,
-        marvin_tasks: Optional[List[str]] = None,
+        downstream_config: Dict[str, Any],
         device: str = "cpu",
         print_results: bool = True,
     ) -> None:
-        self.task_activations = task_activations or {}
-        self.lakretz_path = lakretz_path
-        self.lakretz_tasks = lakretz_tasks
-        self.marvin_path = marvin_path
-        self.marvin_tasks = marvin_tasks
+        self.downstream_config = downstream_config
         self.device = device
         self.print_results = print_results
 
@@ -29,29 +29,16 @@ class DownstreamSuite:
         results: Dict[str, Any] = {}
         model.eval()
 
-        if self.lakretz_path:
+        for task, config in self.downstream_config.items():
             if self.print_results:
-                print("\n--==LAKRETZ==--")
+                print(f"\n--=={task.upper()}==--")
 
-            results["lakretz"] = lakretz_downstream(
+            results[task] = task_defs[task](
                 model,
                 vocab_path,
-                self.lakretz_path,
-                lakretz_activations=self.task_activations.get("lakretz", None),
-                lakretz_tasks=self.lakretz_tasks,
-                device=self.device,
-                print_results=self.print_results,
-            )
-        if self.marvin_path:
-            if self.print_results:
-                print("\n--==MARVIN==--")
-
-            results["marvin"] = marvin_downstream(
-                model,
-                vocab_path,
-                self.marvin_path,
-                marvin_activations=self.task_activations.get("marvin", None),
-                marvin_tasks=self.marvin_tasks,
+                config["path"],
+                tasks=config.get("tasks", None),
+                task_activations=config.get("task_activations", None),
                 device=self.device,
                 print_results=self.print_results,
             )

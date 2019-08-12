@@ -17,9 +17,9 @@ marvin_descriptions: Dict[str, Any] = {
 def marvin_downstream(
     model: LanguageModel,
     vocab_path: str,
-    marvin_path: str,
-    marvin_activations: Optional[Dict[str, str]] = None,
-    marvin_tasks: Optional[List[str]] = None,
+    path: str,
+    task_activations: Optional[Dict[str, str]] = None,
+    tasks: Optional[List[str]] = None,
     device: str = "cpu",
     print_results: bool = True,
 ) -> Dict[str, float]:
@@ -34,14 +34,14 @@ def marvin_downstream(
         Language model for which the accuracy is calculated.
     vocab_path : str
         Path to vocabulary file of the Language Model.
-    marvin_path : str
+    path : str
         Path to directory containing the Marvin datasets that can be
         found in the github repo.
-    marvin_activations : str, optional
+    task_activations : str, optional
         Dictionary mapping task names to directories to which the
         Marvin task embeddings have been extracted. If a task is not
         provided the activations will be created during the task.
-    marvin_tasks : List[str], optional
+    tasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
     device : str, optional
@@ -55,23 +55,23 @@ def marvin_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
-    marvin_activations = marvin_activations or {}
+    task_activations = task_activations or {}
 
-    if marvin_tasks is None:
-        marvin_tasks = list(marvin_descriptions.keys())
+    if tasks is None:
+        tasks = list(marvin_descriptions.keys())
 
     accs_dict: Dict[str, float] = {}
 
-    for task in marvin_descriptions:
-        assert task in marvin_tasks, f"Provided task {task} is not recognised!"
+    for task in tasks:
+        assert task in marvin_descriptions, f"Provided task {task} is not recognised!"
 
-        activation_dir = marvin_activations.get(task, None)
+        activation_dir = task_activations.get(task, None)
         activation_reader = (
             ActivationReader(activation_dir) if activation_dir is not None else None
         )
 
         corpus = import_corpus(
-            os.path.join(marvin_path, f"{task}.txt"), vocab_path=vocab_path
+            os.path.join(path, f"{task}.txt"), vocab_path=vocab_path
         )
 
         iterator = create_iterator(corpus, batch_size=2, device=device)
