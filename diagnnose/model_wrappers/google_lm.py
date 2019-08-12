@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -54,18 +54,23 @@ class GoogleLM(LanguageModel):
         full_vocab_path: str,
         corpus_vocab_path: Optional[Union[str, List[str]]] = None,
         create_decoder: bool = True,
+        device: str = "cpu",
     ) -> None:
         super().__init__()
         print("Loading pretrained model...")
 
         vocab: C2I = create_char_vocab(corpus_vocab_path or full_vocab_path)
 
-        self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab)
+        self.device = device
+
+        self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab, device)
         self.lstm = LSTM(
-            ckpt_dir, self.num_layers, self.split_order, self.forget_offset
+            ckpt_dir, self.num_layers, self.split_order, self.forget_offset, device
         )
         if create_decoder:
-            self.decoder = SoftMax(vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"])
+            self.decoder = SoftMax(
+                vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"], device
+            )
 
         print("Model initialisation finished.")
 
@@ -114,13 +119,14 @@ class GoogleLM(LanguageModel):
 
 
 class CharCNN(nn.Module):
-    def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I) -> None:
+    def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I, device: str) -> None:
         print("Loading CharCNN...")
         super().__init__()
 
         self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
         self.cnn_embs: Dict[str, Tensor] = {}
         self.vocab = vocab
+        self.device = device
 
     @staticmethod
     def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:
@@ -152,14 +158,14 @@ class CharCNN(nn.Module):
 
     @overrides
     def forward(self, tokens: List[str]) -> Tensor:
-        embs = torch.zeros((len(tokens), 1024), dtype=torch.float32)
+        embs = torch.zeros((len(tokens), 1024), dtype=torch.float32, device=self.device)
         for i, token in enumerate(tokens):
             if token not in self.cnn_embs:
                 char_ids = self.vocab.token_to_char_ids(token)
                 input_dict = {self.cnn_t["char_inputs_in"]: char_ids}
                 emb = torch.from_numpy(
                     self.cnn_sess.run(self.cnn_t["all_embs"], input_dict)
-                )
+                ).to(self.device)
                 self.cnn_embs[token] = emb
             else:
                 emb = self.cnn_embs[token]
@@ -170,7 +176,12 @@ class CharCNN(nn.Module):
 
 class LSTM(nn.Module):
     def __init__(
-        self, ckpt_dir: str, num_layers: int, split_order: List[str], forget_offset: int
+        self,
+        ckpt_dir: str,
+        num_layers: int,
+        split_order: List[str],
+        forget_offset: int,
+        device: str,
     ) -> None:
         super().__init__()
 
@@ -189,9 +200,9 @@ class LSTM(nn.Module):
         # The 3 peepholes are weighted by a diagonal matrix
         self.peepholes: ActivationTensors = {}
 
-        self._load_lstm(ckpt_dir)
+        self._load_lstm(ckpt_dir, device)
 
-    def _load_lstm(self, ckpt_dir: str) -> None:
+    def _load_lstm(self, ckpt_dir: str, device: str) -> None:
         from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
         lstm_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-lstm"))
@@ -226,11 +237,11 @@ class LSTM(nn.Module):
                 )
 
             # Cast to float32 tensors
-            self.weight[l] = self.weight[l].to(torch.float32)
-            self.weight_P[l] = self.weight_P[l].to(torch.float32)
-            self.bias[l] = self.bias[l].to(torch.float32)
+            self.weight[l] = self.weight[l].to(torch.float32).to(device)
+            self.weight_P[l] = self.weight_P[l].to(torch.float32).to(device)
+            self.bias[l] = self.bias[l].to(torch.float32).to(device)
             for p in ["f", "i", "o"]:
-                self.peepholes[l, p] = self.peepholes[l, p].to(torch.float32)
+                self.peepholes[l, p] = self.peepholes[l, p].to(torch.float32).to(device)
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
@@ -280,13 +291,20 @@ class LSTM(nn.Module):
 
 class SoftMax:
     def __init__(
-        self, vocab: C2I, full_vocab_path: str, ckpt_dir: str, hidden_size_h: int
+        self,
+        vocab: C2I,
+        full_vocab_path: str,
+        ckpt_dir: str,
+        hidden_size_h: int,
+        device: str,
     ) -> None:
         print("Loading SoftMax...")
         self.decoder_w: Tensor = torch.zeros(
-            (len(vocab), hidden_size_h), dtype=torch.float32
+            (len(vocab), hidden_size_h), dtype=torch.float32, device=device
         )
-        self.decoder_b: Tensor = torch.zeros(len(vocab), dtype=torch.float32)
+        self.decoder_b: Tensor = torch.zeros(
+            len(vocab), dtype=torch.float32, device=device
+        )
 
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 

@@ -33,6 +33,14 @@ class LanguageModel(ABC, nn.Module):
     def num_layers(self) -> int:
         return len(self.sizes)
 
+    @property
+    def top_layer(self) -> int:
+        return self.num_layers - 1
+
+    @property
+    def output_size(self) -> int:
+        return self.sizes[self.top_layer]["h"]
+
     @overrides
     @abstractmethod
     def forward(
@@ -80,7 +88,12 @@ class LanguageModel(ABC, nn.Module):
         init_states : ActivationTensors
             Dictionary mapping hidden and cell state to init tensors.
         """
-        return self._expand_batch_size(self.init_states, batch_size)
+        init_states = self._expand_batch_size(self.init_states, batch_size)
+
+        for k, v in init_states.items():
+            init_states[k] = v.to(self.device)
+
+        return init_states
 
     def final_hidden(self, hidden: ActivationTensors) -> Tensor:
         """ Returns the final hidden state.
