@@ -1,6 +1,7 @@
 import shutil
 from typing import Any, Dict, List, Optional
 
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -54,23 +55,35 @@ class CDAttention:
         sen_ids: ActivationIndex,
         activations_dir: Optional[str] = None,
         avg_decs: bool = False,
+        arr_pickle: Optional[str] = None,
+        save_arr_as: Optional[str] = None,
+        save_plot_as: Optional[str] = None,
     ) -> Tensor:
-        arr = self.calc_by_sen_id(sen_ids, activations_dir=activations_dir)
+        if arr_pickle is not None:
+            arr: Tensor = torch.load(arr_pickle)
+        else:
+            arr = self.calc_by_sen_id(
+                sen_ids, activations_dir=activations_dir, save_arr_as=save_arr_as
+            )
 
         if avg_decs:
             avg_arr = torch.mean(arr, dim=0)
-            self.plot_attention(avg_arr)
+            sen = self.plot_config.get("sen", None)
+            self.plot_attention(avg_arr, sen=sen, save_plot_as=save_plot_as)
         else:
             sen_ids = activation_index_to_iterable(sen_ids)
             batch_size = arr.size(0)
             for i in range(batch_size):
                 sen_id = sen_ids[i]  # mypy error fixable with PEP 544
-                self.plot_attention(arr[i], self.corpus[sen_id].sen)
+                self.plot_attention(arr[i], sen=self.corpus[sen_id].sen)
 
         return arr
 
     def calc_by_sen_id(
-        self, sen_ids: ActivationIndex, activations_dir: Optional[str] = None
+        self,
+        sen_ids: ActivationIndex,
+        activations_dir: Optional[str] = None,
+        save_arr_as: Optional[str] = None,
     ) -> Tensor:
         if isinstance(sen_ids, int):
             sen_ids = [sen_ids]
@@ -88,13 +101,17 @@ class CDAttention:
         if activations_dir is None:
             shutil.rmtree(TMP_DIR)
 
+        if save_arr_as is not None:
+            torch.save(arr, save_arr_as)
+
         return arr
 
     def calc_attention(
-        self, decomposer: BaseDecomposer, normalize: bool = True
+        self, decomposer: BaseDecomposer
     ) -> Tensor:
         start_id = 0 if self.include_init else 1
         sen_len = int(decomposer.final_index[0])
+        normalize = self.cd_config.pop('normalize', True)
 
         # Number of input features to be decomposed (init + w0 -- wn-1)
         ndecomp = sen_len - 1 + int(self.include_init)
@@ -118,14 +135,20 @@ class CDAttention:
                 decomposition["irrelevant"][:, :, 1:], dim1=1, dim2=2
             )
 
+        bias = decomposer.decoder_b[:, 1:].unsqueeze(1)
         if normalize:
-            bias = decomposer.decoder_b[:, 1:].unsqueeze(1)
             norm_scores = rel_scores / (rel_scores + irrel_scores + bias)
             return norm_scores
 
-        return rel_scores
+        self.cd_config["normalize"] = False
+        return rel_scores + irrel_scores + bias
 
-    def plot_attention(self, arr: Tensor, sen: Optional[List[str]] = None) -> None:
+    def plot_attention(
+        self,
+        arr: Tensor,
+        sen: Optional[List[str]] = None,
+        save_plot_as: Optional[str] = None,
+    ) -> None:
         arr = arr.numpy()
         arr_mask = np.ma.masked_array(arr, mask=(arr != 0.0))
         arr = np.ma.masked_array(arr, mask=(arr == 0))
@@ -172,12 +195,12 @@ class CDAttention:
             ax.set_yticks([])
 
         if self.plot_config.get("plot_values", True):
-            fs = self.plot_config.get("value_font_size", 20)
+            fs = self.plot_config.get("value_font_size", 22)
             for (j, i), label in np.ndenumerate(arr):
                 if label == 0.0:
                     continue
                 beta = np.round(label, 2)
-                if (cmin / 1.5) < beta < (cmax / 1.5):
+                if (cmin / 1.5) < beta < (cmax / 1.3):
                     ax.text(
                         i, j, beta, ha="center", va="center", fontsize=fs, color="black"
                     )
@@ -196,6 +219,8 @@ class CDAttention:
             title = ax.set_title(self.plot_config["title"], fontsize=30)
             title.set_position([0.5, 1.2])
 
+        if save_plot_as is not None:
+            plt.savefig(save_plot_as, format="png")
         plt.show()
 
     def _create_output_classes(self, sen_ids: ActivationIndex) -> Tensor:
