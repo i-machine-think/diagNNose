@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
-from torchtext.data import Field, RawField, TabularDataset
+from torchtext.data import Field, Pipeline, RawField, TabularDataset
 from torchtext.vocab import Vocab
 
 from diagnnose.vocab import create_vocab
@@ -13,6 +13,7 @@ def import_corpus(
     to_lower: bool = False,
     vocab_path: Optional[str] = None,
     vocab_from_corpus: bool = False,
+    sen_column: str = "sen",
 ) -> TabularDataset:
 
     """ Imports a corpus from a path.
@@ -44,6 +45,9 @@ def import_corpus(
         Create a new vocabulary from the tokens of the corpus itself.
         If set to True `vocab_path` does not need to be provided.
         Defaults to False.
+    sen_column : str, optional
+        Name of the corpus column containing the raw sentences.
+        Defaults to `sen`.
 
     Returns
     -------
@@ -58,11 +62,14 @@ def import_corpus(
         else:
             corpus_header = ["sen"]
 
-    assert "sen" in corpus_header, "`sen` should be part of corpus_header!"
+    assert sen_column in corpus_header, "`sen` should be part of corpus_header!"
 
+    def preprocess(s: str) -> Union[str, int]:
+        return int(s) if s.isdigit() else s
+    pipeline = Pipeline(convert_token=preprocess)
     fields = {}
     for field in corpus_header:
-        if field == "sen":
+        if field == sen_column:
             fields[field] = Field(
                 batch_first=True, include_lengths=True, lower=to_lower
             )
@@ -71,16 +78,16 @@ def import_corpus(
                 use_vocab=False, tokenize=lambda s: list(map(int, s.split()))
             )
         else:
-            fields[field] = RawField()
+            fields[field] = RawField(preprocessing=pipeline)
             fields[field].is_target = False
 
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None or vocab_from_corpus:
         vocab = create_vocab(vocab_path or corpus_path)
 
-        fields["sen"].vocab = Vocab({}, specials=[])
-        fields["sen"].vocab.stoi = vocab
-        fields["sen"].vocab.itos = list(vocab.keys())
+        fields[sen_column].vocab = Vocab({}, specials=[])
+        fields[sen_column].vocab.stoi = vocab
+        fields[sen_column].vocab.itos = list(vocab.keys())
 
     corpus = TabularDataset(
         fields=fields.items(),
@@ -91,6 +98,6 @@ def import_corpus(
     )
 
     if vocab_path is not None or vocab_from_corpus:
-        corpus.vocab = corpus.fields["sen"].vocab
+        corpus.vocab = corpus.fields[sen_column].vocab
 
     return corpus
