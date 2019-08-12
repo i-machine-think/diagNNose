@@ -8,7 +8,7 @@ from .w2i import W2I
 class C2I(W2I):
     """Vocabulary containing character-level information.
 
-    Taken from: https://github.com/tensorflow/models/tree/master/research/lm_1b
+    Adapted from: https://github.com/tensorflow/models/tree/master/research/lm_1b
     """
 
     def __init__(
@@ -35,13 +35,7 @@ class C2I(W2I):
         self.eow_char = free_ids[3]  # <end word>
         self.pad_char = free_ids[4]  # <padding>
 
-        chars_set |= {self.eos_char, self.bow_char, self.eow_char, self.pad_char}
-
-        self._char_set = chars_set
-
         self._word_char_ids: Dict[str, np.ndarray] = {}
-
-        self.eos_chars = self._convert_word_to_char_ids(self.eos_char)
 
         for w in self.w2i.keys():
             self._word_char_ids[w] = self._convert_word_to_char_ids(w)

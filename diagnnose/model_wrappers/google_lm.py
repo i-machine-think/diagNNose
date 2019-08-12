@@ -52,7 +52,7 @@ class GoogleLM(LanguageModel):
         pbtxt_path: str,
         ckpt_dir: str,
         full_vocab_path: str,
-        corpus_vocab_path: Optional[str] = None,
+        corpus_vocab_path: Optional[Union[str, List[str]]] = None,
         create_decoder: bool = True,
     ) -> None:
         super().__init__()
