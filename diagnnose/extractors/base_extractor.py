@@ -297,5 +297,7 @@ class Extractor:
     def _normalize_avg_eos_activations(
         avg_eos_activations: ActivationTensors, n_sens: int
     ) -> None:
+        if n_sens == 0:
+            return
         for layer, name in avg_eos_activations.keys():
             avg_eos_activations[layer, name] = avg_eos_activations[layer, name] / n_sens
