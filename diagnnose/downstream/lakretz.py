@@ -2,14 +2,16 @@ import os
 import warnings
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 import torch
 from torch import Tensor
+from torchtext.data import BucketIterator
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.corpus import Corpus
+
 
 lakretz_descriptions: Dict[str, Any] = {
     "adv": {"classes": 2, "items_per_class": 900, "conditions": ["S", "P"]},
@@ -30,25 +32,20 @@ lakretz_descriptions: Dict[str, Any] = {
 }
 
 
-def lakretz_downstream(
-    model: LanguageModel,
+def lakretz_init(
     vocab_path: str,
     path: str,
     task_activations: Optional[Dict[str, str]] = None,
     tasks: Optional[List[str]] = None,
     device: str = "cpu",
-    print_results: bool = True,
-    ignore_unk: bool = True,
-) -> Dict[str, Dict[str, float]]:
-    """ Performs the downstream tasks described in Lakretz et al. (2019)
+) -> Dict[str, Dict[str, Any]]:
+    """ Initializes the tasks described in Lakretz et al. (2019)
 
     Arxiv link: https://arxiv.org/pdf/1903.07435.pdf
     Repo: https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs
 
     Parameters
     ----------
-    model : LanguageModel
-        Language model for which the accuracy is calculated.
     vocab_path : str
         Path to vocabulary file of the Language Model.
     path : str
@@ -63,8 +60,69 @@ def lakretz_downstream(
         will default to the full set of conditions.
     device : str, optional
         Torch device name on which model will be run. Defaults to cpu.
-    print_results : bool, optional
-        Toggle on to print task results directly. Defaults to True.
+
+    Returns
+    -------
+    init_dict : Dict[str, Dict[str, Any]]
+        Dictionary containing the initial task setup.
+    """
+
+    task_activations = task_activations or {}
+
+    if tasks is None:
+        tasks = list(lakretz_descriptions.keys())
+
+    accs_dict: Dict[str, Dict[str, float]] = {}
+    activation_readers: Dict[str, Optional[ActivationReader]] = {}
+    corpora: Dict[str, Corpus] = {}
+    iterators: Dict[str, BucketIterator] = {}
+
+    for task in tasks:
+        assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
+
+        activation_dir = task_activations.get(task, None)
+        activation_readers[task] = (
+            ActivationReader(activation_dir) if activation_dir is not None else None
+        )
+
+        task_specs = lakretz_descriptions[task]
+        items_per_class = task_specs["items_per_class"]
+
+        corpora[task] = import_corpus(
+            os.path.join(path, f"{task}.txt"),
+            corpus_header=["sen", "type", "correct", "idx"],
+            vocab_path=vocab_path,
+        )
+
+        iterators[task] = create_iterator(
+            corpora[task], batch_size=(items_per_class * 2), device=device
+        )
+
+        accs_dict[task] = {condition: 0.0 for condition in task_specs["conditions"]}
+
+    return {
+        "accs_dict": accs_dict,
+        "activation_readers": activation_readers,
+        "corpora": corpora,
+        "iterators": iterators,
+    }
+
+
+def lakretz_downstream(
+    init_dict: Dict[str, Dict[str, Any]], model: LanguageModel, ignore_unk: bool = True
+) -> Dict[str, Dict[str, float]]:
+    """ Performs the downstream tasks described in Lakretz et al. (2019)
+
+    Arxiv link: https://arxiv.org/pdf/1903.07435.pdf
+    Repo: https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs
+
+    Parameters
+    ----------
+    init_dict : Dict[str, Dict[str, Any]]
+        Dictionary created using `lakretz_init` containing the initial
+        task setup.
+    model : LanguageModel
+        Language model for which the accuracy is calculated.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to True.
@@ -75,53 +133,30 @@ def lakretz_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
-    task_activations = task_activations or {}
-
-    if tasks is None:
-        tasks = list(lakretz_descriptions.keys())
-
-    accs_dict: Dict[str, Dict[str, float]] = {}
-
-    for task in tasks:
-        assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
-
-        activation_dir = task_activations.get(task, None)
-        activation_reader = (
-            ActivationReader(activation_dir) if activation_dir is not None else None
-        )
-
-        if print_results:
-            print(f"\n{task}")
-        condition_specs = lakretz_descriptions[task]
-        items_per_class = condition_specs["items_per_class"]
-
-        corpus = import_corpus(
-            os.path.join(path, f"{task}.txt"),
-            corpus_header=["sen", "type", "correct", "idx"],
-            vocab_path=vocab_path,
-        )
-
-        sen_len = len(corpus.examples[0].sen)
-        iterator = create_iterator(
-            corpus, batch_size=(items_per_class * 2), device=device
-        )
+    for task in init_dict["corpora"].keys():
+        print(f"\n{task}")
+        activation_reader = init_dict["activation_readers"][task]
+        accuracies = init_dict["accs_dict"][task]
+        corpus = init_dict["corpora"][task]
+        iterator = init_dict["iterators"][task]
 
         skipped = 0
-        accs = np.zeros(condition_specs["classes"])
+        task_specs = lakretz_descriptions[task]
+        items_per_class = task_specs["items_per_class"]
+        sen_len = len(corpus.examples[0].sen)
 
-        for i, batch in enumerate(iterator):
-            if activation_dir is None:
+        for cidx, batch in enumerate(iterator):
+            all_sens = [
+                corpus.examples[k].sen
+                for k in range(
+                    cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2
+                )
+            ]
+            if activation_reader is None:
                 hidden = model.init_hidden(items_per_class)
                 for j in range(sen_len - 1):
                     if model.use_char_embs:
-                        w = [
-                            corpus.examples[k].sen[j]
-                            for k in range(
-                                i * items_per_class * 2,
-                                (i + 1) * items_per_class * 2,
-                                2,
-                            )
-                        ]
+                        w = [sen[j] for sen in all_sens[::2]]
                     else:
                         w = batch.sen[0][::2, j]
                     with torch.no_grad():
@@ -130,7 +165,7 @@ def lakretz_downstream(
                 final_hidden = model.final_hidden(hidden)
             else:
                 sen_slice = slice(
-                    i * items_per_class * 2, (i + 1) * items_per_class * 2, 2
+                    cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2, 2
                 )
                 final_hidden = torch.stack(
                     activation_reader[sen_slice, {"a_name": (model.top_layer, "hx")}],
@@ -141,15 +176,12 @@ def lakretz_downstream(
             w2: Tensor = batch.sen[0][1::2, -1]
 
             if ignore_unk:
-                unk_idx = corpus.vocab.stoi.unk_idx
-                for widx, mask_vals in enumerate(zip((w1 == unk_idx), (w2 == unk_idx))):
-                    if mask_vals[0] == 1:
-                        token = corpus.examples[widx * 2].sen[-1]
-                        warnings.warn(f"'{token}' is not part of model vocab!")
-                    if mask_vals[1] == 1:
-                        token = corpus.examples[widx * 2 + 1].sen[-1]
-                        warnings.warn(f"'{token}' is not part of model vocab!")
-                mask = (w1 == unk_idx) | (w2 == unk_idx)
+                mask = torch.zeros(items_per_class, dtype=torch.uint8)
+                for i, sen in enumerate(all_sens):
+                    for w in sen:
+                        if w not in corpus.vocab.stoi:
+                            mask[i // 2] = True
+                            warnings.warn(f"'{w}' is not part of model vocab!")
                 skipped = int(torch.sum(mask))
                 w1 = w1[~mask]
                 w2 = w2[~mask]
@@ -161,13 +193,11 @@ def lakretz_downstream(
             probs = probs[:, :, 0]
             probs += model.decoder_b[classes]
 
-            accs[i] += torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float))
+            acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
+            accuracies[task_specs["conditions"][cidx]] = acc
 
-            if print_results:
-                print(f"{condition_specs['conditions'][i]}:\t{accs[i]:.3f}")
-                if skipped > 0:
-                    print(f"{skipped:.0f}/{items_per_class} items were skipped.\n")
+            print(f"{task_specs['conditions'][cidx]}:\t{acc:.3f}")
+            if skipped > 0:
+                print(f"{skipped:.0f}/{items_per_class} items were skipped.\n")
 
-        accs_dict[task] = dict(zip(condition_specs["conditions"], accs))
-
-    return accs_dict
+    return init_dict["accs_dict"]

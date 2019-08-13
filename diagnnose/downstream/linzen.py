@@ -1,28 +1,28 @@
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import torch
 from torch.nn.utils.rnn import pack_padded_sequence
 from tqdm import tqdm
 
-from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
 
 
-def linzen_downstream(
-    model: LanguageModel,
-    vocab_path: str,
-    path: str,
-    task_activations: Optional[Dict[str, str]] = None,
-    tasks: Optional[List[str]] = None,
-    device: str = "cpu",
-    print_results: bool = True,
-) -> float:
-    correct = 0.0
+def linzen_init(
+    vocab_path: str, path: str, device: str = "cpu", **kwargs: Any
+) -> Dict[str, Any]:
     corpus = import_corpus(path, header_from_first_line=True, vocab_path=vocab_path)
-    iterator = create_iterator(corpus, batch_size=200, device=device, sort=True)
+    iterator = create_iterator(corpus, batch_size=2000, device=device, sort=True)
+
+    return {"corpus": corpus, "device": device, "iterator": iterator}
+
+
+def linzen_downstream(init_dict: Dict[str, Any], model: LanguageModel) -> float:
+    correct = 0.0
+    corpus = init_dict["corpus"]
+    device = init_dict["device"]
+    iterator = init_dict["iterator"]
 
     for batch in tqdm(iterator):
         sens, slens = batch.sen
@@ -62,7 +62,6 @@ def linzen_downstream(
 
     accuracy = correct / len(corpus.examples)
 
-    if print_results:
-        print(accuracy)
+    print(accuracy)
 
     return accuracy
