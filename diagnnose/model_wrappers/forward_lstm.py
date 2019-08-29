@@ -1,12 +1,12 @@
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
 from overrides import overrides
 from torch import Tensor
 
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
+from diagnnose.typedefs.activations import ActivationTensors, DTYPE, LayeredTensors
 
 
 class ForwardLSTM(LanguageModel):
@@ -67,23 +67,23 @@ class ForwardLSTM(LanguageModel):
             w_i = params[rnn_names["weight_ih"]]
 
             # Shape: (emb_size+nhid_h, 4*nhid_c)
-            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t()
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(DTYPE)
 
             if rnn_names["bias_hh"] in params:
                 # Shape: (4*nhid_c,)
                 self.bias[layer] = (
                     params[rnn_names["bias_hh"]] + params[rnn_names["bias_ih"]]
-                )
+                ).to(DTYPE)
 
             self.sizes[layer] = {"x": w_i.size(1), "h": w_h.size(1), "c": w_h.size(1)}
             layer += 1
 
         # Encoder and decoder weights
-        self.encoder = params[f"{encoder_name}.weight"]
-        self.decoder_w = params[f"{decoder_name}.weight"]
+        self.encoder = params[f"{encoder_name}.weight"].to(DTYPE)
+        self.decoder_w = params[f"{decoder_name}.weight"].to(DTYPE)
         self.decoder_b: Optional[Tensor] = None
         if f"{decoder_name}.bias" in params:
-            self.decoder_b = params[f"{decoder_name}.bias"]
+            self.decoder_b = params[f"{decoder_name}.bias"].to(DTYPE)
 
         print("Model initialisation finished.")
 

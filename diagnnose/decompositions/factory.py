@@ -20,6 +20,7 @@ from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationNames,
     ActivationTensors,
+    DTYPE,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 
@@ -147,7 +148,7 @@ class DecomposerFactory:
         if name[0] == "0":
             cell_type = name[1]
             return torch.zeros(
-                (batch_size, self.model.sizes[layer][cell_type]), dtype=torch.float32
+                (batch_size, self.model.sizes[layer][cell_type]), dtype=DTYPE
             )
 
         if subsen_index.start == 0 or subsen_index.start is None:

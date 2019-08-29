@@ -6,6 +6,7 @@ from overrides import overrides
 from torch import Tensor
 
 from diagnnose.typedefs.activations import (
+    DTYPE,
     ActivationTensors,
     Decompositions,
     NamedTensors,
@@ -149,10 +150,10 @@ class ContextualDecomposer(BaseDecomposer):
         if layer == 0:
             if inside_phrase and not input_never_rel:
                 rel_input = self.activation_dict[0, "emb"][:, i]
-                irrel_input = torch.zeros(rel_input.shape, dtype=torch.float32)
+                irrel_input = torch.zeros(rel_input.shape, dtype=DTYPE)
             else:
                 irrel_input = self.activation_dict[0, "emb"][:, i]
-                rel_input = torch.zeros(irrel_input.shape, dtype=torch.float32)
+                rel_input = torch.zeros(irrel_input.shape, dtype=DTYPE)
         else:
             rel_input = self.decompositions[layer - 1]["rel_h"][:, i]
             irrel_input = self.decompositions[layer - 1]["irrel_h"][:, i]
@@ -307,10 +308,10 @@ class ContextualDecomposer(BaseDecomposer):
         else:
             if start < 0 or self.init_states_rel:
                 prev_rel = self.activation_dict[layer, f"i{cell_type}x"]
-                prev_irrel = torch.zeros(prev_rel.shape, dtype=torch.float32)
+                prev_irrel = torch.zeros(prev_rel.shape, dtype=DTYPE)
             else:
                 prev_irrel = self.activation_dict[layer, f"i{cell_type}x"]
-                prev_rel = torch.zeros(prev_irrel.shape, dtype=torch.float32)
+                prev_rel = torch.zeros(prev_irrel.shape, dtype=DTYPE)
 
         return prev_rel, prev_irrel
 
@@ -417,22 +418,22 @@ class ContextualDecomposer(BaseDecomposer):
         self.decompositions = {
             layer: {
                 "rel_c": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
                 ),
                 "rel_h": torch.zeros(
-                    (batch_size, slen, sizes[layer]["h"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["h"]), dtype=DTYPE
                 ),
                 "rel_h_wo_proj": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
                 ),
                 "irrel_c": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
                 ),
                 "irrel_h": torch.zeros(
-                    (batch_size, slen, sizes[layer]["h"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["h"]), dtype=DTYPE
                 ),
                 "irrel_h_wo_proj": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=torch.float32
+                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
                 ),
             }
             for layer in range(num_layers)

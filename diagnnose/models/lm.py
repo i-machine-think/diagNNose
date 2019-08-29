@@ -7,7 +7,7 @@ from torch import Tensor, nn
 
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.activations import ActivationTensors, DTYPE
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
@@ -176,8 +176,12 @@ class LanguageModel(ABC, nn.Module):
         init_states: ActivationTensors = {}
 
         for layer in range(self.num_layers):
-            init_states[layer, "cx"] = torch.zeros((batch_size, self.sizes[layer]["c"]))
-            init_states[layer, "hx"] = torch.zeros((batch_size, self.sizes[layer]["h"]))
+            init_states[layer, "cx"] = torch.zeros(
+                (batch_size, self.sizes[layer]["c"]), dtype=DTYPE
+            )
+            init_states[layer, "hx"] = torch.zeros(
+                (batch_size, self.sizes[layer]["h"]), dtype=DTYPE
+            )
 
         return init_states
 
