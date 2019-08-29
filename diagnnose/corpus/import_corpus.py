@@ -1,9 +1,8 @@
 from typing import List, Optional, Union
 
 from torchtext.data import Field, Pipeline, RawField, TabularDataset
-from torchtext.vocab import Vocab
 
-from diagnnose.vocab import create_vocab
+from diagnnose.vocab import attach_vocab
 
 
 def import_corpus(
@@ -81,14 +80,6 @@ def import_corpus(
             fields[field] = RawField(preprocessing=pipeline)
             fields[field].is_target = False
 
-    # The current torchtext Vocab does not allow a fixed vocab order
-    if vocab_path is not None or vocab_from_corpus:
-        vocab = create_vocab(vocab_path or corpus_path)
-
-        fields[sen_column].vocab = Vocab({}, specials=[])
-        fields[sen_column].vocab.stoi = vocab
-        fields[sen_column].vocab.itos = list(vocab.keys())
-
     corpus = TabularDataset(
         fields=fields.items(),
         format="tsv",
@@ -97,7 +88,8 @@ def import_corpus(
         csv_reader_params={"quotechar": None},
     )
 
+    # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None or vocab_from_corpus:
-        corpus.vocab = corpus.fields[sen_column].vocab
+        attach_vocab(corpus, vocab_path or corpus_path, sen_column=sen_column)
 
     return corpus

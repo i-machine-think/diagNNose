@@ -1,6 +1,11 @@
 import os
+import glob
 from collections import OrderedDict
 from typing import Dict, List, Union
+
+from torchtext.vocab import Vocab
+
+from diagnnose.typedefs.corpus import Corpus
 
 from .c2i import C2I
 from .w2i import W2I
@@ -8,7 +13,7 @@ from .w2i import W2I
 
 def create_w2i_dict(corpus_path: Union[str, List[str]]) -> Dict[str, int]:
     if isinstance(corpus_path, str):
-        corpus_path = [corpus_path]
+        corpus_path = glob.glob(corpus_path)
 
     corpus_tokens: OrderedDict = OrderedDict()
     for path in corpus_path:
@@ -31,3 +36,13 @@ def create_vocab(corpus_path: Union[str, List[str]]) -> W2I:
 
 def create_char_vocab(corpus_path: Union[str, List[str]]) -> C2I:
     return C2I(create_w2i_dict(corpus_path))
+
+
+def attach_vocab(corpus: Corpus, vocab_path: str, sen_column: str = "sen") -> None:
+    vocab = create_vocab(vocab_path)
+
+    corpus.fields[sen_column].vocab = Vocab({}, specials=[])
+    corpus.fields[sen_column].vocab.stoi = vocab
+    corpus.fields[sen_column].vocab.itos = list(vocab.keys())
+
+    corpus.vocab = corpus.fields[sen_column].vocab
