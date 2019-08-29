@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 from torch import Tensor
-from torchtext.data import BucketIterator
+from torchtext.data import Batch, BucketIterator
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
@@ -64,7 +64,8 @@ def lakretz_init(
     Returns
     -------
     init_dict : Dict[str, Dict[str, Any]]
-        Dictionary containing the initial task setup.
+        Dictionary containing the initial task setup, mapping each task
+        to to required fields.
     """
 
     task_activations = task_activations or {}
@@ -72,13 +73,15 @@ def lakretz_init(
     if tasks is None:
         tasks = list(lakretz_descriptions.keys())
 
-    accs_dict: Dict[str, Dict[str, float]] = {}
-    activation_readers: Dict[str, Optional[ActivationReader]] = {}
-    corpora: Dict[str, Corpus] = {}
-    iterators: Dict[str, BucketIterator] = {}
+    init_dict: Dict[str, Dict[str, Any]] = {}
 
     for task in tasks:
         assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
+
+        accs_dict: Dict[str, Dict[str, float]] = {}
+        activation_readers: Dict[str, Optional[ActivationReader]] = {}
+        corpora: Dict[str, Corpus] = {}
+        iterators: Dict[str, BucketIterator] = {}
 
         activation_dir = task_activations.get(task, None)
         activation_readers[task] = (
@@ -100,12 +103,14 @@ def lakretz_init(
 
         accs_dict[task] = {condition: 0.0 for condition in task_specs["conditions"]}
 
-    return {
-        "accs_dict": accs_dict,
-        "activation_readers": activation_readers,
-        "corpora": corpora,
-        "iterators": iterators,
-    }
+        init_dict[task] = {
+            "accs_dict": accs_dict,
+            "activation_readers": activation_readers,
+            "corpora": corpora,
+            "iterators": iterators,
+        }
+
+    return init_dict
 
 
 def lakretz_downstream(
@@ -135,10 +140,10 @@ def lakretz_downstream(
     """
     for task in init_dict["corpora"].keys():
         print(f"\n{task}")
-        activation_reader = init_dict["activation_readers"][task]
-        accuracies = init_dict["accs_dict"][task]
-        corpus = init_dict["corpora"][task]
-        iterator = init_dict["iterators"][task]
+        activation_reader = init_dict[task]["activation_readers"]
+        accuracies = init_dict[task]["accs_dict"]
+        corpus = init_dict[task]["corpora"]
+        iterator = init_dict[task]["iterators"]
 
         skipped = 0
         task_specs = lakretz_descriptions[task]
@@ -153,16 +158,7 @@ def lakretz_downstream(
                 )
             ]
             if activation_reader is None:
-                hidden = model.init_hidden(items_per_class)
-                for j in range(sen_len - 1):
-                    if model.use_char_embs:
-                        w = [sen[j] for sen in all_sens[::2]]
-                    else:
-                        w = batch.sen[0][::2, j]
-                    with torch.no_grad():
-                        _, hidden = model(w, hidden, compute_out=False)
-
-                final_hidden = model.final_hidden(hidden)
+                final_hidden = calc_final_hidden(model, batch, sen_len, all_sens)
             else:
                 sen_slice = slice(
                     cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2, 2
@@ -200,4 +196,21 @@ def lakretz_downstream(
             if skipped > 0:
                 print(f"{skipped:.0f}/{items_per_class} items were skipped.\n")
 
-    return init_dict["accs_dict"]
+    return {task: init_dict[task]["accs_dict"] for task in init_dict}
+
+
+def calc_final_hidden(
+    model: LanguageModel, batch: Batch, sen_len: int, all_sens: List[List[str]]
+) -> Tensor:
+    hidden = model.init_hidden(batch.batch_size // 2)
+    for j in range(sen_len - 1):
+        if model.use_char_embs:
+            w = [sen[j] for sen in all_sens[::2]]
+        else:
+            w = batch.sen[0][::2, j]
+        with torch.no_grad():
+            _, hidden = model(w, hidden, compute_out=False)
+
+    final_hidden = model.final_hidden(hidden)
+
+    return final_hidden

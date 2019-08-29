@@ -7,6 +7,7 @@ from tqdm import tqdm
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.activations import DTYPE
 
 
 def linzen_init(
@@ -15,13 +16,12 @@ def linzen_init(
     corpus = import_corpus(path, header_from_first_line=True, vocab_path=vocab_path)
     iterator = create_iterator(corpus, batch_size=2000, device=device, sort=True)
 
-    return {"corpus": corpus, "device": device, "iterator": iterator}
+    return {"corpus": corpus, "iterator": iterator}
 
 
 def linzen_downstream(init_dict: Dict[str, Any], model: LanguageModel) -> float:
     correct = 0.0
     corpus = init_dict["corpus"]
-    device = init_dict["device"]
     iterator = init_dict["iterator"]
 
     for batch in tqdm(iterator):
@@ -30,9 +30,9 @@ def linzen_downstream(init_dict: Dict[str, Any], model: LanguageModel) -> float:
         packed_sens = pack_padded_sequence(sens, lengths=slens, batch_first=True)
 
         hidden = model.init_hidden(batch_size)
-        final_hidden = torch.zeros(
-            (batch_size, model.output_size), dtype=torch.float32
-        ).to(device)
+        final_hidden = torch.zeros((batch_size, model.output_size), dtype=DTYPE).to(
+            sens.device
+        )
         n = 0
         for i, j in enumerate(packed_sens.batch_sizes):
             w = packed_sens[0][n : n + j]
