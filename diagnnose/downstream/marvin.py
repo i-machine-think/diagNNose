@@ -12,11 +12,6 @@ from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.pickle import load_pickle
 from diagnnose.vocab import attach_vocab
 
-marvin_descriptions: Dict[str, Any] = {
-    "npi_no_the_ever": {"classes": 1, "items_per_class": 400},
-    "npi_no_some_ever": {"classes": 1, "items_per_class": 400},
-}
-
 
 def marvin_init(
     vocab_path: str,

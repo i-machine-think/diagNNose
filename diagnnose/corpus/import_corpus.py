@@ -6,8 +6,8 @@ from diagnnose.vocab import attach_vocab
 
 
 def import_corpus(
-    corpus_path: str,
-    corpus_header: Optional[List[str]] = None,
+    path: str,
+    header: Optional[List[str]] = None,
     header_from_first_line: bool = False,
     to_lower: bool = False,
     vocab_path: Optional[str] = None,
@@ -26,9 +26,9 @@ def import_corpus(
 
     Parameters
     ----------
-    corpus_path : str
+    path : str
         Path to corpus file
-    corpus_header : List[str], optional
+    header : List[str], optional
         Optional list of attribute names of each column, if not provided
         all lines will be considered to be sentences,  with the
         attribute name "sen".
@@ -54,20 +54,20 @@ def import_corpus(
         A TabularDataset containing the parsed sentences and optional labels
     """
 
-    if corpus_header is None:
+    if header is None:
         if header_from_first_line:
-            with open(corpus_path) as f:
-                corpus_header = f.readline().strip().split("\t")
+            with open(path) as f:
+                header = f.readline().strip().split("\t")
         else:
-            corpus_header = ["sen"]
+            header = ["sen"]
 
-    assert sen_column in corpus_header, "`sen` should be part of corpus_header!"
+    assert sen_column in header, "`sen` should be part of corpus_header!"
 
     def preprocess(s: str) -> Union[str, int]:
         return int(s) if s.isdigit() else s
     pipeline = Pipeline(convert_token=preprocess)
     fields = {}
-    for field in corpus_header:
+    for field in header:
         if field == sen_column:
             fields[field] = Field(
                 batch_first=True, include_lengths=True, lower=to_lower
@@ -83,13 +83,13 @@ def import_corpus(
     corpus = TabularDataset(
         fields=fields.items(),
         format="tsv",
-        path=corpus_path,
+        path=path,
         skip_header=header_from_first_line,
         csv_reader_params={"quotechar": None},
     )
 
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None or vocab_from_corpus:
-        attach_vocab(corpus, vocab_path or corpus_path, sen_column=sen_column)
+        attach_vocab(corpus, vocab_path or path, sen_column=sen_column)
 
     return corpus

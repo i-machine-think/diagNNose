@@ -1,23 +1,32 @@
 {
-  "model_type": "ForwardLSTM",
-  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
-  "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "init_states_corpus": "../lm_data/corpora/init_sentence.txt",
-  "downstream_config": {
-    "linzen": {
-      "path": "../lm_data/corpora/downstream/linzen/1attr_sample.tsv"
-    },
-    "lakretz": {
-      "path": "../lm_data/corpora/downstream/lakretz",
-      "tasks": ["nounpp", "simple"],
-      "task_activations": {
-        "nounpp": "../lm_data/activations/extracted/lakretz_nounpp_TORCH"
-      }
-    },
-    "marvin": {
-      "path": "../lm_data/corpora/downstream/marvin",
-      "tasks": ["npi_no_the_ever", "npi_no_some_ever"],
-      "task_activations": {
+  "model": {
+    "type": "ForwardLSTM",
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+  },
+  "init_states": {
+    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+  },
+  "vocab": {
+    "path": "../lm_data/models/gulordava/vocab.txt"
+  },
+  "downstream": {
+    "config": {
+      "linzen": {
+        "path": "../lm_data/corpora/downstream/linzen/1attr_sample.tsv"
+      },
+      "lakretz": {
+        "path": "../lm_data/corpora/downstream/lakretz",
+        "tasks": [
+          "nounpp",
+          "simple"
+        ],
+        "task_activations": {
+        }
+      },
+      "marvin": {
+        "path": "../lm_data/corpora/downstream/marvin",
+        "task_activations": {
+        }
       }
     }
   }

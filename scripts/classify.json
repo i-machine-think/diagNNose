@@ -1,9 +1,15 @@
 {
-    "activations_dir": "../experiments/pai/activations",
-    "activation_names": ["hx1"],
-    "corpus_path": "../experiments/pai/corpus.txt",
-    "corpus_header": ["sen", "labels"],
-    "save_dir": "../experiments/pai/classifiers",
-    "classifier_type": "logreg",
-    "data_subset_size": 10000
+    "activations": {
+        "activations_dir": "../experiments/pai/activations",
+        "activation_names": ["hx1"]
+    },
+    "corpus": {
+        "path": "../experiments/pai/corpus.txt",
+        "header": ["sen", "labels"]
+    },
+    "classify": {
+        "save_dir": "../experiments/pai/classifiers",
+        "classifier_type": "logreg",
+        "data_subset_size": 10000
+    }
 }

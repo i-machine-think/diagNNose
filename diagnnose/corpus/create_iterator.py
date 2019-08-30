@@ -13,7 +13,6 @@ def create_iterator(
 ) -> BucketIterator:
     if sort is not None:
         sort_key: Optional[Callable] = lambda e: len(e.sen)
-        print("Sorting corpus on sentence length...")
     else:
         sort_key = None
 

@@ -112,12 +112,10 @@ class LanguageModel(ABC, nn.Module):
 
     def set_init_states(
         self,
-        init_states_pickle: Optional[str] = None,
-        init_states_corpus: Optional[str] = None,
+        pickle_path: Optional[str] = None,
+        corpus_path: Optional[str] = None,
         save_init_states_to: Optional[str] = None,
         vocab_path: Optional[str] = None,
-        full_vocab_path: Optional[str] = None,
-        corpus_vocab_path: Optional[str] = None,
     ) -> None:
         """ Set up the initial LM states.
 
@@ -130,40 +128,36 @@ class LanguageModel(ABC, nn.Module):
 
         Arguments
         ---------
-        init_states_pickle : str, optional
+        pickle_path : str, optional
             Path to pickled file with initial lstm states. If not
             provided zero-valued init states will be created.
-        init_states_corpus : str, optional
+        corpus_path : str, optional
             Path to corpus of which the final hidden state will be used
             as initial states.
         save_init_states_to : str, optional
             Path to which the newly computed init_states will be saved.
             If not provided these states won't be dumped.
         vocab_path : str, optional
-            Path to the model vocabulary, which should a file containing a
-            vocab entry at each line. Must be provided when creating
+            Path to the model vocabulary, which should a file containing
+            a vocab entry at each line. Must be provided when creating
             the init states from a corpus.
-        full_vocab_path : str, optional
-            Full model vocab path that is used for GoogleLM.
-        corpus_vocab_path : str, optional
-            Subvocab corpus path that can be used for GoogleLM.
 
         Returns
         -------
         init_states : ActivationTensors
             ActivationTensors containing the init states for each layer.
         """
-        if init_states_pickle is not None:
-            init_states: ActivationTensors = load_pickle(init_states_pickle)
+        if pickle_path is not None:
+            init_states: ActivationTensors = load_pickle(pickle_path)
             self._validate(init_states)
-        elif init_states_corpus is not None:
-            assert any(
-                [vocab_path, full_vocab_path, corpus_vocab_path]
+        elif corpus_path is not None:
+            assert (
+                vocab_path is not None
             ), "Vocab path must be provided when creating init states from corpus"
             print("Creating init states from provided corpus")
             init_states = self._create_init_states_from_corpus(
-                init_states_corpus,
-                vocab_path or corpus_vocab_path or full_vocab_path,
+                corpus_path,
+                vocab_path,
                 save_init_states_to,
             )
         else:

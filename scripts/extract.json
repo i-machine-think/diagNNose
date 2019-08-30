@@ -1,11 +1,23 @@
 {
-  "model_type": "ForwardLSTM",
-  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
-  "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "corpus_path": "../lm_data/corpora/downstream/marvin/npi_no_the_ever.txt",
-  "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
-  "activations_dir": "../lm_data/activations/extracted/marvin_no_the_ever",
-  "init_states_pickle": "../lm_data/activations/extracted/init_gulorava/avg_eos.pickle",
-  "dynamic_dumping": true,
-  "batch_size": 1024
+  "model": {
+    "type": "ForwardLSTM",
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+  },
+  "vocab": {
+    "path": "../lm_data/models/gulordava/vocab.txt"
+  },
+  "corpus": {
+    "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt"
+  },
+  "activations": {
+    "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
+    "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
+  },
+  "extract": {
+    "dynamic_dumping": true,
+    "batch_size": 1024
+  },
+  "init_states": {
+    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+  }
 }

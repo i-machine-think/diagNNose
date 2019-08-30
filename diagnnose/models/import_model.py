@@ -1,35 +1,33 @@
 from importlib import import_module
-from typing import Any, Dict, Type
+from typing import Dict, Optional, Type
 
 from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.config import ConfigDict
+from diagnnose.vocab import get_vocab_from_config
 
 
-def import_model(
-    model_config: Dict[str, Any], init_states_config: Dict[str, Any]
-) -> LanguageModel:
+def import_model(config_dict: ConfigDict) -> LanguageModel:
     """
     Import a model from a json file.
 
     Parameters
     ----------
-    model_config : Dict[str, Any]
-        Dictionary containing the model config attributes that are
-        specific to that specific model.
-    init_states_config : Dict[str, Any]
-        Dictionary containing the init states config attributes.
+    config_dict : ConfigDict
+        Dictionary containing the model and init_states configuration.
 
     Returns
     --------
     A LanguageModel created from the given files
     """
-    model_type = model_config.pop("model_type")
+    model_type = config_dict["model"].pop("type")
 
     module = import_module("diagnnose.model_wrappers")
     model_constructor: Type[LanguageModel] = getattr(module, model_type)
-    model: LanguageModel = model_constructor(**model_config)
+    model: LanguageModel = model_constructor(**config_dict["model"])
 
-    model.set_init_states(**init_states_config)
+    vocab_path = get_vocab_from_config(config_dict)
+    model.set_init_states(vocab_path=vocab_path, **config_dict["init_states"])
 
     return model
 

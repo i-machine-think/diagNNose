@@ -41,6 +41,8 @@ class Extractor:
         Directory to which activations will be written. Should always
         be provided unless `only_return_avg_eos` is set to True in
         `self.extract`.
+    activation_names : List[tuple[int, str]]
+        List of (layer, activation_name) tuples
 
     Attributes
     ----------
@@ -57,11 +59,12 @@ class Extractor:
         model: LanguageModel,
         corpus: Corpus,
         activations_dir: Optional[str] = None,
+        activation_names: Optional[ActivationNames] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
 
-        self.activation_names: ActivationNames = []
+        self.activation_names: ActivationNames = activation_names or []
 
         if activations_dir is not None:
             self.activation_writer = ActivationWriter(activations_dir)
@@ -69,7 +72,6 @@ class Extractor:
     # TODO: refactor
     def extract(
         self,
-        activation_names: Optional[ActivationNames] = None,
         batch_size: int = 1,
         cutoff: int = -1,
         dynamic_dumping: bool = True,
@@ -84,8 +86,6 @@ class Extractor:
 
         Parameters
         ----------
-        activation_names : List[tuple[int, str]]
-            List of (layer, activation_name) tuples
         batch_size : int, optional
             Amount of sentences processed per forward step. Higher batch
             size increases extraction speed, but should be done
@@ -106,8 +106,6 @@ class Extractor:
         only_return_avg_eos : bool, optional
             Toggle to not dump the avg eos activations.
         """
-        self.activation_names: ActivationNames = activation_names or []
-
         tot_extracted = n_sens = 0
 
         dump_activations = not create_avg_eos

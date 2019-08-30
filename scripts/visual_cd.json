@@ -1,12 +1,27 @@
 {
-  "model_type": "ForwardLSTM",
-  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
-  "decomposer": "ContextualDecomposer",
-  "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "corpus_path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
-  "corpus_header": ["sen", "type", "correct", "idx"],
-  "init_states_pickle": "../lm_data/activations/extracted/init_gulordava/avg_eos.pickle",
-  "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
-  "rel_interactions": ["rel-rel", "rel-b", "rel-irrel"],
-  "only_source_rel": true
+  "model": {
+    "type": "ForwardLSTM",
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+  },
+  "vocab": {
+    "path": "../lm_data/models/gulordava/vocab.txt"
+  },
+  "corpus": {
+    "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
+    "header": ["sen", "type", "correct", "idx"]
+  },
+  "activations": {
+    "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
+  },
+  "init_states": {
+    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+  },
+  "decompose": {
+    "decomposer": "ContextualDecomposer",
+    "rel_interactions": ["rel-rel", "rel-b", "rel-irrel"],
+    "only_source_rel": true,
+    "normalize": false,
+    "decompose_o": true
+  },
+  "plot_attention": {}
 }

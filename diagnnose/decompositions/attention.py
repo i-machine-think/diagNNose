@@ -114,7 +114,7 @@ class CDAttention:
         normalize = self.cd_config.pop('normalize', True)
 
         # Number of input features to be decomposed (init + w0 -- wn-1)
-        ndecomp = sen_len - 1 + int(self.include_init)
+        ndecomp = sen_len - 1 + int(self.include_init) + 3
         # Number of output classes (w1 -- wn)
         noutput = sen_len - 1
 
@@ -140,8 +140,15 @@ class CDAttention:
             norm_scores = rel_scores / (rel_scores + irrel_scores + bias)
             return norm_scores
 
+        rel_scores[:, -3] = torch.sum(rel_scores, dim=1)
+        rel_scores[:, -2] = rel_scores[:, 0] + irrel_scores[:, 0]
+        rel_scores[:, -1] = rel_scores[:, -3] / rel_scores[:, -2]
+
+        for i in range(rel_scores.size(0)):
+            rel_scores[i, :-3] /= rel_scores[i, -3]
+
         self.cd_config["normalize"] = False
-        return rel_scores + irrel_scores + bias
+        return rel_scores
 
     def plot_attention(
         self,
@@ -164,7 +171,7 @@ class CDAttention:
         if len(self.plot_config.get("clim", [])) == 3:
             cmid = self.plot_config["clim"][1]
         else:
-            cmid = 0 if cmin < 0 < cmax else np.min(arr)
+            cmid = 0 if cmin < 0 < cmax else np.min(arr) + 1e-8
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)

@@ -130,14 +130,12 @@ class ContextualDecomposer(BaseDecomposer):
 
                 self._project_hidden(layer, i)
 
+        self._validate_decomposition()
+
         if only_return_dec:
             return self.decompositions[self.toplayer]
 
-        scores = self._calc_scores()
-
-        self._validate_decomposition(scores)
-
-        return scores
+        return self._calc_scores()
 
     def _calc_activations(
         self, layer: int, i: int, start: int, inside_phrase: bool, input_never_rel: bool
@@ -192,11 +190,13 @@ class ContextualDecomposer(BaseDecomposer):
     def _add_forget_decomposition(self, layer: int, i: int, start: int) -> None:
         """ Calculates the forget gate decomposition, Equation (14) of the paper. """
 
-        rel_contrib_f, irrel_contrib_f, bias_contrib_f = decomp_three(
-            self.activations["rel_f"],
-            self.activations["irrel_f"],
-            self.bias[layer, "f"] + self.model.forget_offset,
-            torch.sigmoid,
+        rel_contrib_f, irrel_contrib_f, bias_contrib_f = linearize_gate3(
+            [
+                self.activations["rel_f"],
+                self.activations["irrel_f"],
+                self.bias[layer, "f"] + self.model.forget_offset,
+            ],
+            gate=torch.sigmoid,
         )
 
         prev_rel_c, prev_irrel_c = self._get_prev_cells(layer, i, start, "c")
@@ -214,17 +214,22 @@ class ContextualDecomposer(BaseDecomposer):
     def _add_input_decomposition(self, layer: int, i: int, inside_phrase: bool) -> None:
         """ Calculates the input gate decomposition, Equation (17) of the paper. """
 
-        rel_contrib_i, irrel_contrib_i, bias_contrib_i = decomp_three(
-            self.activations["rel_i"],
-            self.activations["irrel_i"],
-            self.bias[layer, "i"],
-            torch.sigmoid,
+        rel_contrib_i, irrel_contrib_i, bias_contrib_i = linearize_gate3(
+            [
+                self.activations["rel_i"],
+                self.activations["irrel_i"],
+                self.bias[layer, "i"],
+            ],
+            gate=torch.sigmoid,
         )
-        rel_contrib_g, irrel_contrib_g, bias_contrib_g = decomp_three(
-            self.activations["rel_g"],
-            self.activations["irrel_g"],
-            self.bias[layer, "g"],
-            torch.tanh,
+        self.rel_contrib_i = rel_contrib_i
+        self.bias_contrib_i = bias_contrib_i[0]
+        rel_contrib_g, irrel_contrib_g, bias_contrib_g = linearize_gate3(
+            [
+                self.activations["rel_g"],
+                self.activations["irrel_g"],
+                self.bias[layer, "g"],
+            ]
         )
 
         self._add_interactions(
@@ -248,7 +253,7 @@ class ContextualDecomposer(BaseDecomposer):
         rel_c = self.decompositions[layer]["rel_c"][:, i]
         irrel_c = self.decompositions[layer]["irrel_c"][:, i]
 
-        new_rel_h, new_irrel_h = decomp_tanh_two(rel_c, irrel_c)
+        new_rel_h, new_irrel_h = linearize_gate2([rel_c, irrel_c])
         rel_o, irrel_o = self.activations["rel_o"], self.activations["irrel_o"]
 
         if hasattr(self.model, "peepholes"):
@@ -256,8 +261,8 @@ class ContextualDecomposer(BaseDecomposer):
             irrel_o += irrel_c * self.model.peepholes[layer, "o"]
 
         if decompose_o:
-            rel_contrib_o, irrel_contrib_o, bias_contrib_o = decomp_three(
-                rel_o, irrel_o, self.bias[layer, "o"], torch.sigmoid
+            rel_contrib_o, irrel_contrib_o, bias_contrib_o = linearize_gate3(
+                [rel_o, irrel_o, self.bias[layer, "o"]], gate=torch.sigmoid
             )
 
             self._add_interactions(
@@ -480,25 +485,24 @@ class ContextualDecomposer(BaseDecomposer):
                 }
             )
 
-    def _validate_decomposition(self, scores: NamedTensors) -> None:
-        final_hidden_state = self.get_final_activations(
-            (self.toplayer, "hx")
-        ).unsqueeze(1)
-        original_score = torch.bmm(final_hidden_state, self.decoder_w).squeeze()
+    def _validate_decomposition(self) -> None:
+        true_hidden = self.activation_dict[self.toplayer, "hx"][:, 1:]
 
-        decomposed_score = scores["relevant"][:, -1] + scores["irrelevant"][:, -1]
-        decomposed_score = decomposed_score.squeeze()
+        dec_hidden = (
+            self.decompositions[self.toplayer]["rel_h"]
+            + self.decompositions[self.toplayer]["irrel_h"]
+        )
 
-        avg_difference = torch.mean(original_score - decomposed_score)
-        max_difference = torch.max(torch.abs(original_score - decomposed_score))
+        avg_difference = torch.mean(true_hidden - dec_hidden)
+        max_difference = torch.max(torch.abs(true_hidden - dec_hidden))
 
         # Sanity check: scores + irrel_scores should equal the original output
         if (
-            not torch.allclose(original_score, decomposed_score, rtol=1e-3)
+            not torch.allclose(true_hidden, dec_hidden, rtol=1e-3)
             and max_difference > 1e-3
         ):
             warnings.warn(
-                f"Decomposed scores do not match: orig {original_score} vs dec {decomposed_score}\n"
+                f"Decomposed scores don't match: orig {true_hidden} vs dec {dec_hidden}\n"
                 f"Average difference: {avg_difference}\n"
                 f"Maximum difference: {max_difference}\n"
                 f"If the difference is small (<<1e-3) this is likely due to numerical instability "
@@ -518,23 +522,102 @@ class ContextualDecomposer(BaseDecomposer):
 
 
 # Activation linearizations as described in chapter 3.2.2
-def decomp_three(
-    a: Tensor, b: Tensor, c: Tensor, activation: Callable[[Tensor], Tensor]
-) -> Tuple[Tensor, Tensor, Tensor]:
+# def linearize_gate(
+#     tensors: List[Tensor], gate: Callable[[Tensor], Tensor] = torch.tanh
+# ) -> List[Tensor]:
+#     gated_tensors = list(map(gate, tensors))
+#     normalizer = sum(tensor for tensor in tensors)
+#     normalizer += (normalizer == 0.).to(torch.float64) / 1e16
+#
+#     tensorsum = sum(tensor for tensor in tensors)
+#     output = gate(tensorsum)
+#
+#     linear_output = list(tensor / normalizer * output for tensor in tensors)
+#
+#     return linear_output
+
+
+# def linearize_gate3(
+#     tensors: List[Tensor], gate: Callable[[Tensor], Tensor] = torch.tanh
+# ) -> List[Tensor]:
+#     a, b, c = tensors
+#     out = gate(a+b+c)
+#     norm = gate(a) + gate(b) + gate(c) + 1e-32
+#
+#     return [gate(a)/norm*out, gate(b)/norm*out, gate(c)/norm*out]
+#
+#
+# def linearize_gate2(
+#         tensors: List[Tensor], gate: Callable[[Tensor], Tensor] = torch.tanh
+# ) -> List[Tensor]:
+#     a, b = tensors
+#     out = gate(a + b)
+#     print(max(list(map(lambda t: torch.max(t), tensors))), min(list(map(lambda t: torch.min(t), tensors))))
+#     norm = gate(a) + gate(b) + 1e-32
+#
+#     return [gate(a) / norm * out, gate(b) / norm * out]
+
+
+def shapley_three(
+    tensors: List[Tensor], gate: Callable[[Tensor], Tensor] = torch.tanh
+) -> List[Tensor]:
+    a, b, c = tensors
+    ac = gate(a + c)
+    ab = gate(a + b)
+    bc = gate(b + c)
+    abc = gate(a + b + c)
+    a = gate(a)
+    b = gate(b)
+    c = gate(c)
+
+    a_contrib = (1 / 6) * (
+        2 * (abc - bc)
+        + (ab - b)
+        + (ac - c)
+        + 2 * a
+    )
+    b_contrib = (1 / 6) * (
+        2 * (abc - ac)
+        + (ab - a)
+        + (bc - c)
+        + 2 * b
+    )
+    c_contrib = (1 / 6) * (
+        2 * (abc - ab)
+        + (bc - b)
+        + (ac - a)
+        + 2 * c
+    )
+
+    return [a_contrib, b_contrib, c_contrib]
+
+
+def shapley_two(
+    tensors: List[Tensor], gate: Callable[[Tensor], Tensor] = torch.tanh
+) -> List[Tensor]:
+    a, b = tensors
+    ab = gate(a + b)
+    a = gate(a)
+    b = gate(b)
+
+    a_contrib = 0.5 * (a + (ab - b))
+    b_contrib = 0.5 * (b + (ab - a))
+
+    return [a_contrib, b_contrib]
+
+
+def shapley_three_fixed(a, b, c, activation):
     ac = activation(a + c)
     bc = activation(b + c)
     abc = activation(a + b + c)
 
     c_contrib = activation(c)
-    a_contrib = 0.5 * ((ac - c_contrib) + (abc - bc))
-    b_contrib = 0.5 * ((bc - c_contrib) + (abc - ac))
+
+    a_contrib = (1 / 2) * ((abc - bc) + (ac - c_contrib))
+    b_contrib = (1 / 2) * ((abc - ac) + (bc - c_contrib))
 
     return a_contrib, b_contrib, c_contrib
 
 
-def decomp_tanh_two(a: Tensor, b: Tensor) -> Tuple[Tensor, Tensor]:
-    atanh = torch.tanh(a)
-    btanh = torch.tanh(b)
-    abtanh = torch.tanh(a + b)
-
-    return 0.5 * (atanh + (abtanh - btanh)), 0.5 * (btanh + (abtanh - atanh))
+linearize_gate2 = shapley_two
+linearize_gate3 = shapley_three

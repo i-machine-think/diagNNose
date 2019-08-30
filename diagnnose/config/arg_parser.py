@@ -8,7 +8,7 @@ from diagnnose.typedefs.config import ArgDescriptions
 def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions: ArgDescriptions = {
         "model": {
-            "model_type": {
+            "type": {
                 "required": True,
                 "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
             }
@@ -63,11 +63,11 @@ def create_arg_descriptions() -> ArgDescriptions:
     )
 
     arg_descriptions["init_states"] = {
-        "init_states_pickle": {
+        "pickle_path": {
             "help": "(optional) Path to pickle of the initial lstm states of the model. "
             "If no path is provided zero-initialized states will be used."
         },
-        "init_states_corpus": {
+        "corpus_path": {
             "help": "(optional) Path to corpus for which the final activation will be used as "
             "initial states to the model."
         },
@@ -75,24 +75,11 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": "Path to which the newly computed init_states will be saved. "
             "If not provided these states won't be dumped."
         },
-        "vocab_path": {
-            "help": "Path to the model vocabulary, which should a file containing a vocab "
-            "entry at each line."
-        },
-        "full_vocab_path": {
-            "help": "Path to the full model vocabulary of 800k tokens. Note that `vocab_path` "
-            "can be passed along as well, pointing toward the corpus that will be extracted. "
-            "In that case only a subset of the model softmax will be loaded in."
-        },
-        "corpus_vocab_path": {
-            "help": "(optional) Path to the corpus for which a vocabulary will be created. "
-            "This allows for only a subset of the model softmax to be loaded in."
-        },
     }
 
     arg_descriptions["corpus"] = {
-        "corpus_path": {"required": True, "help": "(required) Path to a corpus file."},
-        "corpus_header": {
+        "path": {"required": True, "help": "(required) Path to a corpus file."},
+        "header": {
             "nargs": "*",
             "help": "(optional) List of corpus attribute names. If not provided all lines will be "
             'considered to be sentences, with the attribute name "sen".',
@@ -109,7 +96,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["vocab"] = {
-        "vocab_path": {
+        "path": {
             "help": "Path to the model vocabulary, which should a file containing a vocab "
             "entry at each line."
         }
@@ -118,16 +105,15 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions["activations"] = {
         # TODO: Provide explanation of activation names
         "activations_dir": {
-            "help": "(required) Path to folder to which extracted embeddings will be written."
-        }
-    }
-
-    arg_descriptions["extract"] = {
+            "help": "(required) Path to directory to which extracted embeddings will be written."
+        },
         "activation_names": {
-            "required": True,
             "nargs": "*",
             "help": "(required) List of activation names to be extracted.",
         },
+    }
+
+    arg_descriptions["extract"] = {
         "batch_size": {
             "type": int,
             "help": "(optional) Amount of sentences processed per forward step. "
@@ -156,11 +142,6 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["classify"] = {
-        "activation_names": {
-            "required": True,
-            "nargs": "*",
-            "help": "(required) List of activation names on which classifiers will be trained.",
-        },
         "classifier_type": {
             "required": True,
             "help": "Classifier type, as of now only accepts `logreg`, but more will be added.",
@@ -174,9 +155,6 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": "(optional) Set to true to calculate the classifier class weights based on the "
             "corpus class frequencies. Defaults to false.",
         },
-    }
-
-    arg_descriptions["train_dc"] = {
         "data_subset_size": {
             "type": int,
             "help": "(optional) Subset size of the amount of data points that will be used for "
@@ -254,7 +232,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     }
 
     arg_descriptions["downstream"] = {
-        "downstream_config": {
+        "config": {
             "help": "Dictionary mapping a downstream task to a config dict relating to that task."
             "Current supported tasks are `linzen`, `marvin`, and `lakretz`. "
         },
@@ -292,6 +270,8 @@ def create_arg_parser(arg_groups: Set[str]) -> Tuple[ArgumentParser, Set[str]]:
         group_args = arg_descriptions[group]
 
         for arg, arg_config in group_args.items():
+            arg = f"{group}.{arg}"
+
             if arg not in parsed_args:
                 parsed_args.add(arg)
                 from_cmd.add_argument(

@@ -2,19 +2,27 @@ import json
 from argparse import ArgumentParser
 from pprint import pprint
 from typing import Set
+from functools import reduce
 
+from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs
+from diagnnose.utils.misc import merge_dicts
 
-from .arg_parser import create_arg_descriptions
 
-
-class ConfigSetup:
+def create_config_dict(
+    argparser: ArgumentParser, required_args: RequiredArgs, arg_groups: Set[str]
+) -> ConfigDict:
     """ Sets up the configuration for extraction.
 
     Config can be provided from a json file or the commandline. Values
     in the json file can be overwritten by providing them from the
     commandline. Will raise an error if a required argument is not
     provided in either the json file or as a commandline arg.
+
+    Commandline args should be provided as dot-separated values, where
+    the first dot indicates the arg group the arg belongs to.
+    For example, setting the `state_dict` of a `model` can be done as
+    `--model.state_dict ...`.
 
     Parameters
     ----------
@@ -28,94 +36,62 @@ class ConfigSetup:
         The args of a group are defined in arg_parser.py. This makes it
         easier to quickly pass different args to the parts of a module.
 
-    Attributes
-    ----------
+    Returns
+    -------
     config_dict : ConfigDict
-        Dicitonary containing separate ArgDicts that are used for extraction.
+        Dictionary mapping each arg group to their config values.
     """
+    cmd_args = vars(argparser.parse_args())
 
-    def __init__(
-        self,
-        argparser: ArgumentParser,
-        required_args: RequiredArgs,
-        arg_groups: Set[str],
-    ) -> None:
+    # Load arguments from config
+    config_dict: ArgDict = {}
+    if cmd_args["config"] is not None:
+        with open(cmd_args["config"]) as f:
+            config_dict.update(json.load(f))
 
-        self.argparser = argparser
-        self.required_args = required_args
-        self.arg_groups = arg_groups
+    config_dict = add_cmd_args(config_dict, cmd_args)
 
-        self.config_dict = self._load_config()
+    validate_config(arg_groups, required_args, argparser, config_dict)
 
-    def _load_config(self) -> ConfigDict:
-        init_arg_dict = vars(self.argparser.parse_args())
+    activation_names = config_dict.get("activations", {}).get("activation_names", [])
+    if len(activation_names) > 0:
+        cast_activation_names(activation_names)
 
-        json_provided: bool = init_arg_dict["config"] is not None
+    pprint(config_dict)
 
-        # Load arguments from config
-        arg_dict: ArgDict = {}
-        if json_provided:
-            self._load_config_from_file(init_arg_dict["config"], arg_dict)
+    return config_dict
 
-        self._validate_config(arg_dict, init_arg_dict)
 
-        self._overwrite_config_json(arg_dict, init_arg_dict, json_provided)
+def validate_config(
+    arg_groups: Set[str],
+    required_args: Set[str],
+    argparser: ArgumentParser,
+    config_dict: ArgDict,
+) -> None:
+    """ Check if required args and arg groups are provided """
+    for group in arg_groups:
+        assert group in config_dict, f"Arg group `{group}` is missing in config file"
 
-        if "activation_names" in arg_dict:
-            self._cast_activation_names(arg_dict)
+    config_args = set(f"{g}.{k}" for g, v in config_dict.items() for k in v.keys())
+    for arg in required_args:
+        assert arg in config_args, argparser.error(f"--{arg} should be provided")
 
-        self._pprint_arg_dict(arg_dict)
 
-        return self._create_config_dict(arg_dict)
+def add_cmd_args(config_dict: ArgDict, cmd_args: ArgDict) -> ArgDict:
+    """ Update provided config values with cmd args. """
+    cdm_arg_dicts = []
+    for arg, val in cmd_args.items():
+        if val is not None and arg != "config":
+            cmd_arg = arg.split(".")[::-1]
+            cmd_arg_dict = val
+            for key in cmd_arg:
+                cmd_arg_dict = {key: cmd_arg_dict}
+            cdm_arg_dicts.append(cmd_arg_dict)
 
-    @staticmethod
-    def _load_config_from_file(filename: str, arg_dict: ArgDict) -> None:
-        print(f"Loading config setup provided in {filename}")
-        with open(filename) as f:
-            arg_dict.update(json.load(f))
+    return reduce(merge_dicts, (config_dict, *cdm_arg_dicts))
 
-    def _validate_config(self, arg_dict: ArgDict, init_arg_dict: ArgDict) -> None:
-        """ Check if required args are provided """
-        for arg in self.required_args:
-            arg_present = self._arg_is_provided(arg, arg_dict, init_arg_dict)
-            assert arg_present, self.argparser.error(f"--{arg} should be provided")
 
-    @staticmethod
-    def _arg_is_provided(arg: str, arg_dict: ArgDict, init_arg_dict: ArgDict) -> bool:
-        return arg in arg_dict.keys() or init_arg_dict.get(arg, None) is not None
-
-    @staticmethod
-    def _overwrite_config_json(
-        arg_dict: ArgDict, init_arg_dict: ArgDict, json_provided: bool
-    ) -> None:
-        """ Overwrite provided config values with commandline args """
-        for arg, val in init_arg_dict.items():
-            if val is not None and arg != "config":
-                if json_provided and arg in arg_dict:
-                    print(f"Overwriting {arg} value that was provided in config json")
-                arg_dict[arg] = val
-
-    @staticmethod
-    def _cast_activation_names(arg_dict: ArgDict) -> None:
-        """ Cast activation names to (layer, name) format """
-        if "activation_names" in arg_dict:
-            for i, name in enumerate(arg_dict["activation_names"]):
-                arg_dict["activation_names"][i] = int(name[-1]), name[0:-1]
-
-    @staticmethod
-    def _pprint_arg_dict(arg_dict: ArgDict) -> None:
-        print()
-        pprint(arg_dict)
-        print()
-
-    def _create_config_dict(self, arg_dict: ArgDict) -> ConfigDict:
-        provided_args = arg_dict.keys()
-
-        config_dict = {}
-        arg_descriptions = create_arg_descriptions()
-        for group in self.arg_groups:
-            config_dict[group] = {
-                k: arg_dict[k] for k in arg_descriptions[group].keys() & provided_args
-            }
-
-        return config_dict
+def cast_activation_names(activation_names: ActivationNames) -> None:
+    """ Cast activation names to (layer, name) format. """
+    for i, name in enumerate(activation_names):
+        activation_names[i] = (int(name[-1]), name[0:-1])

@@ -1,5 +1,5 @@
 from diagnnose.config.arg_parser import create_arg_parser
-from diagnnose.config.setup import ConfigSetup
+from diagnnose.config.setup import create_config_dict
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.attention import CDAttention
 from diagnnose.models.import_model import import_model
@@ -18,12 +18,9 @@ if __name__ == "__main__":
         "plot_attention",
     }
     arg_parser, required_args = create_arg_parser(arg_groups)
+    config_dict = create_config_dict(arg_parser, required_args, arg_groups)
 
-    config_dict = ConfigSetup(arg_parser, required_args, arg_groups).config_dict
-
-    model: LanguageModel = import_model(
-        config_dict["model"], config_dict["init_states"]
-    )
+    model: LanguageModel = import_model(config_dict)
     corpus: Corpus = import_corpus(
         vocab_path=get_vocab_from_config(config_dict), **config_dict["corpus"]
     )
@@ -35,6 +32,18 @@ if __name__ == "__main__":
         plot_config=config_dict["plot_attention"],
     )
 
+    attention.plot_config["sen"] = [
+        "The",
+        "NP$_{sing}$",
+        "PREP",
+        "the",
+        "NP$_{plur}$",
+        "VP$_{sing}$",
+    ]
+    attention.plot_config["value_font_size"] = 16
+    attention.plot_config["title"] = "NounPP Gulordava PS"
     attention.plot_by_sen_id(
-        slice(1200, 2400, 2), avg_decs=True, **config_dict["activations"]
+        slice(2400, 3600, 2),
+        avg_decs=True,
+        **config_dict["activations"]
     )

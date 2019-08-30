@@ -1,8 +1,18 @@
 {
-  "model_type": "ForwardLSTM",
-  "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_TORCH",
-  "state_dict": "../lm_data/models/gulordava/state_dict.pt",
-  "vocab_path": "../lm_data/models/gulordava/vocab.txt",
-  "decomposer": "ContextualDecomposer",
-  "init_states_pickle": "../lm_data/activations/extracted/init_gulordava/avg_eos.pickle"
+  "model": {
+    "type": "ForwardLSTM",
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+  },
+  "init_states": {
+    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+  },
+  "activations" : {
+    "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
+  },
+  "vocab": {
+    "path": "../lm_data/models/gulordava/vocab.txt"
+  },
+  "decompose": {
+    "decomposer": "ContextualDecomposer"
+  }
 }

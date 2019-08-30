@@ -4,13 +4,12 @@ from typing import Any, Dict, List, Optional
 
 import torch
 from torch import Tensor
-from torchtext.data import Batch, BucketIterator
+from torchtext.data import Batch
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.corpus import Corpus
 
 
 lakretz_descriptions: Dict[str, Any] = {
@@ -78,36 +77,31 @@ def lakretz_init(
     for task in tasks:
         assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
 
-        accs_dict: Dict[str, Dict[str, float]] = {}
-        activation_readers: Dict[str, Optional[ActivationReader]] = {}
-        corpora: Dict[str, Corpus] = {}
-        iterators: Dict[str, BucketIterator] = {}
-
         activation_dir = task_activations.get(task, None)
-        activation_readers[task] = (
+        activation_reader = (
             ActivationReader(activation_dir) if activation_dir is not None else None
         )
 
         task_specs = lakretz_descriptions[task]
         items_per_class = task_specs["items_per_class"]
 
-        corpora[task] = import_corpus(
+        corpus = import_corpus(
             os.path.join(path, f"{task}.txt"),
             corpus_header=["sen", "type", "correct", "idx"],
             vocab_path=vocab_path,
         )
 
-        iterators[task] = create_iterator(
-            corpora[task], batch_size=(items_per_class * 2), device=device
+        iterator = create_iterator(
+            corpus, batch_size=(items_per_class * 2), device=device
         )
 
-        accs_dict[task] = {condition: 0.0 for condition in task_specs["conditions"]}
+        accs_dict = {condition: 0.0 for condition in task_specs["conditions"]}
 
         init_dict[task] = {
             "accs_dict": accs_dict,
-            "activation_readers": activation_readers,
-            "corpora": corpora,
-            "iterators": iterators,
+            "activation_reader": activation_reader,
+            "corpus": corpus,
+            "iterator": iterator,
         }
 
     return init_dict
@@ -138,12 +132,12 @@ def lakretz_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
-    for task in init_dict["corpora"].keys():
+    for task, init_task in init_dict.items():
         print(f"\n{task}")
-        activation_reader = init_dict[task]["activation_readers"]
-        accuracies = init_dict[task]["accs_dict"]
-        corpus = init_dict[task]["corpora"]
-        iterator = init_dict[task]["iterators"]
+        activation_reader = init_task["activation_reader"]
+        accuracies = init_task["accs_dict"]
+        corpus = init_task["corpus"]
+        iterator = init_task["iterator"]
 
         skipped = 0
         task_specs = lakretz_descriptions[task]

@@ -36,6 +36,11 @@ class DCTrainer:
     calc_class_weights : bool, optional
         Set to True to calculate the classifier class weights based on
         the corpus class frequencies. Defaults to False.
+    data_subset_size : int, optional
+        Size of the subset on which training will be performed. Defaults
+        to the full set of activations.
+    train_test_split : float, optional
+        Ratio of train/test items. Defaults to 0.9/0.1.
 
     Attributes
     ----------
@@ -56,8 +61,9 @@ class DCTrainer:
         corpus: Optional[Corpus] = None,
         labels: Optional[Labels] = None,
         calc_class_weights: bool = False,
+        data_subset_size: int = -1,
+        train_test_split: float = 0.9,
     ) -> None:
-
         self.activation_names: List[ActivationName] = activation_names
         self.save_dir = save_dir
         if not os.path.exists(save_dir):
@@ -66,30 +72,25 @@ class DCTrainer:
         # TODO: Allow own classifier here (should adhere to some base functions, such as .fit())
         self.classifier_type = classifier_type
         self.calc_class_weights = calc_class_weights
+        self.data_subset_size = data_subset_size
+        self.train_test_split = train_test_split
 
         self.data_loader = DataLoader(activations_dir, corpus=corpus, labels=labels)
         self.results: ResultsDict = defaultdict(dict)
 
         self._reset_classifier()
 
-    def train(self, data_subset_size: int = -1, train_test_split: float = 0.9) -> None:
+    def train(self) -> None:
         start_t = time()
 
         for a_name in self.activation_names:
             data_dict = self.data_loader.create_data_split(
-                a_name, data_subset_size, train_test_split
+                a_name, self.data_subset_size, self.train_test_split
             )
 
             # Calculate class weights
             if self.calc_class_weights:
-                classes, class_freqs = np.unique(
-                    data_dict["train_y"], return_counts=True
-                )
-                norm = class_freqs.sum()  # Norm factor
-                class_weight = {
-                    classes[i]: class_freqs[i] / norm for i in range(len(class_freqs))
-                }
-                self.classifier.class_weight = class_weight
+                self.set_class_weights(data_dict["train_y"])
 
             # Train
             self.fit_data(data_dict["train_x"], data_dict["train_y"], a_name)
@@ -104,6 +105,14 @@ class DCTrainer:
 
     def _reset_classifier(self) -> None:
         self.classifier = {"logreg": LogRegCV(), "svm": None}[self.classifier_type]
+
+    def set_class_weights(self, train_y: np.ndarray) -> None:
+        classes, class_freqs = np.unique(train_y, return_counts=True)
+        norm = class_freqs.sum()  # Norm factor
+        class_weight = {
+            classes[i]: class_freqs[i] / norm for i in range(len(class_freqs))
+        }
+        self.classifier.class_weight = class_weight
 
     def fit_data(
         self, train_x: np.ndarray, train_y: np.ndarray, activation_name: ActivationName
