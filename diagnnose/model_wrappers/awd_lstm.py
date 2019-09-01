@@ -3,7 +3,7 @@ from typing import Any, Dict
 from .forward_lstm import ForwardLSTM
 
 
-class MerityLM(ForwardLSTM):
+class AWDLSTM(ForwardLSTM):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.setdefault("rnn_name", "rnns")
         super().__init__(*args, **kwargs)
