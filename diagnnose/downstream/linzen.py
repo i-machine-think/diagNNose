@@ -38,7 +38,7 @@ def linzen_downstream(init_dict: Dict[str, Any], model: LanguageModel) -> float:
             w = packed_sens[0][n : n + j]
             for name, v in hidden.items():
                 hidden[name] = v[:j]
-            if model.use_char_embs:
+            if hasattr(model, "use_char_embs") and model.use_char_embs:
                 w = [corpus.examples[batch.idx[k]].sen[i] for k in range(j)]
             _, hidden = model(w, hidden, compute_out=False)
             for k in range(int(j)):

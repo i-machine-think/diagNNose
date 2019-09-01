@@ -1,16 +1,16 @@
 import glob
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-from torch.nn.utils.rnn import pack_padded_sequence
 from torchtext.data import BucketIterator, Dataset, Example, Field, RawField
 
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import DTYPE
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.pickle import load_pickle
 from diagnnose.vocab import attach_vocab
+
+from .misc import calc_final_hidden, create_unk_sen_mask
 
 
 def marvin_init(
@@ -57,67 +57,98 @@ def marvin_init(
     init_dict: Dict[str, Dict[str, Any]] = {}
 
     for task in tasks:
-        if "npi" in task:
-            continue
         corpus_dict = load_pickle(task2path[task])
 
-        accs_dict: Dict[str, float] = {}
         corpora: Dict[str, Corpus] = {}
         iterators: Dict[str, BucketIterator] = {}
-        fields = [
-            ("sen", Field(batch_first=True, include_lengths=True)),
-            ("postfix", RawField()),
-            ("idx", RawField()),
-        ]
-        fields[1][1].is_target = False
-        fields[2][1].is_target = False
+        if "npi" in task:
+            fields = [
+                ("sen", Field(batch_first=True, include_lengths=True)),
+                ("wsen", Field(batch_first=True, include_lengths=True)),
+                ("postfix", RawField()),
+                ("idx", RawField()),
+            ]
+            fields[2][1].is_target = False
+            fields[3][1].is_target = False
+        else:
+            fields = [
+                ("sen", Field(batch_first=True, include_lengths=True)),
+                ("postfix", RawField()),
+                ("idx", RawField()),
+            ]
+            fields[1][1].is_target = False
+            fields[2][1].is_target = False
 
         for condition, sens in corpus_dict.items():
-            examples = []
-            if len(sens[0]) > 2:
-                print(sens[0])
-            for idx, (s1, s2) in enumerate(sens):
-                s1, s2 = s1.split(), s2.split()
-
-                verb_index = -1
-                for _ in range(len(s1)):
-                    if s1[:verb_index] == s2[:verb_index]:
-                        break
-                    verb_index -= 1
-                assert -verb_index < len(s1)
-
-                # None slice selects full sentence, otherwise select sentence till verb
-                subsen = s1[: (verb_index + 1 or None)]
-                ex = Example.fromlist(
-                    [
-                        subsen + [s2[verb_index]],  # sen + wrong verb
-                        s1[len(s1) + verb_index + 1 : len(s1)],  # postfix
-                        idx,  # sen idx
-                    ],
-                    fields,
-                )
-                examples.append(ex)
+            examples = create_examples(task, sens, fields)
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)
+            if "npi" in task:
+                attach_vocab(corpus, vocab_path, sen_column="wsen")
             corpora[condition] = corpus
             iterators[condition] = create_iterator(
                 corpus, batch_size=len(sens), device=device, sort=True
             )
-            accs_dict[condition] = 0.0
 
-        init_dict[task] = {
-            "accs_dict": accs_dict,
-            # "activation_readers": activation_readers,
-            "corpora": corpora,
-            "iterators": iterators,
-        }
+        init_dict[task] = {"corpora": corpora, "iterators": iterators}
 
     return init_dict
 
 
+def create_examples(
+    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]]
+) -> List[Example]:
+    examples = []
+    prefixes = set()
+    for idx, s in enumerate(sens):
+        if "npi" in task:
+            s1, s2, _ = s
+            s1, s2 = s1.split(), s2.split()
+            ever_idx = s1.index("ever")
+            prefix = " ".join(s1[:ever_idx])
+            if prefix not in prefixes:
+                ex = Example.fromlist(
+                    [
+                        s1[:ever_idx],  # sen
+                        s2[:ever_idx],  # wrong sen
+                        s1[ever_idx:],  # postfix
+                        len(prefixes),  # sen idx
+                    ],
+                    fields,
+                )
+                prefixes.add(prefix)
+                examples.append(ex)
+        else:
+            s1, s2 = s
+            s1, s2 = s1.split(), s2.split()
+
+            verb_index = -1
+            for _ in range(len(s1)):
+                if s1[:verb_index] == s2[:verb_index]:
+                    break
+                verb_index -= 1
+            assert -verb_index < len(s1)
+
+            # None slice selects full sentence (i.e. when verb_index is at eos (-1)),
+            # otherwise select sentence till index of the verb
+            subsen = s1[: (verb_index + 1 or None)]
+            postfix = s1[len(s1) + verb_index + 1 : len(s1)]
+            ex = Example.fromlist(
+                [
+                    subsen + [s2[verb_index]],  # sen + wrong verb
+                    postfix,  # postfix
+                    idx,  # sen idx
+                ],
+                fields,
+            )
+            examples.append(ex)
+
+    return examples
+
+
 def marvin_downstream(
-    init_dict: Dict[str, Dict[str, Any]], model: LanguageModel
-) -> Dict[str, float]:
+    init_dict: Dict[str, Dict[str, Any]], model: LanguageModel, ignore_unk: bool = True
+) -> Dict[str, Dict[str, Any]]:
     """ Performs the downstream tasks of Marvin & Linzen (2018)
 
     Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
@@ -130,6 +161,9 @@ def marvin_downstream(
         task setup.
     model : LanguageModel
         Language model for which the accuracy is calculated.
+    ignore_unk : bool, optional
+        Ignore cases for which at least one of the cases of the verb
+        is not part of the model vocabulary. Defaults to True.
 
     Returns
     -------
@@ -137,47 +171,62 @@ def marvin_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
+    accuracies: Dict[str, Dict[str, Any]] = {}
     for task, init_task in init_dict.items():
+        accuracies[task] = {}
         for condition in init_task["corpora"].keys():
             corpus = init_task["corpora"][condition]
             iterator = init_task["iterators"][condition]
-
             batch = next(iter(iterator))
-            sens, slens = batch.sen
             batch_size = batch.batch_size
-            packed_sens = pack_padded_sequence(sens, lengths=slens, batch_first=True)
 
-            hidden = model.init_hidden(batch_size)
-            final_hidden = torch.zeros((batch_size, model.output_size), dtype=DTYPE).to(
-                sens.device
-            )
-            n = 0
-            for i, j in enumerate(packed_sens.batch_sizes[:-2]):
-                w = packed_sens[0][n : n + j]
-                for name, v in hidden.items():
-                    hidden[name] = v[:j]
-                if model.use_char_embs:
-                    w = [corpus.examples[batch.idx[k]].sen[i] for k in range(j)]
-                _, hidden = model(w, hidden, compute_out=False)
-                for k in range(int(j)):
-                    final_hidden[k] = hidden[model.top_layer, "hx"][k]
-                n += j
+            if "npi" in task:
+                all_sens = [corpus.examples[idx].sen for idx in batch.idx]
 
-            classes = torch.stack(
-                [sens[i, slen - 2 : slen] for i, slen in enumerate(slens)]
-            )
+                final_hidden = calc_final_hidden(model, batch, all_sens)
+                wfinal_hidden = calc_final_hidden(
+                    model, batch, all_sens, sen_column="wsen"
+                )
+                classes = torch.tensor(
+                    [corpus.vocab.stoi["ever"]] * batch_size
+                ).unsqueeze(1)
+            else:
+                sens, slens = batch.sen
+                all_sens = [corpus.examples[idx].sen for idx in batch.idx]
+                # The final 2 positions of each sentence contain the 2 verb forms
+                final_hidden = calc_final_hidden(model, batch, all_sens, skip_final=2)
+
+                classes = torch.stack(
+                    [sens[i, slen - 2 : slen] for i, slen in enumerate(slens)]
+                )
+
+            if ignore_unk:
+                mask = create_unk_sen_mask(corpus.vocab, all_sens)
+                skipped = int(torch.sum(mask))
+                if skipped > 0:
+                    print(f"{skipped:.0f}/{batch_size} items were skipped.\n")
+                classes = classes[~mask]
+                final_hidden = final_hidden[~mask]
+                if "npi" in task:
+                    wfinal_hidden = wfinal_hidden[~mask]
 
             probs = torch.bmm(model.decoder_w[classes], final_hidden.unsqueeze(2))
             probs = probs[:, :, 0]
             probs += model.decoder_b[classes]
 
-            acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
+            if "npi" in task:
+                wprobs = torch.bmm(model.decoder_w[classes], wfinal_hidden.unsqueeze(2))
+                wprobs = wprobs[:, :, 0]
+                wprobs += model.decoder_b[classes]
+                acc = torch.mean((probs >= wprobs).to(torch.float)).item()
+            else:
+                acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
 
-            init_task["accs_dict"][condition] = (acc, batch_size)
+            accuracies[task][condition] = (acc, batch_size)
 
-        task_size = sum(v[1] for v in init_task["accs_dict"].values())
-        mean_acc = sum(v[0] * v[1] for v in init_task["accs_dict"].values()) / task_size
-        init_task["accs_dict"]["mean_acc"] = mean_acc
+        task_size = sum(v[1] for v in accuracies[task].values())
+        mean_acc = sum(v[0] * v[1] for v in accuracies[task].values()) / task_size
+        accuracies[task]["mean_acc"] = mean_acc
         print(f"{task}: {mean_acc:.3f}")
 
-    return {task: init_dict[task]["accs_dict"] for task in init_dict}
+    return accuracies

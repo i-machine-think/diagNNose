@@ -1,15 +1,15 @@
 import os
-import warnings
 from typing import Any, Dict, List, Optional
 
 import torch
 from torch import Tensor
-from torchtext.data import Batch
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.lm import LanguageModel
+
+from .misc import calc_final_hidden, create_unk_sen_mask
 
 
 lakretz_descriptions: Dict[str, Any] = {
@@ -87,7 +87,7 @@ def lakretz_init(
 
         corpus = import_corpus(
             os.path.join(path, f"{task}.txt"),
-            corpus_header=["sen", "type", "correct", "idx"],
+            header=["sen", "type", "correct", "idx"],
             vocab_path=vocab_path,
         )
 
@@ -95,10 +95,7 @@ def lakretz_init(
             corpus, batch_size=(items_per_class * 2), device=device
         )
 
-        accs_dict = {condition: 0.0 for condition in task_specs["conditions"]}
-
         init_dict[task] = {
-            "accs_dict": accs_dict,
             "activation_reader": activation_reader,
             "corpus": corpus,
             "iterator": iterator,
@@ -132,17 +129,19 @@ def lakretz_downstream(
         Dictionary mapping a downstream task to a task condition to the
         model accuracy.
     """
+    accuracies = {
+        task: {condition: 0.0 for condition in lakretz_descriptions[task]["conditions"]}
+        for task in init_dict.keys()
+    }
     for task, init_task in init_dict.items():
         print(f"\n{task}")
         activation_reader = init_task["activation_reader"]
-        accuracies = init_task["accs_dict"]
         corpus = init_task["corpus"]
         iterator = init_task["iterator"]
 
         skipped = 0
         task_specs = lakretz_descriptions[task]
         items_per_class = task_specs["items_per_class"]
-        sen_len = len(corpus.examples[0].sen)
 
         for cidx, batch in enumerate(iterator):
             all_sens = [
@@ -152,7 +151,9 @@ def lakretz_downstream(
                 )
             ]
             if activation_reader is None:
-                final_hidden = calc_final_hidden(model, batch, sen_len, all_sens)
+                final_hidden = calc_final_hidden(
+                    model, batch, all_sens[::2], skip_every=2, skip_final=1
+                )
             else:
                 sen_slice = slice(
                     cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2, 2
@@ -166,12 +167,8 @@ def lakretz_downstream(
             w2: Tensor = batch.sen[0][1::2, -1]
 
             if ignore_unk:
-                mask = torch.zeros(items_per_class, dtype=torch.uint8)
-                for i, sen in enumerate(all_sens):
-                    for w in sen:
-                        if w not in corpus.vocab.stoi:
-                            mask[i // 2] = True
-                            warnings.warn(f"'{w}' is not part of model vocab!")
+                mask = create_unk_sen_mask(corpus.vocab, all_sens)
+                mask = mask[::2] | mask[1::2]
                 skipped = int(torch.sum(mask))
                 w1 = w1[~mask]
                 w2 = w2[~mask]
@@ -184,27 +181,10 @@ def lakretz_downstream(
             probs += model.decoder_b[classes]
 
             acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
-            accuracies[task_specs["conditions"][cidx]] = acc
+            accuracies[task][task_specs["conditions"][cidx]] = acc
 
             print(f"{task_specs['conditions'][cidx]}:\t{acc:.3f}")
             if skipped > 0:
                 print(f"{skipped:.0f}/{items_per_class} items were skipped.\n")
 
-    return {task: init_dict[task]["accs_dict"] for task in init_dict}
-
-
-def calc_final_hidden(
-    model: LanguageModel, batch: Batch, sen_len: int, all_sens: List[List[str]]
-) -> Tensor:
-    hidden = model.init_hidden(batch.batch_size // 2)
-    for j in range(sen_len - 1):
-        if model.use_char_embs:
-            w = [sen[j] for sen in all_sens[::2]]
-        else:
-            w = batch.sen[0][::2, j]
-        with torch.no_grad():
-            _, hidden = model(w, hidden, compute_out=False)
-
-    final_hidden = model.final_hidden(hidden)
-
-    return final_hidden
+    return accuracies

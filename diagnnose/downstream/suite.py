@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import Any, Callable, Dict
 
 from diagnnose.downstream.lakretz import lakretz_downstream, lakretz_init
@@ -54,7 +53,7 @@ class DownstreamSuite:
         for task, config in self.downstream_config.items():
             print(f"\n--=={task.upper()}==--")
 
-            results[task] = deepcopy(task_defs[task](self.init_dicts[task], model))
+            results[task] = task_defs[task](self.init_dicts[task], model)
 
         return results
 
