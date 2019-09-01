@@ -5,7 +5,7 @@ from torch import Tensor, float32, float64
 from torchtext.data import Example
 
 # Tensor dtype that will be used in the library. Can be set here to change.
-DTYPE = float64
+DTYPE = float32
 
 # TENSOR DICTS
 ActivationName = Tuple[int, str]  # (layer, name)
