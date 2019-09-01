@@ -1,5 +1,5 @@
 from importlib import import_module
-from typing import Dict, Optional, Type
+from typing import Type
 
 from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.classifiers import LinearDecoder
