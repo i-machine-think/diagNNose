@@ -5,8 +5,9 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
+import diagnnose.typedefs.config as config
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, DTYPE, LayeredTensors
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 
 
 class ForwardLSTM(LanguageModel):
@@ -18,10 +19,6 @@ class ForwardLSTM(LanguageModel):
     ----------
     state_dict : str
         Path to torch pickle containing the model parameter state dict.
-    init_states_pickle: str, optional
-        Path to pickled initial embeddings. These initial embeddings
-        be created using the `Extractor` class. If not provided
-        0-valued initial states will be used.
     device : str, optional
         Torch device on which forward passes will be run.
         Defaults to cpu.
@@ -67,23 +64,23 @@ class ForwardLSTM(LanguageModel):
             w_i = params[rnn_names["weight_ih"]]
 
             # Shape: (emb_size+nhid_h, 4*nhid_c)
-            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(DTYPE)
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(config.DTYPE)
 
             if rnn_names["bias_hh"] in params:
                 # Shape: (4*nhid_c,)
                 self.bias[layer] = (
                     params[rnn_names["bias_hh"]] + params[rnn_names["bias_ih"]]
-                ).to(DTYPE)
+                ).to(config.DTYPE)
 
             self.sizes[layer] = {"x": w_i.size(1), "h": w_h.size(1), "c": w_h.size(1)}
             layer += 1
 
         # Encoder and decoder weights
-        self.encoder = params[f"{encoder_name}.weight"].to(DTYPE)
-        self.decoder_w = params[f"{decoder_name}.weight"].to(DTYPE)
+        self.encoder = params[f"{encoder_name}.weight"].to(config.DTYPE)
+        self.decoder_w = params[f"{decoder_name}.weight"].to(config.DTYPE)
         self.decoder_b: Optional[Tensor] = None
         if f"{decoder_name}.bias" in params:
-            self.decoder_b = params[f"{decoder_name}.bias"].to(DTYPE)
+            self.decoder_b = params[f"{decoder_name}.bias"].to(config.DTYPE)
 
         print("Model initialisation finished.")
 

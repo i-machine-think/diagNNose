@@ -6,13 +6,13 @@ import numpy as np
 import torch
 from torch import Tensor
 
+import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import (
     ActivationIndex,
     ActivationKey,
     ActivationName,
     ActivationRanges,
     ActivationTensors,
-    DTYPE,
     Range,
 )
 from diagnnose.utils.pickle import load_pickle
@@ -252,7 +252,7 @@ class ActivationReader:
                     if hidden_size is None:
                         hidden_size = sen_activations.shape[1]
                         activations = torch.empty(
-                            (self.data_len, hidden_size), dtype=DTYPE
+                            (self.data_len, hidden_size), dtype=config.DTYPE
                         )
 
                     i = len(sen_activations)

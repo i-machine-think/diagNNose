@@ -7,6 +7,7 @@ from sklearn.externals import joblib
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 
+import diagnnose.typedefs.config as config
 from diagnnose.activations.activation_index import (
     activation_index_len,
     activation_index_to_iterable,
@@ -20,7 +21,6 @@ from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationNames,
     ActivationTensors,
-    DTYPE,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 
@@ -148,7 +148,7 @@ class DecomposerFactory:
         if name[0] == "0":
             cell_type = name[1]
             return torch.zeros(
-                (batch_size, self.model.sizes[layer][cell_type]), dtype=DTYPE
+                (batch_size, self.model.sizes[layer][cell_type]), dtype=config.DTYPE
             )
 
         if subsen_index.start == 0 or subsen_index.start is None:

@@ -5,8 +5,8 @@ import torch
 from overrides import overrides
 from torch import Tensor
 
+import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import (
-    DTYPE,
     ActivationTensors,
     Decompositions,
     NamedTensors,
@@ -148,10 +148,10 @@ class ContextualDecomposer(BaseDecomposer):
         if layer == 0:
             if inside_phrase and not input_never_rel:
                 rel_input = self.activation_dict[0, "emb"][:, i]
-                irrel_input = torch.zeros(rel_input.shape, dtype=DTYPE)
+                irrel_input = torch.zeros(rel_input.shape, dtype=config.DTYPE)
             else:
                 irrel_input = self.activation_dict[0, "emb"][:, i]
-                rel_input = torch.zeros(irrel_input.shape, dtype=DTYPE)
+                rel_input = torch.zeros(irrel_input.shape, dtype=config.DTYPE)
         else:
             rel_input = self.decompositions[layer - 1]["rel_h"][:, i]
             irrel_input = self.decompositions[layer - 1]["irrel_h"][:, i]
@@ -313,10 +313,10 @@ class ContextualDecomposer(BaseDecomposer):
         else:
             if start < 0 or self.init_states_rel:
                 prev_rel = self.activation_dict[layer, f"i{cell_type}x"]
-                prev_irrel = torch.zeros(prev_rel.shape, dtype=DTYPE)
+                prev_irrel = torch.zeros(prev_rel.shape, dtype=config.DTYPE)
             else:
                 prev_irrel = self.activation_dict[layer, f"i{cell_type}x"]
-                prev_rel = torch.zeros(prev_irrel.shape, dtype=DTYPE)
+                prev_rel = torch.zeros(prev_irrel.shape, dtype=config.DTYPE)
 
         return prev_rel, prev_irrel
 
@@ -423,22 +423,22 @@ class ContextualDecomposer(BaseDecomposer):
         self.decompositions = {
             layer: {
                 "rel_c": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["c"]), dtype=config.DTYPE
                 ),
                 "rel_h": torch.zeros(
-                    (batch_size, slen, sizes[layer]["h"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["h"]), dtype=config.DTYPE
                 ),
                 "rel_h_wo_proj": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["c"]), dtype=config.DTYPE
                 ),
                 "irrel_c": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["c"]), dtype=config.DTYPE
                 ),
                 "irrel_h": torch.zeros(
-                    (batch_size, slen, sizes[layer]["h"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["h"]), dtype=config.DTYPE
                 ),
                 "irrel_h_wo_proj": torch.zeros(
-                    (batch_size, slen, sizes[layer]["c"]), dtype=DTYPE
+                    (batch_size, slen, sizes[layer]["c"]), dtype=config.DTYPE
                 ),
             }
             for layer in range(num_layers)
@@ -570,24 +570,9 @@ def shapley_three(
     b = gate(b)
     c = gate(c)
 
-    a_contrib = (1 / 6) * (
-        2 * (abc - bc)
-        + (ab - b)
-        + (ac - c)
-        + 2 * a
-    )
-    b_contrib = (1 / 6) * (
-        2 * (abc - ac)
-        + (ab - a)
-        + (bc - c)
-        + 2 * b
-    )
-    c_contrib = (1 / 6) * (
-        2 * (abc - ab)
-        + (bc - b)
-        + (ac - a)
-        + 2 * c
-    )
+    a_contrib = (1 / 6) * (2 * (abc - bc) + (ab - b) + (ac - c) + 2 * a)
+    b_contrib = (1 / 6) * (2 * (abc - ac) + (ab - a) + (bc - c) + 2 * b)
+    c_contrib = (1 / 6) * (2 * (abc - ab) + (bc - b) + (ac - a) + 2 * c)
 
     return [a_contrib, b_contrib, c_contrib]
 

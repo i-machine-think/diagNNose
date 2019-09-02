@@ -111,6 +111,10 @@ def create_arg_descriptions() -> ArgDescriptions:
             "nargs": "*",
             "help": "(required) List of activation names to be extracted.",
         },
+        "dtype": {
+            "help": "(optional) Activation dtype, should be one of float32 or float64. "
+            "Defaults to float32."
+        },
     }
 
     arg_descriptions["extract"] = {
@@ -212,7 +216,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "normalize": {
             "help": "Toggle to normalize the relevant scores by the full model logits."
-        }
+        },
     }
 
     arg_descriptions["plot_attention"] = {
@@ -235,7 +239,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         "config": {
             "help": "Dictionary mapping a downstream task to a config dict relating to that task."
             "Current supported tasks are `linzen`, `marvin`, and `lakretz`. "
-        },
+        }
     }
 
     return arg_descriptions

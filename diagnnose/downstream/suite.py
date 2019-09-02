@@ -6,6 +6,7 @@ from diagnnose.downstream.marvin import marvin_downstream, marvin_init
 from diagnnose.models.lm import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
+
 task_inits: Dict[str, Callable] = {
     "lakretz": lakretz_init,
     "linzen": linzen_init,

@@ -7,8 +7,8 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torchtext.data import Batch
 from torchtext.vocab import Vocab
 
+import diagnnose.typedefs.config as config
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import DTYPE
 
 
 def calc_final_hidden(
@@ -27,9 +27,9 @@ def calc_final_hidden(
         packed_sens = pack_padded_sequence(sens, lengths=slens, batch_first=True)
 
         hidden = model.init_hidden(batch_size)
-        final_hidden = torch.zeros((batch_size, model.output_size), dtype=DTYPE).to(
-            sens.device
-        )
+        final_hidden = torch.zeros(
+            (batch_size, model.output_size), dtype=config.DTYPE
+        ).to(sens.device)
         n = 0
         if skip_final is not None and skip_final > 0:
             skip_final = -skip_final
@@ -43,7 +43,8 @@ def calc_final_hidden(
                     hidden[name] = v[:j]
             if hasattr(model, "use_char_embs") and model.use_char_embs:
                 w = [sen[j] for sen in all_sens]
-            _, hidden = model(w, hidden, compute_out=False)
+            with torch.no_grad():
+                _, hidden = model(w, hidden, compute_out=False)[:2]
             for k in range(int(j)):
                 final_hidden[k] = hidden[model.top_layer, "hx"].squeeze()[k]
             n += j.item()
@@ -55,7 +56,7 @@ def calc_final_hidden(
             else:
                 w = sens[::skip_every, j]
             with torch.no_grad():
-                _, hidden = model(w, hidden, compute_out=False)
+                _, hidden = model(w, hidden, compute_out=False)[:2]
 
         final_hidden = model.final_hidden(hidden)
 

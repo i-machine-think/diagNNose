@@ -7,8 +7,9 @@ import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
+import diagnnose.typedefs.config as config
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, DTYPE, LayeredTensors
+from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
 from diagnnose.vocab import C2I, create_char_vocab
 
 
@@ -158,7 +159,7 @@ class CharCNN(nn.Module):
 
     @overrides
     def forward(self, tokens: List[str]) -> Tensor:
-        embs = torch.zeros((len(tokens), 1024), dtype=DTYPE, device=self.device)
+        embs = torch.zeros((len(tokens), 1024), dtype=config.DTYPE, device=self.device)
         for i, token in enumerate(tokens):
             if token not in self.cnn_embs:
                 char_ids = self.vocab.token_to_char_ids(token)
@@ -237,11 +238,11 @@ class LSTM(nn.Module):
                 )
 
             # Cast to float32 tensors
-            self.weight[l] = self.weight[l].to(DTYPE).to(device)
-            self.weight_P[l] = self.weight_P[l].to(DTYPE).to(device)
-            self.bias[l] = self.bias[l].to(DTYPE).to(device)
+            self.weight[l] = self.weight[l].to(config.DTYPE).to(device)
+            self.weight_P[l] = self.weight_P[l].to(config.DTYPE).to(device)
+            self.bias[l] = self.bias[l].to(config.DTYPE).to(device)
             for p in ["f", "i", "o"]:
-                self.peepholes[l, p] = self.peepholes[l, p].to(DTYPE).to(device)
+                self.peepholes[l, p] = self.peepholes[l, p].to(config.DTYPE).to(device)
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
@@ -300,9 +301,9 @@ class SoftMax:
     ) -> None:
         print("Loading SoftMax...")
         self.decoder_w: Tensor = torch.zeros(
-            (len(vocab), hidden_size_h), dtype=DTYPE, device=device
+            (len(vocab), hidden_size_h), dtype=config.DTYPE, device=device
         )
-        self.decoder_b: Tensor = torch.zeros(len(vocab), dtype=DTYPE, device=device)
+        self.decoder_b: Tensor = torch.zeros(len(vocab), dtype=config.DTYPE, device=device)
 
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
@@ -314,14 +315,14 @@ class SoftMax:
 
         bias_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-softmax8"))
         full_bias = torch.from_numpy(bias_reader.get_tensor("softmax/b"))
-        full_bias = full_bias.to(DTYPE)
+        full_bias = full_bias.to(config.DTYPE)
 
         # SoftMax is chunked into 8 arrays of size 100000x1024
         for i in range(8):
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f"ckpt-softmax{i}"))
 
             sm_chunk = torch.from_numpy(sm_reader.get_tensor(f"softmax/W_{i}"))
-            sm_chunk = sm_chunk.to(DTYPE)
+            sm_chunk = sm_chunk.to(config.DTYPE)
             bias_chunk = full_bias[i : full_bias.size(0) : 8]
             vocab_chunk = full_vocab[i : full_bias.size(0) : 8]
 

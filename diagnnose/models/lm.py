@@ -5,9 +5,10 @@ import torch
 from overrides import overrides
 from torch import Tensor, nn
 
+import diagnnose.typedefs.config as config
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import ActivationTensors, DTYPE
+from diagnnose.typedefs.activations import ActivationTensors
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
@@ -156,9 +157,7 @@ class LanguageModel(ABC, nn.Module):
             ), "Vocab path must be provided when creating init states from corpus"
             print("Creating init states from provided corpus")
             init_states = self._create_init_states_from_corpus(
-                corpus_path,
-                vocab_path,
-                save_init_states_to,
+                corpus_path, vocab_path, save_init_states_to
             )
         else:
             init_states = self.create_zero_state()
@@ -171,10 +170,10 @@ class LanguageModel(ABC, nn.Module):
 
         for layer in range(self.num_layers):
             init_states[layer, "cx"] = torch.zeros(
-                (batch_size, self.sizes[layer]["c"]), dtype=DTYPE
+                (batch_size, self.sizes[layer]["c"]), dtype=config.DTYPE
             )
             init_states[layer, "hx"] = torch.zeros(
-                (batch_size, self.sizes[layer]["h"]), dtype=DTYPE
+                (batch_size, self.sizes[layer]["h"]), dtype=config.DTYPE
             )
 
         return init_states

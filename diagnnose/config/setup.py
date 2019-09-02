@@ -4,9 +4,11 @@ from pprint import pprint
 from typing import Set
 from functools import reduce
 
+import torch
 from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs
 from diagnnose.utils.misc import merge_dicts
+import diagnnose.typedefs.config as config
 
 
 def create_config_dict(
@@ -53,7 +55,11 @@ def create_config_dict(
 
     validate_config(arg_groups, required_args, argparser, config_dict)
 
-    activation_names = config_dict.get("activations", {}).get("activation_names", [])
+    activation_config = config_dict.get("activations", {})
+    activation_dtype = activation_config.get("dtype", None)
+    if activation_dtype is not None:
+        config.DTYPE = getattr(torch, activation_dtype)
+    activation_names = activation_config.get("activation_names", [])
     if len(activation_names) > 0:
         cast_activation_names(activation_names)
 

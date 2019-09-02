@@ -13,12 +13,13 @@ from overrides import overrides
 from torch import Tensor
 from torchtext.data import Example
 
+import diagnnose.typedefs.config as config
 from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, DTYPE, SelectFunc
+from diagnnose.typedefs.activations import ActivationTensors, SelectFunc
 from diagnnose.utils.misc import suppress_print
 
 from .test_utils import create_sentence_dummy_activations
@@ -208,7 +209,7 @@ class TestExtractor(unittest.TestCase):
         )
         extracted_positions = extracted_activations[:, 0] - 1
         label_positions = torch.tensor(
-            [example.labels.index(1) for example in self.examples], dtype=DTYPE
+            [example.labels.index(1) for example in self.examples], dtype=config.DTYPE
         )
         # Confirm that activations are from the position of the specified label
         self.assertTrue(
