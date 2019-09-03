@@ -59,7 +59,7 @@ class DecomposerFactory:
         self,
         sen_ids: ActivationIndex,
         subsen_index: slice = slice(None, None, None),
-        classes: ActivationIndex = slice(None, None, None),
+        classes: Optional[ActivationIndex] = None,
     ) -> BaseDecomposer:
         """ Creates an instance of a BaseDecomposer.
 
@@ -74,8 +74,11 @@ class DecomposerFactory:
             account.
         classes : slice | List[int], optional
             Denotes the the class indices of the model decoder for which
-            the decomposed scores should be calculated. Defaults to the
-            entire vocabulary.
+            the decomposed scores should be calculated. Defaults to
+            None, indicating no class predictions will be created. In
+            that case the decomposed states themselves are returned.
+            Pass `slice(None, None, None)` to create predictions for
+            the full model.
 
         Returns
         -------
@@ -210,7 +213,7 @@ class DecomposerFactory:
 
     def _read_decoder(
         self,
-        classes: ActivationIndex,
+        classes: Optional[ActivationIndex],
         batch_size: int,
         decoder_path: Optional[str] = None,
     ) -> LinearDecoder:
@@ -229,6 +232,8 @@ class DecomposerFactory:
             classes = torch.from_numpy(classes)
         elif isinstance(classes, slice):
             classes = torch.tensor(activation_index_to_iterable(classes))
+        elif classes is None:
+            classes = torch.tensor([]).to(torch.long)
 
         if len(classes.shape) == 1:
             classes = classes.repeat(batch_size, 1)
