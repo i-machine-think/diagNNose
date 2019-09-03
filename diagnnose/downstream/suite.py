@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 from diagnnose.downstream.lakretz import lakretz_downstream, lakretz_init
 from diagnnose.downstream.linzen import linzen_downstream, linzen_init
@@ -26,10 +26,12 @@ class DownstreamSuite:
         self,
         downstream_config: Dict[str, Any],
         vocab_path: str,
+        decompose_config: Optional[Dict[str, Any]] = None,
         device: str = "cpu",
         print_results: bool = True,
     ) -> None:
         self.downstream_config = downstream_config
+        self.decompose_config = decompose_config
         self.print_results = print_results
 
         self.init_dicts: Dict[str, Any] = {}
@@ -54,7 +56,9 @@ class DownstreamSuite:
         for task, config in self.downstream_config.items():
             print(f"\n--=={task.upper()}==--")
 
-            results[task] = task_defs[task](self.init_dicts[task], model)
+            results[task] = task_defs[task](
+                self.init_dicts[task], model, decompose_config=self.decompose_config
+            )
 
         return results
 

@@ -10,6 +10,7 @@ from diagnnose.models.lm import LanguageModel
 from .misc import calc_final_hidden
 
 
+# TODO: Move preproc_linzen.ipynb code to here
 def linzen_init(
     vocab_path: str, path: str, device: str = "cpu", **kwargs: Any
 ) -> Dict[str, Any]:
@@ -19,7 +20,9 @@ def linzen_init(
     return {"corpus": corpus, "iterator": iterator}
 
 
-def linzen_downstream(init_dict: Dict[str, Any], model: LanguageModel) -> float:
+def linzen_downstream(
+    init_dict: Dict[str, Any], model: LanguageModel, **kwargs: Any
+) -> float:
     correct = 0.0
     corpus = init_dict["corpus"]
     iterator = init_dict["iterator"]

@@ -7,10 +7,10 @@ from torch import Tensor
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models.lm import LanguageModel
 
 from .misc import calc_final_hidden, create_unk_sen_mask
-
 
 lakretz_descriptions: Dict[str, Any] = {
     "adv": {"classes": 2, "items_per_class": 900, "conditions": ["S", "P"]},
@@ -105,7 +105,10 @@ def lakretz_init(
 
 
 def lakretz_downstream(
-    init_dict: Dict[str, Dict[str, Any]], model: LanguageModel, ignore_unk: bool = True
+    init_dict: Dict[str, Dict[str, Any]],
+    model: LanguageModel,
+    decompose_config: Optional[Dict[str, Any]] = None,
+    ignore_unk: bool = True,
 ) -> Dict[str, Dict[str, float]]:
     """ Performs the downstream tasks described in Lakretz et al. (2019)
 
@@ -119,6 +122,12 @@ def lakretz_downstream(
         task setup.
     model : LanguageModel
         Language model for which the accuracy is calculated.
+    decompose_config : Dict[str, Any], optional
+        Config dict containing setup for contextual decompositions.
+        If provided the decomposed predictions will be used for the
+        task. Note that `task_activations` should be passed as well, in
+        the `downstream.config.lakretz` object that is passed to the
+        downstream suite.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to True.
@@ -136,6 +145,10 @@ def lakretz_downstream(
     for task, init_task in init_dict.items():
         print(f"\n{task}")
         activation_reader = init_task["activation_reader"]
+        if activation_reader is not None and decompose_config is not None:
+            factory = DecomposerFactory(model, activation_reader.activations_dir)
+        else:
+            factory = None
         corpus = init_task["corpus"]
         iterator = init_task["iterator"]
 
@@ -158,10 +171,18 @@ def lakretz_downstream(
                 sen_slice = slice(
                     cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2, 2
                 )
-                final_hidden = torch.stack(
-                    activation_reader[sen_slice, {"a_name": (model.top_layer, "hx")}],
-                    dim=0,
-                )[:, -2, :]
+                if factory is not None:
+                    decomposer = factory.create(sen_slice, slice(0, -1))
+                    final_hidden = decomposer.decompose(
+                        **decompose_config
+                    )["relevant"][:, -1]
+                else:
+                    final_hidden = torch.stack(
+                        activation_reader[
+                            sen_slice, {"a_name": (model.top_layer, "hx")}
+                        ],
+                        dim=0,
+                    )[:, -2, :]
 
             w1: Tensor = batch.sen[0][::2, -1]
             w2: Tensor = batch.sen[0][1::2, -1]

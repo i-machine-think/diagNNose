@@ -16,9 +16,9 @@ from .misc import calc_final_hidden, create_unk_sen_mask
 def marvin_init(
     vocab_path: str,
     path: str,
-    task_activations: Optional[Dict[str, str]] = None,
     tasks: Optional[List[str]] = None,
     device: str = "cpu",
+    **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Performs the initialization for the tasks of
     Marvin & Linzen (2018)
@@ -33,10 +33,6 @@ def marvin_init(
     path : str
         Path to directory containing the Marvin datasets that can be
         found in the github repo.
-    task_activations : str, optional
-        Dictionary mapping task names to directories to which the
-        Marvin task embeddings have been extracted. If a task is not
-        provided the activations will be created during the task.
     tasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
@@ -147,7 +143,10 @@ def create_examples(
 
 
 def marvin_downstream(
-    init_dict: Dict[str, Dict[str, Any]], model: LanguageModel, ignore_unk: bool = True
+    init_dict: Dict[str, Dict[str, Any]],
+    model: LanguageModel,
+    ignore_unk: bool = True,
+    **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Performs the downstream tasks of Marvin & Linzen (2018)
 
