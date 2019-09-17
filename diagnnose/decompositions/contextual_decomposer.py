@@ -1,9 +1,10 @@
 import warnings
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any, Callable, List, Optional, Set, Tuple, Union
 
 import torch
 from overrides import overrides
 from torch import Tensor
+from torch.nn.utils.rnn import pack_padded_sequence
 
 import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import (
@@ -28,8 +29,8 @@ class ContextualDecomposer(BaseDecomposer):
     Inherits and uses functions from BaseDecomposer.
     """
 
-    def __init__(self, *args: Any) -> None:
-        super().__init__(*args)
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
 
         self.weight: NamedTensors = {}
         self.bias: ActivationTensors = {}
@@ -42,8 +43,8 @@ class ContextualDecomposer(BaseDecomposer):
     @overrides
     def _decompose(
         self,
-        start: int,
-        stop: int,
+        start: Union[int, Tensor],
+        stop: Union[int, Tensor],
         rel_interactions: Optional[List[str]] = None,
         fix_shapley: bool = True,
         decompose_o: bool = False,
@@ -58,11 +59,14 @@ class ContextualDecomposer(BaseDecomposer):
 
         Parameters
         ----------
-        start : int
-            Starting index of the relevant subphrase
-        stop : int
-            Stopping index of the relevant subphrase. This stop index is
-            not included in the subphrase range, similar to range().
+        start : int | Tensor
+            Starting index of the relevant subphrase. Pass a Tensor
+            to pass along different indices for batch elements.
+        stop : int | Tensor
+            Stopping index of the relevant subphrase. This stop index
+            is not included in the subphrase range, similar to range().
+            Pass a Tensor to pass along different indices for batch
+            elements.
         decompose_o : bool, optional
             Toggles decomposition of the output gate. Defaults to False.
         rel_interactions : List[str], optional
@@ -110,7 +114,10 @@ class ContextualDecomposer(BaseDecomposer):
         else:
             self.linearize_gate = shapley_three
 
-        start_index = max(0, start) if use_extracted_activations else 0
+        if isinstance(start, int) and use_extracted_activations:
+            start_index = max(0, start)
+        else:
+            start_index = 0
         batch_size, slen = self.activation_dict[0, "emb"].shape[:2]
 
         self._split_model_bias()
@@ -123,7 +130,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         for layer in range(self.model.num_layers):
             for i in range(start_index, slen):
-                inside_phrase = start <= i < stop
+                inside_phrase = self._get_inside_phrase(start, stop, i)
 
                 self._calc_activations(layer, i, start, inside_phrase, input_never_rel)
 
@@ -139,8 +146,24 @@ class ContextualDecomposer(BaseDecomposer):
 
         return self._calc_scores()
 
+    @staticmethod
+    def _get_inside_phrase(start: Union[int, Tensor], stop: Union[int, Tensor], i: int):
+        """ Returns bool or bool tensor indicating whether current
+        position i is part of the relevant phrase.
+        """
+        if isinstance(start, int) and isinstance(stop, int):
+            return start <= i < stop
+        else:
+            inside_phrase = (start <= i) * (i < stop)
+            return inside_phrase.unsqueeze(1)
+
     def _calc_activations(
-        self, layer: int, i: int, start: int, inside_phrase: bool, input_never_rel: bool
+        self,
+        layer: int,
+        i: int,
+        start: Union[int, Tensor],
+        inside_phrase: Union[bool, Tensor],
+        input_never_rel: bool,
     ) -> None:
         """ Recalculates the decomposed model activations.
 
@@ -148,7 +171,13 @@ class ContextualDecomposer(BaseDecomposer):
         decomposition of the hidden state in the previous layer.
         """
         if layer == 0:
-            if inside_phrase and not input_never_rel:
+            if isinstance(inside_phrase, Tensor) and not input_never_rel:
+                # inside_phrase now acts as a mask on the word embeddings
+                pos_inside_phrase = inside_phrase.to(config.DTYPE)
+                neg_inside_phrase = (~inside_phrase).to(config.DTYPE)
+                rel_input = self.activation_dict[0, "emb"][:, i] * pos_inside_phrase
+                irrel_input = self.activation_dict[0, "emb"][:, i] * neg_inside_phrase
+            elif inside_phrase and not input_never_rel:
                 rel_input = self.activation_dict[0, "emb"][:, i]
                 irrel_input = torch.zeros(rel_input.shape, dtype=config.DTYPE)
             else:
@@ -171,6 +200,7 @@ class ContextualDecomposer(BaseDecomposer):
         rel_proj = rel_concat @ self.model.weight[layer]
         irrel_proj = irrel_concat @ self.model.weight[layer]
 
+        # Split weight projection back to the individual gates.
         rel_names = map(lambda x: f"rel_{x}", self.model.split_order)
         self.activations.update(dict(zip(rel_names, torch.chunk(rel_proj, 4, dim=1))))
 
@@ -213,7 +243,9 @@ class ContextualDecomposer(BaseDecomposer):
             bias_contrib_f,
         )
 
-    def _add_input_decomposition(self, layer: int, i: int, inside_phrase: bool) -> None:
+    def _add_input_decomposition(
+        self, layer: int, i: int, inside_phrase: Union[bool, Tensor]
+    ) -> None:
         """ Calculates the input gate decomposition, Equation (17) of the paper. """
 
         rel_contrib_i, irrel_contrib_i, bias_contrib_i = self.linearize_gate(
@@ -307,13 +339,21 @@ class ContextualDecomposer(BaseDecomposer):
             ][:, i]
 
     def _get_prev_cells(
-        self, layer: int, i: int, start: int, cell_type: str
+        self, layer: int, i: int, start: Union[int, Tensor], cell_type: str
     ) -> Tuple[Tensor, Tensor]:
         if i > 0:
             prev_rel = self.decompositions[layer][f"rel_{cell_type}"][:, i - 1]
             prev_irrel = self.decompositions[layer][f"irrel_{cell_type}"][:, i - 1]
         else:
-            if start < 0 or self.init_states_rel:
+            init_rel = start < 0
+            if isinstance(start, Tensor) and not self.init_states_rel:
+                pos_init_rel = init_rel.unsqueeze(1).to(config.DTYPE)
+                neg_init_rel = (~init_rel.unsqueeze(1)).to(config.DTYPE)
+                prev_rel = self.activation_dict[layer, f"i{cell_type}x"] * pos_init_rel
+                prev_irrel = (
+                    self.activation_dict[layer, f"i{cell_type}x"] * neg_init_rel
+                )
+            elif self.init_states_rel or init_rel:
                 prev_rel = self.activation_dict[layer, f"i{cell_type}x"]
                 prev_irrel = torch.zeros(prev_rel.shape, dtype=config.DTYPE)
             else:
@@ -333,7 +373,7 @@ class ContextualDecomposer(BaseDecomposer):
         bias_gate: Tensor,
         bias_source: Optional[Tensor] = None,
         cell_type: str = "c",
-        inside_phrase: bool = False,
+        inside_phrase: Union[bool, Tensor] = False,
     ) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
         rel_cd_name = f"rel_{cell_type}"
@@ -404,12 +444,21 @@ class ContextualDecomposer(BaseDecomposer):
         i: int,
         bias_product: Tensor,
         dec_name: str,
-        inside_phrase: bool,
+        inside_phrase: Union[bool, Tensor],
     ) -> None:
         if dec_name.startswith("rel"):
             self.decompositions[layer][dec_name][:, i] += bias_product
         else:
-            if inside_phrase and self.bias_bias_only_in_phrase:
+            if self.bias_bias_only_in_phrase and isinstance(inside_phrase, Tensor):
+                pos_inside_phrase = inside_phrase.to(config.DTYPE)
+                neg_inside_phrase = (~inside_phrase).to(config.DTYPE)
+                self.decompositions[layer]["rel_c"][:, i] += (
+                    bias_product * pos_inside_phrase
+                )
+                self.decompositions[layer]["irrel_c"][:, i] += (
+                    bias_product * neg_inside_phrase
+                )
+            elif self.bias_bias_only_in_phrase and inside_phrase:
                 self.decompositions[layer]["rel_c"][:, i] += bias_product
             else:
                 self.decompositions[layer]["irrel_c"][:, i] += bias_product
@@ -448,7 +497,7 @@ class ContextualDecomposer(BaseDecomposer):
 
         # All indices until the start position of the relevant token won't yield any contribution,
         # so we can directly set the cell/hidden states that have been computed already.
-        if use_extracted_activations:
+        if use_extracted_activations and isinstance(start, int):
             for l in range(num_layers):
                 for i in range(start):
                     self.decompositions[l]["irrel_c"][:, i] = self.activation_dict[
@@ -489,14 +538,25 @@ class ContextualDecomposer(BaseDecomposer):
 
     def _validate_decomposition(self) -> None:
         true_hidden = self.activation_dict[self.toplayer, "hx"][:, 1:]
+        true_hidden = pack_padded_sequence(
+            true_hidden,
+            lengths=self.final_index,
+            batch_first=True,
+            enforce_sorted=False,
+        ).data
 
         dec_hidden = (
             self.decompositions[self.toplayer]["rel_h"]
             + self.decompositions[self.toplayer]["irrel_h"]
         )
+        dec_hidden = pack_padded_sequence(
+            dec_hidden, lengths=self.final_index, batch_first=True, enforce_sorted=False
+        ).data
 
         avg_difference = torch.mean(true_hidden - dec_hidden)
         max_difference = torch.max(torch.abs(true_hidden - dec_hidden))
+
+        assert torch.sum(torch.isnan(avg_difference)) == 0
 
         # Sanity check: scores + irrel_scores should equal the original output
         if (
