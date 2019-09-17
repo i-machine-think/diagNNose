@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List, Optional
 
 import torch
 from torch import Tensor
@@ -35,6 +35,7 @@ class BaseDecomposer:
         activation_dict: ActivationTensors,
         decoder: LinearDecoder,
         final_index: Tensor,
+        extra_classes: List[int],
     ) -> None:
         self.model = model
         self.decoder_w, self.decoder_b = decoder
@@ -43,6 +44,7 @@ class BaseDecomposer:
         self.final_index = final_index
         self.batch_size = final_index.size(0)
         self.toplayer = model.num_layers - 1
+        self.extra_classes = extra_classes
 
         self._validate_activation_shapes()
         self._append_init_states()

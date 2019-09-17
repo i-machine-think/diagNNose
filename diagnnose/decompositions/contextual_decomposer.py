@@ -575,6 +575,12 @@ class ContextualDecomposer(BaseDecomposer):
         rel_dec = self.decompositions[self.toplayer]["rel_h"]
         irrel_dec = self.decompositions[self.toplayer]["irrel_h"]
 
+        if self.extra_classes is not None:
+            for i, j in enumerate(self.extra_classes, start=1):
+                rel_dec[:, -i] = rel_dec[:, j]
+                irrel_dec[:, -i] = irrel_dec[:, j]
+
+        # If no classes have been provided the decomposed states themselves are returned
         if self.decoder_b.size(1) == 0:
             decomp_dict = {"relevant": rel_dec, "irrelevant": irrel_dec}
 
