@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -11,6 +12,8 @@ from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models.lm import LanguageModel
 
 from .misc import calc_final_hidden, create_unk_sen_mask
+
+TMP_DIR = "lakretz_activations"
 
 lakretz_descriptions: Dict[str, Any] = {
     "adv": {"classes": 2, "items_per_class": 900, "conditions": ["S", "P"]},
@@ -109,6 +112,7 @@ def lakretz_downstream(
     model: LanguageModel,
     decompose_config: Optional[Dict[str, Any]] = None,
     ignore_unk: bool = True,
+    add_dec_bias: bool = True,
 ) -> Dict[str, Dict[str, float]]:
     """ Performs the downstream tasks described in Lakretz et al. (2019)
 
@@ -131,6 +135,9 @@ def lakretz_downstream(
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to True.
+    add_dec_bias : bool
+        Toggle to add the decoder bias to the score that is compared.
+        Defaults to True.
 
     Returns
     -------
@@ -144,13 +151,21 @@ def lakretz_downstream(
     }
     for task, init_task in init_dict.items():
         print(f"\n{task}")
-        activation_reader = init_task["activation_reader"]
-        if activation_reader is not None and decompose_config is not None:
-            factory = DecomposerFactory(model, activation_reader.activations_dir)
-        else:
-            factory = None
         corpus = init_task["corpus"]
         iterator = init_task["iterator"]
+        activation_reader = init_task["activation_reader"]
+        activations_dir = os.path.join(TMP_DIR, task)
+        if decompose_config is not None:
+            if activation_reader is not None:
+                activations_dir = activation_reader.activations_dir
+            factory = DecomposerFactory(
+                model,
+                activations_dir,
+                create_new_activations=(activation_reader is None),
+                corpus=corpus,
+            )
+        else:
+            factory = None
 
         skipped = 0
         task_specs = lakretz_descriptions[task]
@@ -163,7 +178,7 @@ def lakretz_downstream(
                     cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2
                 )
             ]
-            if activation_reader is None:
+            if activation_reader is None and factory is None:
                 final_hidden = calc_final_hidden(
                     model, batch, all_sens[::2], skip_every=2, skip_final=1
                 )
@@ -173,9 +188,9 @@ def lakretz_downstream(
                 )
                 if factory is not None:
                     decomposer = factory.create(sen_slice, slice(0, -1))
-                    final_hidden = decomposer.decompose(
-                        **decompose_config
-                    )["relevant"][:, -1]
+                    final_hidden = decomposer.decompose(**decompose_config)["relevant"][
+                        :, -1
+                    ]
                 else:
                     final_hidden = torch.stack(
                         activation_reader[
@@ -186,20 +201,19 @@ def lakretz_downstream(
 
             w1: Tensor = batch.sen[0][::2, -1]
             w2: Tensor = batch.sen[0][1::2, -1]
+            classes = torch.stack((w1, w2), dim=1)
 
             if ignore_unk:
                 mask = create_unk_sen_mask(corpus.vocab, all_sens)
                 mask = mask[::2] | mask[1::2]
                 skipped = int(torch.sum(mask))
-                w1 = w1[~mask]
-                w2 = w2[~mask]
+                classes = classes[~mask]
                 final_hidden = final_hidden[~mask]
-
-            classes = torch.stack((w1, w2), dim=1)
 
             probs = torch.bmm(model.decoder_w[classes], final_hidden.unsqueeze(2))
             probs = probs[:, :, 0]
-            probs += model.decoder_b[classes]
+            if add_dec_bias:
+                probs += model.decoder_b[classes]
 
             acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
             accuracies[task][task_specs["conditions"][cidx]] = acc
@@ -207,5 +221,8 @@ def lakretz_downstream(
             print(f"{task_specs['conditions'][cidx]}:\t{acc:.3f}")
             if skipped > 0:
                 print(f"{skipped:.0f}/{items_per_class} items were skipped.\n")
+
+        if decompose_config is not None and activation_reader is None:
+            shutil.rmtree(activations_dir)
 
     return accuracies

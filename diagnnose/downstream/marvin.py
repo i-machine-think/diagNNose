@@ -76,7 +76,7 @@ def marvin_init(
             fields[2][1].is_target = False
 
         for condition, sens in corpus_dict.items():
-            examples = create_examples(task, sens, fields)
+            examples = create_examples(task, sens, fields, condition[:4].lower())
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)
             if "npi" in task:
@@ -92,7 +92,7 @@ def marvin_init(
 
 
 def create_examples(
-    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]]
+    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]], condition: str
 ) -> List[Example]:
     examples = []
     prefixes = set()
@@ -128,15 +128,9 @@ def create_examples(
             # None slice selects full sentence (i.e. when verb_index is at eos (-1)),
             # otherwise select sentence till index of the verb
             subsen = s1[: (verb_index + 1 or None)]
+            wrong_verb = [s2[verb_index]]
             postfix = s1[len(s1) + verb_index + 1 : len(s1)]
-            ex = Example.fromlist(
-                [
-                    subsen + [s2[verb_index]],  # sen + wrong verb
-                    postfix,  # postfix
-                    idx,  # sen idx
-                ],
-                fields,
-            )
+            ex = Example.fromlist([subsen + wrong_verb, postfix, idx], fields)
             examples.append(ex)
 
     return examples
