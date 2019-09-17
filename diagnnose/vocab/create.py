@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 from collections import OrderedDict
 from typing import Dict, List, Union
 

@@ -65,6 +65,7 @@ def import_corpus(
 
     def preprocess(s: str) -> Union[str, int]:
         return int(s) if s.isdigit() else s
+
     pipeline = Pipeline(convert_token=preprocess)
     fields = {}
     for field in header:

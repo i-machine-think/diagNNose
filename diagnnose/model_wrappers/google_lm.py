@@ -303,7 +303,9 @@ class SoftMax:
         self.decoder_w: Tensor = torch.zeros(
             (len(vocab), hidden_size_h), dtype=config.DTYPE, device=device
         )
-        self.decoder_b: Tensor = torch.zeros(len(vocab), dtype=config.DTYPE, device=device)
+        self.decoder_b: Tensor = torch.zeros(
+            len(vocab), dtype=config.DTYPE, device=device
+        )
 
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 

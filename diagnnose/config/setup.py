@@ -1,14 +1,15 @@
 import json
 from argparse import ArgumentParser
+from functools import reduce
 from pprint import pprint
 from typing import Set
-from functools import reduce
 
 import torch
+
+import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs
 from diagnnose.utils.misc import merge_dicts
-import diagnnose.typedefs.config as config
 
 
 def create_config_dict(

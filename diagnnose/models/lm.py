@@ -149,6 +149,7 @@ class LanguageModel(ABC, nn.Module):
             ActivationTensors containing the init states for each layer.
         """
         if pickle_path is not None:
+            print("Loading extracted init states from file")
             init_states: ActivationTensors = load_pickle(pickle_path)
             self._validate(init_states)
         elif corpus_path is not None:

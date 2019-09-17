@@ -1,6 +1,6 @@
 from typing import Any, Dict, Set
-from torch import float32
 
+from torch import float32
 
 ArgDict = Dict[str, Any]
 ConfigDict = Dict[str, ArgDict]

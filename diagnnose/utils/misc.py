@@ -2,7 +2,7 @@ import io
 from collections import MutableMapping
 from contextlib import redirect_stderr, redirect_stdout
 from functools import wraps
-from typing import Any, Dict, Callable
+from typing import Any, Callable, Dict
 
 
 def suppress_print(func: Callable) -> Callable:
