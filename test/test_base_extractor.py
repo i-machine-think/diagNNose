@@ -96,9 +96,7 @@ class TestExtractor(unittest.TestCase):
             f.write(test_corpus)
 
         cls.corpus = import_corpus(
-            corpus_path,
-            corpus_header=["sen", "labels", "quality"],
-            vocab_from_corpus=True,
+            corpus_path, header=["sen", "labels", "quality"], vocab_from_corpus=True
         )
         cls.examples = cls.corpus.examples
         cls.iterator = create_iterator(cls.corpus, batch_size=1)
@@ -131,7 +129,10 @@ class TestExtractor(unittest.TestCase):
 
         # Init extractor
         cls.extractor = Extractor(
-            cls.model, cls.corpus, activations_dir=ACTIVATIONS_DIR
+            cls.model,
+            cls.corpus,
+            activations_dir=ACTIVATIONS_DIR,
+            activation_names=ACTIVATION_NAMES,
         )
         cls.extractor.activation_names = ACTIVATION_NAMES
 
@@ -279,7 +280,7 @@ class TestExtractor(unittest.TestCase):
         """
 
         self.extractor.model.reset()
-        self.extractor.extract(ACTIVATION_NAMES)
+        self.extractor.extract()
         call_arg = dump_activations_mock.call_args[0][0]
 
         # Validate function calls
