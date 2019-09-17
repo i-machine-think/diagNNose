@@ -271,56 +271,12 @@ class CDAttention:
     def _create_output_classes(self, sen_ids: ActivationIndex) -> Tensor:
         classes: List[List[int]] = []
         for i, sen_id in enumerate(activation_index_to_iterable(sen_ids)):
-            sen = self.corpus[sen_id].sen
-            classes.append([self.corpus.vocab.stoi[w] for w in sen])
+            sen = self.corpus[sen_id].sen[1:]
+            tokens = [self.corpus.vocab.stoi[w] for w in sen]
+            classes.append(tokens)
             if i > 0:
-                assert len(sen) == len(
+                assert len(tokens) == len(
                     classes[0]
                 ), "Unequal sentence lengths are not supported yet"
 
         return torch.tensor(classes)
-
-    def _create_factory(
-        self, sen_ids: ActivationIndex, activations_dir: Optional[str]
-    ) -> DecomposerFactory:
-        if activations_dir is None:
-            activations_dir = TMP_DIR
-            activation_names = self._get_activation_names()
-
-            all_examples = list(self.corpus.examples)  # create copy of full corpus
-            self.corpus.examples = [
-                self.corpus.examples[idx]
-                for idx in activation_index_to_iterable(sen_ids)
-            ]  # discard all other items
-            extractor = Extractor(self.model, self.corpus, activations_dir)
-
-            self._extract(extractor, activation_names)
-            self.corpus.examples = all_examples  # restore initial corpus
-
-        factory = DecomposerFactory(
-            self.model, activations_dir, decomposer=self.decomposer
-        )
-
-        return factory
-
-    def _get_activation_names(self) -> ActivationNames:
-        activation_names: ActivationNames = []
-
-        if self.decomposer == "CellDecomposer":
-            activation_names.extend(
-                [
-                    (self.model.num_layers - 1, name)
-                    for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
-                ]
-            )
-        else:
-            for l in range(self.model.num_layers):
-                activation_names.extend([(l, "cx"), (l, "hx")])
-            activation_names.append((0, "emb"))
-
-        return activation_names
-
-    @staticmethod
-    @suppress_print
-    def _extract(extractor: Extractor, activation_names: ActivationNames) -> None:
-        extractor.extract(activation_names, dynamic_dumping=False)

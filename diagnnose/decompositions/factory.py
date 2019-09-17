@@ -1,5 +1,5 @@
 from importlib import import_module
-from typing import Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type
 
 import torch
 from numpy import ndarray
@@ -14,6 +14,7 @@ from diagnnose.activations.activation_index import (
 )
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
+from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
@@ -23,6 +24,8 @@ from diagnnose.typedefs.activations import (
     ActivationTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.corpus import Corpus
+from diagnnose.utils.misc import suppress_print
 
 from .base_decomposer import BaseDecomposer
 
@@ -36,6 +39,17 @@ class DecomposerFactory:
         LanguageModel for which decomposition will be performed
     activations_dir : str
         Path to folder containing extracted activations
+    create_new_activations : bool, optional
+        Toggle to create new extracted activations, that will be saved
+        to `activations_dir`. `corpus` should be provided if set to
+        True. Defaults to False.
+    corpus : Corpus, optional
+        If the activations have not been extracted yet a Corpus object
+        must be passed for which the decomposer will be created.
+        The activations will be temporarily extracted in that case.
+    sen_ids : ActivationIndex, optional
+        ActivationIndex of the corpus items for which the Factory should
+        be created. If not provided the full corpus will be used.
     decomposer : str
         String of the decomposition class name, either `CellDecomposer`
         or `ContextualDecomposer`. Defaults to `ContextualDecomposer`.
@@ -45,21 +59,31 @@ class DecomposerFactory:
         self,
         model: LanguageModel,
         activations_dir: str,
+        create_new_activations: bool = False,
+        corpus: Optional[Corpus] = None,
+        sen_ids: ActivationIndex = slice(None, None),
         decomposer: str = "ContextualDecomposer",
     ) -> None:
+        self.model = model
+
         module = import_module(f"diagnnose.decompositions")
         self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
 
+        if create_new_activations:
+            assert (
+                corpus is not None
+            ), "Corpus should be provided if no activations_dir is passed."
+            self._extract_activations(activations_dir, sen_ids, corpus)
         self.activation_reader = ActivationReader(
             activations_dir, store_multiple_activations=True
         )
-        self.model = model
 
     def create(
         self,
         sen_ids: ActivationIndex,
         subsen_index: slice = slice(None, None, None),
         classes: Optional[ActivationIndex] = None,
+        extra_classes: Optional[List[int]] = None,
     ) -> BaseDecomposer:
         """ Creates an instance of a BaseDecomposer.
 
@@ -79,6 +103,12 @@ class DecomposerFactory:
             that case the decomposed states themselves are returned.
             Pass `slice(None, None, None)` to create predictions for
             the full model.
+        extra_classes : List[int], optional
+            List of indices where optional extra classes can be
+            calculated. This makes it easier to calculate multiple
+            output classes at the same sentence position. If provided
+            the final decomposed states will be replaced by the states
+            at the provided indices.
 
         Returns
         -------
@@ -106,8 +136,11 @@ class DecomposerFactory:
             activation_names, sen_ids, subsen_index
         )
 
+        if extra_classes is None:
+            extra_classes = []
+
         decomposer = self.decomposer_constructor(
-            self.model, activation_dict, decoder, final_index
+            self.model, activation_dict, decoder, final_index, extra_classes
         )
 
         return decomposer
@@ -174,7 +207,10 @@ class DecomposerFactory:
             assert (
                 torch.min(final_indices) >= subsen_index.stop - 1
             ), "Subsentence index can't be longer than sentence itself"
-            final_indices = torch.tensor([subsen_index.stop - 1] * batch_size)
+            if subsen_index.stop < 0:
+                final_indices += subsen_index.stop
+            else:
+                final_indices = torch.tensor([subsen_index.stop - 1] * batch_size)
 
         start = subsen_index.start if subsen_index.start else 0
         assert start >= 0, "Subsentence index can't be negative"
@@ -247,3 +283,42 @@ class DecomposerFactory:
         decoder_b = decoder_b[classes]
 
         return decoder_w, decoder_b
+
+    def _extract_activations(
+        self, activations_dir: str, sen_ids: ActivationIndex, corpus: Corpus
+    ) -> None:
+        activation_names = self._get_activation_names()
+
+        if sen_ids.stop is None:
+            sen_ids = slice(sen_ids.start, len(corpus), sen_ids.step)
+
+        all_examples = list(corpus.examples)  # create copy of full corpus
+        corpus.examples = [
+            corpus.examples[idx] for idx in activation_index_to_iterable(sen_ids)
+        ]  # discard all other items
+        extractor = Extractor(self.model, corpus, activations_dir, activation_names)
+
+        self._extract(extractor)
+        corpus.examples = all_examples  # restore initial corpus
+
+    def _get_activation_names(self) -> ActivationNames:
+        activation_names: ActivationNames = []
+
+        if issubclass(self.decomposer_constructor, ContextualDecomposer):
+            for l in range(self.model.num_layers):
+                activation_names.extend([(l, "cx"), (l, "hx")])
+            activation_names.append((0, "emb"))
+        else:
+            activation_names.extend(
+                [
+                    (self.model.num_layers - 1, name)
+                    for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
+                ]
+            )
+
+        return activation_names
+
+    @staticmethod
+    @suppress_print
+    def _extract(extractor: Extractor) -> None:
+        extractor.extract(batch_size=1024, dynamic_dumping=False)
