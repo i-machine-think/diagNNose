@@ -163,7 +163,7 @@ class ActivationReader:
             step = index.step or 1
 
             if indextype == "key":
-                stop = index.stop or max(range_dict.keys())
+                stop = index.stop or max(range_dict.keys()) + 1
                 ranges = [
                     r
                     for k, r in range_dict.items()
