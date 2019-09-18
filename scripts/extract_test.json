@@ -17,5 +17,5 @@
     "dynamic_dumping": true,
     "batch_size": 5,
     "cutoff": 5
-  },
+  }
 }
