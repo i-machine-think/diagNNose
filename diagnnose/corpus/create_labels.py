@@ -21,9 +21,13 @@ def create_labels_from_corpus(
     labels = []
     for i, item in enumerate(corpus.examples):
         label_idx = 0
+        each_token_labeled = len(item.sen) == len(item.labels)
         for j in range(len(item.sen)):
             if selection_func(i, j, item):
                 labels.append(item.labels[label_idx])
+                if not each_token_labeled:
+                    label_idx += 1
+            if each_token_labeled:
                 label_idx += 1
 
     return torch.tensor(labels)
