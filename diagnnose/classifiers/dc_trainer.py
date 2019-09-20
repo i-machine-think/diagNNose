@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegressionCV as LogRegCV
 from sklearn.metrics import accuracy_score
 
 from diagnnose.activations.data_loader import DataLoader
-from diagnnose.typedefs.activations import ActivationName
+from diagnnose.typedefs.activations import ActivationName, SelectFunc
 from diagnnose.typedefs.classifiers import ResultsDict
 from diagnnose.typedefs.corpus import Corpus, Labels
 from diagnnose.utils.pickle import dump_pickle
@@ -63,6 +63,7 @@ class DCTrainer:
         calc_class_weights: bool = False,
         data_subset_size: int = -1,
         train_test_split: float = 0.9,
+        selection_func: SelectFunc = lambda sen_id, pos, example: True,
     ) -> None:
         self.activation_names: List[ActivationName] = activation_names
         self.save_dir = save_dir
@@ -75,7 +76,9 @@ class DCTrainer:
         self.data_subset_size = data_subset_size
         self.train_test_split = train_test_split
 
-        self.data_loader = DataLoader(activations_dir, corpus=corpus, labels=labels)
+        self.data_loader = DataLoader(
+            activations_dir, corpus=corpus, labels=labels, selection_func=selection_func
+        )
         self.results: ResultsDict = defaultdict(dict)
 
         self._reset_classifier()

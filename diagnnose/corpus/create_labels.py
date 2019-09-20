@@ -20,8 +20,10 @@ def create_labels_from_corpus(
     """
     labels = []
     for i, item in enumerate(corpus.examples):
+        label_idx = 0
         for j in range(len(item.sen)):
             if selection_func(i, j, item):
-                labels.append(item.labels[j])
+                labels.append(item.labels[label_idx])
+                label_idx += 1
 
     return torch.tensor(labels)

@@ -4,7 +4,7 @@ import numpy as np
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_labels import create_labels_from_corpus
-from diagnnose.typedefs.activations import ActivationName
+from diagnnose.typedefs.activations import ActivationName, SelectFunc
 from diagnnose.typedefs.classifiers import DataDict
 from diagnnose.typedefs.corpus import Corpus, Labels
 
@@ -32,6 +32,7 @@ class DataLoader:
         activations_dir: str,
         corpus: Optional[Corpus] = None,
         labels: Optional[Labels] = None,
+        selection_func: SelectFunc = lambda sen_id, pos, example: True
     ) -> None:
 
         assert (
@@ -42,7 +43,7 @@ class DataLoader:
         self.data_len = len(self.activation_reader)
 
         if labels is None:
-            self.labels = create_labels_from_corpus(corpus)
+            self.labels = create_labels_from_corpus(corpus, selection_func=selection_func)
         else:
             self.labels = labels
 
