@@ -72,6 +72,11 @@ class GoogleLM(LanguageModel):
             self.decoder = SoftMax(
                 vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"], device
             )
+            self.decoder_w = self.decoder.decoder_w
+            self.decoder_b = self.decoder.decoder_b
+        else:
+            self.decoder_w = None
+            self.decoder_b = None
 
         print("Model initialisation finished.")
 
@@ -90,14 +95,6 @@ class GoogleLM(LanguageModel):
     @property
     def peepholes(self) -> ActivationTensors:
         return self.lstm.peepholes
-
-    @property
-    def decoder_w(self) -> Tensor:
-        return self.decoder.decoder_w
-
-    @property
-    def decoder_b(self) -> Tensor:
-        return self.decoder.decoder_b
 
     @overrides
     def forward(
