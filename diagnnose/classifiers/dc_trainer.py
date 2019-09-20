@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 import numpy as np
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV as LogRegCV
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName, SelectFunc
@@ -134,8 +134,10 @@ class DCTrainer:
         pred_y = self.classifier.predict(test_x)
 
         acc = accuracy_score(test_y, pred_y)
+        cm = confusion_matrix(test_y, pred_y)
 
-        print(f"{activation_name} acc.:", acc)
+        print(f"{activation_name} acc.: {acc:.3f}")
+        print(cm)
 
         self.results[activation_name]["acc"] = acc
 
