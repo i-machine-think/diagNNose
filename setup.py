@@ -31,7 +31,7 @@ setup(
         #   5 - Production/Stable
         # 'Development Status :: 3 - Alpha',
         # Indicate who your project is intended for
-        "Intended Audience :: Research",
+        "Intended Audience :: Science/Research",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         # Pick your license as you wish (should match "license" above)
         # 'License :: Apache License 2.0',
