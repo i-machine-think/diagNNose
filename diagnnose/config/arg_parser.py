@@ -145,15 +145,21 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
     }
 
-    arg_descriptions["classify"] = {
-        "classifier_type": {
-            "required": True,
-            "help": "Classifier type, as of now only accepts `logreg`, but more will be added.",
-        },
+    arg_descriptions["init_dc"] = {
         "save_dir": {
             "required": True,
             "help": "(required) Directory to which trained models will be saved.",
         },
+        "test_activations_dir": {
+            "help": "(optional) Directory containing the extracted test activations. If not "
+            "provided the train activation set will be split and partially used as test set."
+        },
+        "test_corpus": {
+            "help": "(optional) Path to test corpus file, containing the test labels."
+        }
+    }
+
+    arg_descriptions["train_dc"] = {
         "calc_class_weights": {
             "type": bool,
             "help": "(optional) Set to true to calculate the classifier class weights based on the "
