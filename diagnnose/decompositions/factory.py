@@ -1,20 +1,15 @@
 from importlib import import_module
 from typing import List, Optional, Tuple, Type
 
-import torch
-from numpy import ndarray
-from sklearn.externals import joblib
-from torch import Tensor
-from torch.nn.utils.rnn import pad_sequence
-
 import diagnnose.typedefs.config as config
+import torch
 from diagnnose.activations.activation_index import (
     activation_index_len,
     activation_index_to_iterable,
 )
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
-from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.extractors.simple_extract import simple_extract
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
@@ -25,7 +20,10 @@ from diagnnose.typedefs.activations import (
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.corpus import Corpus
-from diagnnose.utils.misc import suppress_print
+from numpy import ndarray
+from sklearn.externals import joblib
+from torch import Tensor
+from torch.nn.utils.rnn import pad_sequence
 
 from .base_decomposer import BaseDecomposer
 
@@ -260,6 +258,7 @@ class DecomposerFactory:
         else:
             decoder_w, decoder_b = import_decoder_from_model(self.model)
 
+        # Create tensor of relevant decoder classes.
         if isinstance(classes, int):
             classes = torch.tensor([classes])
         elif isinstance(classes, list):
@@ -291,15 +290,18 @@ class DecomposerFactory:
 
         if sen_ids.stop is None:
             sen_ids = slice(sen_ids.start, len(corpus), sen_ids.step)
+        sen_id_range = activation_index_to_iterable(sen_ids)
 
-        all_examples = list(corpus.examples)  # create copy of full corpus
-        corpus.examples = [
-            corpus.examples[idx] for idx in activation_index_to_iterable(sen_ids)
-        ]  # discard all other items
-        extractor = Extractor(self.model, corpus, activations_dir, activation_names)
+        def selection_func(sen_id, _pos, _item):
+            return sen_id in sen_id_range
 
-        self._extract(extractor)
-        corpus.examples = all_examples  # restore initial corpus
+        simple_extract(
+            self.model,
+            activations_dir,
+            corpus,
+            activation_names,
+            selection_func=selection_func,
+        )
 
     def _get_activation_names(self) -> ActivationNames:
         activation_names: ActivationNames = []
@@ -317,8 +319,3 @@ class DecomposerFactory:
             )
 
         return activation_names
-
-    @staticmethod
-    @suppress_print
-    def _extract(extractor: Extractor) -> None:
-        extractor.extract(batch_size=1024, dynamic_dumping=False)
