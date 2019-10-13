@@ -43,7 +43,7 @@ def winobias_init(
     """ Initializes the adapted tasks of Zhao et al. (2018)
 
     Arxiv link: https://arxiv.org/abs/1804.06876
-    Repo: TODO: put adapted files online
+    Repo: https://github.com/i-machine-think/gcd4lm
 
     Parameters
     ----------
@@ -117,7 +117,7 @@ def winobias_downstream(
     """ Performs the adapted tasks of Zhao et al. (2018)
 
     Arxiv link: https://arxiv.org/abs/1804.06876
-    Repo: TODO: put adapted files online
+    Repo: https://github.com/i-machine-think/gcd4lm
 
     Parameters
     ----------
