@@ -1,11 +1,7 @@
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
 
-import numpy as np
 from torch import Tensor
 
-from .activations import ActivationName
-
-DataDict = Dict[str, np.ndarray]
-ResultsDict = Dict[ActivationName, Dict[str, Any]]
+DataDict = Dict[str, Tensor]
 
 LinearDecoder = Tuple[Tensor, Tensor]

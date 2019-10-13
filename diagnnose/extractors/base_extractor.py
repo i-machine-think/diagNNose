@@ -230,7 +230,7 @@ class Extractor:
         sentence, sen_lens = batch.sen
         for i in range(sentence.size(1)):
             if self.model.use_char_embs:
-                tokens = [e.sen[i] for e in examples]  # TODO: fix for uneven sen lens
+                tokens = [e.sen[min(i, len(e.sen) - 1)] for e in examples]
             else:
                 tokens = sentence[:, i]
 

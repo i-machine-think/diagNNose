@@ -13,7 +13,7 @@ from diagnnose.utils.misc import merge_dicts
 
 
 def create_config_dict(
-    argparser: ArgumentParser, required_args: RequiredArgs, arg_groups: Set[str]
+    argparser: ArgumentParser, required_args: RequiredArgs, arg_groups: Set[str], validate: bool = True
 ) -> ConfigDict:
     """ Sets up the configuration for extraction.
 
@@ -38,6 +38,9 @@ def create_config_dict(
         Set of strings defining the arg groups related to this config.
         The args of a group are defined in arg_parser.py. This makes it
         easier to quickly pass different args to the parts of a module.
+    validate : bool
+        Toggle to validate the provided config on required args and arg
+        groups. Defaults to True.
 
     Returns
     -------
@@ -54,13 +57,16 @@ def create_config_dict(
 
     config_dict = add_cmd_args(config_dict, cmd_args)
 
-    validate_config(arg_groups, required_args, argparser, config_dict)
+    if validate:
+        validate_config(arg_groups, required_args, argparser, config_dict)
 
     activation_config = config_dict.get("activations", {})
     activation_dtype = activation_config.get("dtype", None)
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
     activation_names = activation_config.get("activation_names", [])
+    if len(activation_names) == 0:
+        activation_names = config_dict.get("train_dc", {}).get("activation_names", [])
     if len(activation_names) > 0:
         cast_activation_names(activation_names)
 
