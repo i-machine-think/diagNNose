@@ -2,6 +2,8 @@ import glob
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
+from torch import Tensor
+from torch.nn.functional import log_softmax
 from torchtext.data import BucketIterator, Dataset, Example, Field, RawField
 
 from diagnnose.corpus.create_iterator import create_iterator
@@ -80,10 +82,13 @@ def marvin_init(
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)
             if "npi" in task:
+                batch_size = min(len(sens), 20)
                 attach_vocab(corpus, vocab_path, sen_column="wsen")
+            else:
+                batch_size = len(sens)
             corpora[condition] = corpus
             iterators[condition] = create_iterator(
-                corpus, batch_size=len(sens), device=device, sort=True
+                corpus, batch_size=batch_size, device=device, sort=True
             )
 
         init_dict[task] = {"corpora": corpora, "iterators": iterators}
@@ -139,6 +144,7 @@ def create_examples(
 def marvin_downstream(
     init_dict: Dict[str, Dict[str, Any]],
     model: LanguageModel,
+    use_full_model_probs: bool = False,
     ignore_unk: bool = True,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
@@ -154,6 +160,9 @@ def marvin_downstream(
         task setup.
     model : LanguageModel
         Language model for which the accuracy is calculated.
+    use_full_model_probs : bool, optional
+        Calculate the full model probs for the NPI sentences. Defaults
+        to False.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to True.
@@ -170,52 +179,64 @@ def marvin_downstream(
         for condition in init_task["corpora"].keys():
             corpus = init_task["corpora"][condition]
             iterator = init_task["iterators"][condition]
-            batch = next(iter(iterator))
-            batch_size = batch.batch_size
+            accs = []
+            for batch in iterator:
+                batch_size = batch.batch_size
 
-            if "npi" in task:
-                all_sens = [corpus.examples[idx].sen for idx in batch.idx]
-
-                final_hidden = calc_final_hidden(model, batch, all_sens)
-                wfinal_hidden = calc_final_hidden(
-                    model, batch, all_sens, sen_column="wsen"
-                )
-                classes = torch.tensor(
-                    [corpus.vocab.stoi["ever"]] * batch_size
-                ).unsqueeze(1)
-            else:
-                sens, slens = batch.sen
-                all_sens = [corpus.examples[idx].sen for idx in batch.idx]
-                # The final 2 positions of each sentence contain the 2 verb forms
-                final_hidden = calc_final_hidden(model, batch, all_sens, skip_final=2)
-
-                classes = torch.stack(
-                    [sens[i, slen - 2 : slen] for i, slen in enumerate(slens)]
-                )
-
-            if ignore_unk:
-                mask = create_unk_sen_mask(corpus.vocab, all_sens)
-                skipped = int(torch.sum(mask))
-                if skipped > 0:
-                    print(f"{skipped:.0f}/{batch_size} items were skipped.\n")
-                classes = classes[~mask]
-                final_hidden = final_hidden[~mask]
+                # Calculate batched hidden states
                 if "npi" in task:
-                    wfinal_hidden = wfinal_hidden[~mask]
+                    all_sens = [corpus.examples[idx].sen for idx in batch.idx]
 
-            probs = torch.bmm(model.decoder_w[classes], final_hidden.unsqueeze(2))
-            probs = probs[:, :, 0]
-            probs += model.decoder_b[classes]
+                    final_hidden = calc_final_hidden(model, batch, all_sens)
+                    wfinal_hidden = calc_final_hidden(
+                        model, batch, all_sens, sen_column="wsen"
+                    )
+                    if use_full_model_probs:
+                        classes = torch.tensor(
+                            [list(corpus.vocab.stoi.values())] * batch_size
+                        )
+                    else:
+                        classes = torch.tensor(
+                            [corpus.vocab.stoi["ever"]] * batch_size
+                        ).unsqueeze(1)
+                else:
+                    sens, slens = batch.sen
+                    all_sens = [corpus.examples[idx].sen for idx in batch.idx]
+                    # The final 2 positions of each sentence contain the 2 verb forms
+                    final_hidden = calc_final_hidden(
+                        model, batch, all_sens, skip_final=2
+                    )
+                    wfinal_hidden = None
 
-            if "npi" in task:
-                wprobs = torch.bmm(model.decoder_w[classes], wfinal_hidden.unsqueeze(2))
-                wprobs = wprobs[:, :, 0]
-                wprobs += model.decoder_b[classes]
-                acc = torch.mean((probs >= wprobs).to(torch.float)).item()
-            else:
-                acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
+                    classes = torch.stack(
+                        [sens[i, slen - 2 : slen] for i, slen in enumerate(slens)]
+                    )
 
-            accuracies[task][condition] = (acc, batch_size)
+                # Mask sentences containing <unk> tokens
+                if ignore_unk:
+                    mask = create_unk_sen_mask(corpus.vocab, all_sens)
+                    skipped = int(torch.sum(mask))
+                    if skipped > 0:
+                        print(f"{skipped:.0f}/{batch_size} items were skipped.\n")
+                    classes = classes[~mask]
+                    final_hidden = final_hidden[~mask]
+                    if "npi" in task:
+                        wfinal_hidden = wfinal_hidden[~mask]
+
+                acc = calc_acc(
+                    task,
+                    model,
+                    corpus,
+                    classes,
+                    final_hidden,
+                    use_full_model_probs,
+                    wfinal_hidden,
+                )
+                accs.append((acc, batch_size))
+            accuracies[task][condition] = (
+                sum(a[0] * a[1] for a in accs) / len(corpus),
+                len(corpus),
+            )
 
         task_size = sum(v[1] for v in accuracies[task].values())
         mean_acc = sum(v[0] * v[1] for v in accuracies[task].values()) / task_size
@@ -223,3 +244,33 @@ def marvin_downstream(
         print(f"{task}: {mean_acc:.3f}")
 
     return accuracies
+
+
+def calc_acc(
+    task: str,
+    model: LanguageModel,
+    corpus: Corpus,
+    classes: Tensor,
+    final_hidden: Tensor,
+    use_full_model_probs: bool,
+    wfinal_hidden: Optional[Tensor] = None,
+) -> float:
+    probs = torch.bmm(model.decoder_w[classes], final_hidden.unsqueeze(2))
+    probs = probs[:, :, 0]
+    probs += model.decoder_b[classes]
+
+    if "npi" in task:
+        wprobs = torch.bmm(model.decoder_w[classes], wfinal_hidden.unsqueeze(2))
+        wprobs = wprobs[:, :, 0]
+        wprobs += model.decoder_b[classes]
+
+        if use_full_model_probs:
+            ever_idx = corpus.vocab.stoi["ever"]
+            probs = log_softmax(probs, dim=1)[:, ever_idx]
+            wprobs = log_softmax(wprobs, dim=1)[:, ever_idx]
+
+        acc = torch.mean((probs >= wprobs).to(torch.float)).item()
+    else:
+        acc = torch.mean((probs[:, 0] >= probs[:, 1]).to(torch.float)).item()
+
+    return acc
