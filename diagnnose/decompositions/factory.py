@@ -17,6 +17,7 @@ from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationNames,
     ActivationTensors,
+    RemoveCallback,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.corpus import Corpus
@@ -67,6 +68,7 @@ class DecomposerFactory:
         module = import_module(f"diagnnose.decompositions")
         self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
 
+        self.remove_callback: Optional[RemoveCallback] = None
         if create_new_activations:
             assert (
                 corpus is not None
@@ -295,7 +297,7 @@ class DecomposerFactory:
         def selection_func(sen_id, _pos, _item):
             return sen_id in sen_id_range
 
-        simple_extract(
+        self.remove_callback = simple_extract(
             self.model,
             activations_dir,
             corpus,
@@ -319,3 +321,7 @@ class DecomposerFactory:
             )
 
         return activation_names
+
+    def remove_activations(self) -> None:
+        if self.remove_callback is not None:
+            self.remove_callback()

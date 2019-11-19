@@ -31,6 +31,8 @@ SelectFunc = Callable[[int, int, Example], bool]
 Range = Tuple[int, int]
 ActivationRanges = Dict[int, Range]
 
+RemoveCallback = Callable[[], None]
+
 
 # INDEXING
 # Activation indexing, as done in ActivationReader
