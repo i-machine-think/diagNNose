@@ -156,7 +156,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "test_corpus": {
             "help": "(optional) Path to test corpus file, containing the test labels."
-        }
+        },
     }
 
     arg_descriptions["train_dc"] = {
@@ -222,6 +222,9 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "normalize": {
             "help": "Toggle to normalize the relevant scores by the full model logits."
+        },
+        "normalize_w_betas": {
+            "help": "Toggle to normalize the relevant scores by the sum of relevant scores."
         },
     }
 

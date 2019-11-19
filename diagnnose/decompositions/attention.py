@@ -1,4 +1,3 @@
-import shutil
 from typing import Any, Dict, List, Optional
 
 import matplotlib.patches as patches
@@ -30,12 +29,14 @@ class CDAttention:
         model: LanguageModel,
         corpus: Corpus,
         include_init: bool = True,
+        plot_dec_bias: bool = True,
         cd_config: Optional[Dict[str, Any]] = None,
         plot_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
         self.include_init = include_init
+        self.plot_dec_bias = plot_dec_bias
 
         if cd_config is None:
             self.cd_config: Dict[str, Any] = {}
@@ -115,8 +116,7 @@ class CDAttention:
 
         arr = self.calc_attention(decomposer)
 
-        if activations_dir is None:
-            shutil.rmtree(TMP_DIR)
+        factory.remove_activations()
 
         if save_arr_as is not None:
             torch.save(arr, save_arr_as)
@@ -127,6 +127,7 @@ class CDAttention:
         start_id = 0 if self.include_init else 1
         sen_len = int(decomposer.final_index[0])
         normalize = self.cd_config.pop("normalize", True)
+        normalize_w_betas = self.cd_config.pop("normalize_w_betas", False)
 
         # Number of input features to be decomposed (init + w0 -- wn-1)
         ndecomp = sen_len - 1 + int(self.include_init)
@@ -153,11 +154,25 @@ class CDAttention:
             )
 
         bias = decomposer.decoder_b.unsqueeze(1)
-        if normalize:
-            norm_scores = rel_scores / (rel_scores + irrel_scores + bias)
+
+        if normalize or normalize_w_betas:
+            logit = (rel_scores + irrel_scores + bias)[:, [0]]
+            if normalize_w_betas:
+                logit = (torch.sum(rel_scores, dim=1).unsqueeze(1)) + bias
+            norm_scores = rel_scores / logit
+            if self.plot_dec_bias:
+                norm_bias = bias / logit
+                norm_scores = torch.cat((norm_scores, norm_bias), dim=1)
             return norm_scores
 
-        self.cd_config["normalize"] = False
+        if self.plot_dec_bias:
+            rel_scores = torch.cat((rel_scores, bias), dim=1)
+
+        # These flags are popped in order to pass cd_config directly to the decomposer,
+        # but should be set back if CDAttention were to be used again.
+        self.cd_config["normalize"] = normalize
+        self.cd_config["normalize_w_betas"] = normalize_w_betas
+
         return rel_scores
 
     def plot_attention(self, arr: Tensor, save_plot_as: Optional[str] = None) -> None:
@@ -169,7 +184,7 @@ class CDAttention:
         if self.plot_config.get("clim", None) is not None:
             clim = self.plot_config["clim"]
             cmin = clim[0]
-            cmax = clim[1] if len(clim) == 2 else clim[2]
+            cmax = clim[-1]
         else:
             cmin = min(np.min(arr), 0)
             cmax = np.max(arr)
@@ -202,6 +217,8 @@ class CDAttention:
             ytext = self.plot_config["ytext"]
             if self.include_init:
                 ytext = ["INIT"] + ytext
+            if self.plot_dec_bias:
+                ytext += ["BIAS"]
 
             ax.set_yticks(range(len(ytext)))
             ax.set_yticklabels(ytext)
@@ -248,17 +265,18 @@ class CDAttention:
             for idx, color in self.plot_config["ytext_colors"]:
                 ax.get_yticklabels()[idx].set_color(color)
 
-        for patch_x, patch_y in self.plot_config.get("patches"):
-            ax.add_patch(
-                patches.Rectangle(
-                    (patch_x - 0.47, patch_y - 0.48),
-                    0.95,
-                    0.94,
-                    linewidth=4,
-                    edgecolor="black",
-                    facecolor="none",
+        if isinstance(self.plot_config.get("patches"), list):
+            for patch_x, patch_y in self.plot_config.get("patches"):
+                ax.add_patch(
+                    patches.Rectangle(
+                        (patch_x - 0.47, patch_y - 0.48),
+                        0.95,
+                        0.94,
+                        linewidth=4,
+                        edgecolor="black",
+                        facecolor="none",
+                    )
                 )
-            )
 
         if self.plot_config.get("title", None) is not None:
             title = ax.set_title(self.plot_config["title"], fontsize=30)
