@@ -48,6 +48,10 @@ class DCTrainer:
         Selection function that determines whether a corpus item should
         be taken into account for training. If such a function has been
         used during extraction, make sure to pass it along here as well.
+    test_selection_func : SelectFunc, optional
+        Selection function that determines whether a corpus item should
+        be taken into account for testing. If such a function has been
+        used during extraction, make sure to pass it along here as well.
 
     Attributes
     ----------
@@ -67,11 +71,13 @@ class DCTrainer:
         test_corpus: Optional[Corpus] = None,
         model: Optional[LanguageModel] = None,
         selection_func: SelectFunc = lambda sen_id, pos, example: True,
+        test_selection_func: SelectFunc = lambda sen_id, pos, example: True,
     ) -> None:
         self.save_dir = save_dir
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
 
+        self.remove_callbacks = []
         activations_dir, test_activations_dir = self._extract_activations(
             save_dir,
             corpus,
@@ -80,6 +86,7 @@ class DCTrainer:
             activations_dir,
             test_activations_dir,
             test_corpus,
+            test_selection_func,
             model,
         )
 
@@ -90,6 +97,7 @@ class DCTrainer:
             test_activations_dir=test_activations_dir,
             test_corpus=test_corpus,
             selection_func=selection_func,
+            test_selection_func=test_selection_func,
         )
         self.classifier = LogRegCV()
 
@@ -98,6 +106,7 @@ class DCTrainer:
         calc_class_weights: bool = False,
         data_subset_size: int = -1,
         train_test_split: float = 0.9,
+        remove_activations: bool = False,
     ) -> None:
         """ Trains DCs on multiple activation names.
 
@@ -107,12 +116,15 @@ class DCTrainer:
             Set to True to calculate the classifier class weights based on
             the corpus class frequencies. Defaults to False.
         data_subset_size : int, optional
-            Size of the subset on which training will be performed. Defaults
-            to the full set of activations.
+            Size of the subset on which training will be performed.
+            Defaults to the full set of activations.
         train_test_split : float, optional
             Percentage of the train/test split. If separate test
             activations are provided this split won't be used.
             Defaults to 0.9/0.1.
+        remove_activations : bool, optional
+            Set to True to remove the extracted activations. Defaults to
+            False.
         """
         for activation_name in self.activation_names:
             self._train(
@@ -121,6 +133,10 @@ class DCTrainer:
                 data_subset_size=data_subset_size,
                 train_test_split=train_test_split,
             )
+
+        if remove_activations:
+            for remove_callback in self.remove_callbacks:
+                remove_callback()
 
     def _train(
         self,
@@ -135,6 +151,7 @@ class DCTrainer:
         data_dict = self.data_loader.create_data_split(
             activation_name, data_subset_size, train_test_split
         )
+        print(f"train/test: {data_dict['train_x'].size(0)}/{data_dict['test_x'].size(0)}")
 
         # Calculate class weights
         if calc_class_weights:
@@ -191,8 +208,8 @@ class DCTrainer:
         }
         self.classifier.class_weight = class_weight
 
-    @staticmethod
     def _extract_activations(
+        self,
         save_dir: str,
         corpus: Corpus,
         activation_names: ActivationNames,
@@ -200,22 +217,25 @@ class DCTrainer:
         activations_dir: Optional[str],
         test_activations_dir: Optional[str],
         test_corpus: Optional[Corpus],
+        test_selection_func: SelectFunc,
         model: Optional[LanguageModel],
     ) -> Tuple[str, Optional[str]]:
         if activations_dir is None:
             activations_dir = os.path.join(save_dir, "activations")
-            simple_extract(
+            remove_callback = simple_extract(
                 model, activations_dir, corpus, activation_names, selection_func
             )
+            self.remove_callbacks.append(remove_callback)
 
         if test_corpus is not None and test_activations_dir is None:
             test_activations_dir = os.path.join(save_dir, "test_activations")
-            simple_extract(
+            remove_callback = simple_extract(
                 model,
                 test_activations_dir,
                 test_corpus,
                 activation_names,
-                selection_func,
+                test_selection_func,
             )
+            self.remove_callbacks.append(remove_callback)
 
         return activations_dir, test_activations_dir

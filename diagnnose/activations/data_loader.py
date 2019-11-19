@@ -29,6 +29,10 @@ class DataLoader:
         Selection function that determines whether a corpus item should
         be taken into account. If such a function has been used during
         extraction, make sure to pass it along here as well.
+    test_selection_func : SelectFunc, optional
+        Selection function that determines whether a corpus item should
+        be taken into account for testing. If such a function has been
+        used during extraction, make sure to pass it along here as well.
     """
 
     def __init__(
@@ -38,6 +42,7 @@ class DataLoader:
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
         selection_func: SelectFunc = lambda sen_id, pos, example: True,
+        test_selection_func: SelectFunc = lambda sen_id, pos, example: True,
     ) -> None:
         assert corpus is not None, "`corpus`should be provided!"
 
@@ -49,7 +54,7 @@ class DataLoader:
             self.test_activation_reader = ActivationReader(test_activations_dir)
             assert test_corpus is not None, "`test_corpus` should be provided!"
             self.test_labels = create_labels_from_corpus(
-                test_corpus, selection_func=selection_func
+                test_corpus, selection_func=test_selection_func
             )
         else:
             self.test_activation_reader = None

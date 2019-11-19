@@ -13,15 +13,15 @@ def import_corpus(
     vocab_path: Optional[str] = None,
     vocab_from_corpus: bool = False,
     sen_column: str = "sen",
+    labels_column: str = "labels",
 ) -> TabularDataset:
-
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
     Outputs a `Corpus` type, that is used throughout the library.
 
-    The raw sentence is assumed to be labeled `sen` or `sent`
-    Sentences can possibly be labeled, which are assumed to be labeled
+    The raw sentence is assumed to be labeled `sen`.
+    Sentences can optionally be labeled, which are assumed to be labeled
     by a `labels` tag.
 
     Parameters
@@ -29,9 +29,10 @@ def import_corpus(
     path : str
         Path to corpus file
     header : List[str], optional
-        Optional list of attribute names of each column, if not provided
-        all lines will be considered to be sentences,  with the
-        attribute name "sen".
+        Optional list of attribute names of each column. If not provided
+        all lines will be considered to be sentences, with the
+        attribute name "sen". In case the corpus file contains 2 columns
+        the header ["sen", "labels"] will be assumed.
     to_lower : bool, optional
         Transform entire corpus to lower case, defaults to False.
     header_from_first_line : bool, optional
@@ -47,6 +48,9 @@ def import_corpus(
     sen_column : str, optional
         Name of the corpus column containing the raw sentences.
         Defaults to `sen`.
+    labels_column : str, optional
+        Name of the corpus column containing the sentence labels.
+        Defaults to `labels`.
 
     Returns
     -------
@@ -59,7 +63,12 @@ def import_corpus(
             with open(path) as f:
                 header = f.readline().strip().split("\t")
         else:
-            header = ["sen"]
+            with open(path) as f:
+                first_line = f.readline().strip().split("\t")
+            if len(first_line) == 2:
+                header = [sen_column, labels_column]
+            else:
+                header = [sen_column]
 
     assert sen_column in header, "`sen` should be part of corpus_header!"
 
@@ -73,9 +82,9 @@ def import_corpus(
             fields[field] = Field(
                 batch_first=True, include_lengths=True, lower=to_lower
             )
-        elif field == "labels":
+        elif field == labels_column:
             fields[field] = Field(
-                use_vocab=False, tokenize=lambda s: list(map(int, s.split()))
+                use_vocab=True, pad_token=None, unk_token=None, is_target=True
             )
         else:
             fields[field] = RawField(preprocessing=pipeline)
@@ -92,5 +101,7 @@ def import_corpus(
     # The current torchtext Vocab does not allow a fixed vocab order
     if vocab_path is not None or vocab_from_corpus:
         attach_vocab(corpus, vocab_path or path, sen_column=sen_column)
+    if labels_column in corpus.fields:
+        corpus.fields[labels_column].build_vocab(corpus)
 
     return corpus

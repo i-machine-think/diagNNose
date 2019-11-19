@@ -24,7 +24,8 @@ def create_labels_from_corpus(
         each_token_labeled = len(item.sen) == len(item.labels)
         for j in range(len(item.sen)):
             if selection_func(i, j, item):
-                labels.append(item.labels[label_idx])
+                label = corpus.fields["labels"].vocab.stoi[item.labels[label_idx]]
+                labels.append(label)
                 if not each_token_labeled:
                     label_idx += 1
             if each_token_labeled:
