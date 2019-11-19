@@ -17,7 +17,7 @@ def create_w2i_dict(corpus_path: Union[str, List[str]]) -> Dict[str, int]:
 
     corpus_tokens: OrderedDict = OrderedDict()
     for path in corpus_path:
-        with open(os.path.expanduser(path)) as cf:
+        with open(os.path.expanduser(path), encoding='ISO-8859-1') as cf:
             # Note that the first corpus column is considered to be the sentence here
             corpus_tokens.update(
                 (w.strip(), None)
