@@ -20,7 +20,7 @@ class ContextualDecomposer(BaseDecomposer):
     """ Implementation of the LSTM decomposition method described in:
 
     Murdoch et al., Beyond Word Importance: Contextual Decomposition to
-    Extract Interactions from LSTMs (2017)
+    Extract Interactions from LSTMs (2018)
     https://arxiv.org/pdf/1801.05453.pdf
 
     Code was partly copied from and inspired by:
