@@ -93,7 +93,7 @@ class DataLoader:
 
         # Shuffle activations
         data_size = self.data_len if data_subset_size == -1 else data_subset_size
-        indices = np.random.choice(range(data_size), data_size, replace=False)
+        indices = np.random.choice(range(self.data_len), data_size, replace=False)
         train_activations = train_activations[indices]
         train_labels = self.train_labels[indices]
 
