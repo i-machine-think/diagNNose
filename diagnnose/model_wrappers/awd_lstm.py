@@ -11,8 +11,8 @@ class AWDLSTM(ForwardLSTM):
     @staticmethod
     def rnn_names(layer: int, rnn_name: str) -> Dict[str, str]:
         return {
-            "weight_hh": f"{rnn_name}.{layer}.weight_hh_l0",
-            "weight_ih": f"{rnn_name}.{layer}.weight_ih_l0",
-            "bias_hh": f"{rnn_name}.{layer}.bias_hh_l0",
-            "bias_ih": f"{rnn_name}.{layer}.bias_ih_l0",
+            "weight_hh": f"{rnn_name}.{layer}.module.weight_hh_l0_raw",
+            "weight_ih": f"{rnn_name}.{layer}.module.weight_ih_l0",
+            "bias_hh": f"{rnn_name}.{layer}.module.bias_hh_l0",
+            "bias_ih": f"{rnn_name}.{layer}.module.bias_ih_l0",
         }
