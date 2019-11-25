@@ -8,8 +8,8 @@ from diagnnose.typedefs.activations import ActivationName, ActivationNames, Sele
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.pickle import dump_pickle
 from sklearn.externals import joblib
-from sklearn.linear_model import LogisticRegressionCV as LogRegCV
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.linear_model import LogisticRegressionCV
+import sklearn.metrics as metrics
 from torch import Tensor
 from diagnnose.extractors.simple_extract import simple_extract
 from diagnnose.models.lm import LanguageModel
@@ -99,7 +99,7 @@ class DCTrainer:
             selection_func=selection_func,
             test_selection_func=test_selection_func,
         )
-        self.classifier = LogRegCV()
+        self.classifier = LogisticRegressionCV()
 
     def train(
         self,
@@ -199,7 +199,7 @@ class DCTrainer:
         joblib.dump(self.classifier, model_path)
 
     def _reset_classifier(self) -> None:
-        self.classifier = LogRegCV()
+        self.classifier = LogisticRegressionCV()
 
     def _set_class_weights(self, train_y: Tensor) -> None:
         classes, class_freqs = torch.unique(train_y, return_counts=True)
