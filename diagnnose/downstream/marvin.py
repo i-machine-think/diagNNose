@@ -57,8 +57,6 @@ def marvin_init(
     for task in tasks:
         corpus_dict = load_pickle(task2path[task])
 
-        corpora: Dict[str, Corpus] = {}
-        iterators: Dict[str, BucketIterator] = {}
         if "npi" in task:
             fields = [
                 ("sen", Field(batch_first=True, include_lengths=True)),
@@ -77,19 +75,28 @@ def marvin_init(
             fields[1][1].is_target = False
             fields[2][1].is_target = False
 
-        for condition, sens in corpus_dict.items():
-            examples = create_examples(task, sens, fields, condition[:4].lower())
+        corpora: Dict[str, Corpus] = {}
+        iterators: Dict[str, BucketIterator] = {}
+
+        def create_corpus(condition_: str, batch_size: int) -> None:
+            examples = create_examples(task, sens_subset, fields)
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)
             if "npi" in task:
-                batch_size = min(len(sens), 20)
                 attach_vocab(corpus, vocab_path, sen_column="wsen")
-            else:
-                batch_size = len(sens)
-            corpora[condition] = corpus
-            iterators[condition] = create_iterator(
+            corpora[condition_] = corpus
+            iterators[condition_] = create_iterator(
                 corpus, batch_size=batch_size, device=device, sort=True
             )
+
+        for condition, sens in corpus_dict.items():
+            if "npi" in task:
+                for i, licensor in enumerate(["no", "few"]):
+                    clen = len(sens) // 2
+                    sens_subset = sens[i * clen : (i + 1) * clen]
+                    create_corpus(f"{condition}_{licensor}", min(len(sens_subset), 128))
+            else:
+                create_corpus(condition, len(sens))
 
         init_dict[task] = {"corpora": corpora, "iterators": iterators}
 
@@ -97,7 +104,7 @@ def marvin_init(
 
 
 def create_examples(
-    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]], condition: str
+    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]]
 ) -> List[Example]:
     examples = []
     prefixes = set()
@@ -107,6 +114,9 @@ def create_examples(
             s1, s2 = s1.split(), s2.split()
             ever_idx = s1.index("ever")
             prefix = " ".join(s1[:ever_idx])
+
+            # We only need to compute probs for sentences with a unique
+            # subsentence prior to the position of the NPI.
             if prefix not in prefixes:
                 ex = Example.fromlist(
                     [
