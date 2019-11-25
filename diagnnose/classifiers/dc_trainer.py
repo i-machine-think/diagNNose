@@ -177,10 +177,12 @@ class DCTrainer:
     def _eval(self, test_x: Tensor, test_y: Tensor) -> Dict[str, Any]:
         pred_y = self.classifier.predict(test_x)
 
-        acc = accuracy_score(test_y, pred_y)
-        cm = confusion_matrix(test_y, pred_y)
+        acc = metrics.accuracy_score(test_y, pred_y)
+        f1 = metrics.f1_score(test_y, pred_y, average="micro")
+        mcc = metrics.matthews_corrcoef(test_y, pred_y)
+        cm = metrics.confusion_matrix(test_y, pred_y)
 
-        results = {"accuracy": acc, "confusion matrix": cm}
+        results = {"accuracy": acc, "f1": f1, "mcc": mcc, "confusion matrix": cm}
         for k, v in results.items():
             print(k, v, "", sep="\n")
         results["pred_y"] = pred_y
