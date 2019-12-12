@@ -157,6 +157,11 @@ def create_arg_descriptions() -> ArgDescriptions:
         "test_corpus": {
             "help": "(optional) Path to test corpus file, containing the test labels."
         },
+        "classifier_type": {
+            "help": "Either `logreg_torch`, using a torch logreg model, or  `logreg_sklearn`, "
+            "using a LogisticRegressionCV model of sklearn."
+        },
+        "verbose": {"help": "Set to any positive number for verbosity. Defaults to 0."},
     }
 
     arg_descriptions["train_dc"] = {
@@ -174,6 +179,11 @@ def create_arg_descriptions() -> ArgDescriptions:
         "train_test_split": {
             "type": float,
             "help": "(optional) Ratio of the train/test split. Defaults to 0.9.",
+        },
+        "rank": {
+            "type": int,
+            "help": "Matrix rank of the linear classifier. Defaults to the full rank if not "
+            "provided.",
         },
     }
 
