@@ -18,12 +18,19 @@ def calc_final_hidden(
     sen_column: str = "sen",
     skip_every: int = 1,
     skip_final: Optional[int] = None,
+    sort_sens: bool = False
 ) -> Tensor:
     sens, slens = getattr(batch, sen_column)
     batch_size = batch.batch_size
 
     # Use PackedSequence if sen lens are not all equal
     if len(set(slens.tolist())) > 1:
+        inv_sort_idx = None
+        if sort_sens:
+            sort_idx = torch.sort(slens, descending=True).indices
+            inv_sort_idx = torch.sort(sort_idx).indices
+            sens = sens[sort_idx]
+            slens = slens[sort_idx]
         packed_sens = pack_padded_sequence(sens, lengths=slens, batch_first=True)
 
         hidden = model.init_hidden(batch_size)
@@ -33,7 +40,7 @@ def calc_final_hidden(
         n = 0
         if skip_final is not None and skip_final > 0:
             skip_final = -skip_final
-        for i, j in enumerate(packed_sens.batch_sizes[:skip_final]):
+        for j in packed_sens.batch_sizes[:skip_final]:
             w = packed_sens[0][n : n + j]
             for name, v in hidden.items():
                 # AWD-LSTM has an extra hidden state dimension
@@ -44,10 +51,11 @@ def calc_final_hidden(
             if hasattr(model, "use_char_embs") and model.use_char_embs:
                 w = [sen[j] for sen in all_sens]
             with torch.no_grad():
-                _, hidden = model(w, hidden, compute_out=False)[:2]
-            for k in range(int(j)):
-                final_hidden[k] = hidden[model.top_layer, "hx"].squeeze()[k]
+                hidden = model(w, hidden, compute_out=False)[1]
+            final_hidden[:j] = hidden[model.top_layer, "hx"].squeeze()[:j]
             n += j.item()
+        if inv_sort_idx is not None:
+            final_hidden = final_hidden[inv_sort_idx]
     else:
         hidden = model.init_hidden(batch_size // skip_every)
         for j in range(slens[0].item() - (skip_final or 0)):
@@ -56,7 +64,7 @@ def calc_final_hidden(
             else:
                 w = sens[::skip_every, j]
             with torch.no_grad():
-                _, hidden = model(w, hidden, compute_out=False)[:2]
+                hidden = model(w, hidden, compute_out=False)[1]
 
         final_hidden = model.final_hidden(hidden)
 
