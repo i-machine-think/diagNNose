@@ -14,6 +14,7 @@ def import_corpus(
     vocab_from_corpus: bool = False,
     sen_column: str = "sen",
     labels_column: str = "labels",
+    tokenize_columns: Optional[List[str]] = None,
 ) -> TabularDataset:
     """ Imports a corpus from a path.
 
@@ -51,20 +52,25 @@ def import_corpus(
     labels_column : str, optional
         Name of the corpus column containing the sentence labels.
         Defaults to `labels`.
+    tokenize_columns : List[str], optional
+        List of column names that should be tokenized according to the
+        provided vocabulary.
 
     Returns
     -------
     corpus : TabularDataset
         A TabularDataset containing the parsed sentences and optional labels
     """
+    if tokenize_columns is None:
+        tokenize_columns = []
 
     if header is None:
         if header_from_first_line:
             with open(path) as f:
-                header = f.readline().strip().split("\t")
+                header = next(f).strip().split("\t")
         else:
             with open(path) as f:
-                first_line = f.readline().strip().split("\t")
+                first_line = next(f).strip().split("\t")
             if len(first_line) == 2:
                 header = [sen_column, labels_column]
             else:
@@ -78,7 +84,7 @@ def import_corpus(
     pipeline = Pipeline(convert_token=preprocess)
     fields = {}
     for field in header:
-        if field == sen_column:
+        if field == sen_column or field in tokenize_columns:
             fields[field] = Field(
                 batch_first=True, include_lengths=True, lower=to_lower
             )
@@ -98,9 +104,10 @@ def import_corpus(
         csv_reader_params={"quotechar": None},
     )
 
-    # The current torchtext Vocab does not allow a fixed vocab order
+    # The current torchtext Vocab does not allow a fixed vocab order so should be attached manually.
     if vocab_path is not None or vocab_from_corpus:
-        attach_vocab(corpus, vocab_path or path, sen_column=sen_column)
+        for column in tokenize_columns + [sen_column]:
+            attach_vocab(corpus, vocab_path or path, sen_column=column)
     if labels_column in corpus.fields:
         corpus.fields[labels_column].build_vocab(corpus)
 
