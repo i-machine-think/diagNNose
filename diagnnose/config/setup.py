@@ -1,5 +1,6 @@
 import json
 from argparse import ArgumentParser
+from datetime import datetime
 from functools import reduce
 from pprint import pprint
 from typing import Set
@@ -70,6 +71,7 @@ def create_config_dict(
     if len(activation_names) > 0:
         cast_activation_names(activation_names)
 
+    print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     pprint(config_dict)
 
     return config_dict
