@@ -20,6 +20,7 @@ def marvin_init(
     path: str,
     tasks: Optional[List[str]] = None,
     device: str = "cpu",
+    use_full_model_probs: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Performs the initialization for the tasks of
@@ -40,6 +41,9 @@ def marvin_init(
         will default to the full set of conditions.
     device : str, optional
         Torch device name on which model will be run. Defaults to cpu.
+    use_full_model_probs : bool, optional
+        Toggle to calculate the full model probs for the NPI sentences.
+        Defaults to False.
 
     Returns
     -------
@@ -78,15 +82,15 @@ def marvin_init(
         corpora: Dict[str, Corpus] = {}
         iterators: Dict[str, BucketIterator] = {}
 
-        def create_corpus(condition_: str, batch_size: int) -> None:
-            examples = create_examples(task, sens_subset, fields)
+        def create_corpus(sens_: List[List[str]], condition_: str, batch_size_: int) -> None:
+            examples = create_examples(task, sens_, fields)
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)
             if "npi" in task:
                 attach_vocab(corpus, vocab_path, sen_column="wsen")
             corpora[condition_] = corpus
             iterators[condition_] = create_iterator(
-                corpus, batch_size=batch_size, device=device, sort=True
+                corpus, batch_size=batch_size_, device=device, sort=True
             )
 
         for condition, sens in corpus_dict.items():
@@ -94,9 +98,10 @@ def marvin_init(
                 for i, licensor in enumerate(["no", "few"]):
                     clen = len(sens) // 2
                     sens_subset = sens[i * clen : (i + 1) * clen]
-                    create_corpus(f"{condition}_{licensor}", min(len(sens_subset), 128))
+                    batch_size = 20 if use_full_model_probs else len(sens_subset)
+                    create_corpus(sens_subset, f"{condition}_{licensor}", batch_size)
             else:
-                create_corpus(condition, len(sens))
+                create_corpus(sens, condition, len(sens))
 
         init_dict[task] = {"corpora": corpora, "iterators": iterators}
 
@@ -171,8 +176,8 @@ def marvin_downstream(
     model : LanguageModel
         Language model for which the accuracy is calculated.
     use_full_model_probs : bool, optional
-        Calculate the full model probs for the NPI sentences. Defaults
-        to False.
+        Toggle to calculate the full model probs for the NPI sentences.
+        Defaults to False.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to True.
