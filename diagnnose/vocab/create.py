@@ -15,9 +15,11 @@ def create_w2i_dict(corpus_path: Union[str, List[str]]) -> Dict[str, int]:
     if isinstance(corpus_path, str):
         corpus_path = glob.glob(corpus_path)
 
+    assert len(corpus_path) != 0, f"No vocab files are found at the provided location!"
+
     corpus_tokens: OrderedDict = OrderedDict()
     for path in corpus_path:
-        with open(os.path.expanduser(path), encoding='ISO-8859-1') as cf:
+        with open(os.path.expanduser(path), encoding="ISO-8859-1") as cf:
             # Note that the first corpus column is considered to be the sentence here
             corpus_tokens.update(
                 (w.strip(), None)
