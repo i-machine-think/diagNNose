@@ -5,6 +5,7 @@ from torchtext.data import Field, Pipeline, RawField, TabularDataset
 from diagnnose.vocab import attach_vocab
 
 
+# TODO: add all args to arg_parser
 def import_corpus(
     path: str,
     header: Optional[List[str]] = None,
@@ -15,6 +16,7 @@ def import_corpus(
     sen_column: str = "sen",
     labels_column: str = "labels",
     tokenize_columns: Optional[List[str]] = None,
+    sep: str = "\t",
 ) -> TabularDataset:
     """ Imports a corpus from a path.
 
@@ -55,22 +57,26 @@ def import_corpus(
     tokenize_columns : List[str], optional
         List of column names that should be tokenized according to the
         provided vocabulary.
+    sep : str, optional
+        Column separator of corpus file, either a tsv or csv.
+        Defaults to '\t'.
 
     Returns
     -------
     corpus : TabularDataset
         A TabularDataset containing the parsed sentences and optional labels
     """
+    assert sep in "\t,", "separator not recognized, should be either `\t` or `,`"
     if tokenize_columns is None:
         tokenize_columns = []
 
     if header is None:
         if header_from_first_line:
             with open(path) as f:
-                header = next(f).strip().split("\t")
+                header = next(f).strip().split(sep)
         else:
             with open(path) as f:
-                first_line = next(f).strip().split("\t")
+                first_line = next(f).strip().split(sep)
             if len(first_line) == 2:
                 header = [sen_column, labels_column]
             else:
@@ -96,9 +102,10 @@ def import_corpus(
             fields[field] = RawField(preprocessing=pipeline)
             fields[field].is_target = False
 
+    corpus_format = "tsv" if sep == "\t" else "cvs"
     corpus = TabularDataset(
         fields=fields.items(),
-        format="tsv",
+        format=corpus_format,
         path=path,
         skip_header=header_from_first_line,
         csv_reader_params={"quotechar": None},

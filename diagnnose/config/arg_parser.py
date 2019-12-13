@@ -93,6 +93,9 @@ def create_arg_descriptions() -> ArgDescriptions:
             "help": "(optional) Use the first line of the corpus as the attribute  names of the "
             "corpus. Defaults to False.",
         },
+        "sep": {
+            "help": "Column separator of corpus file, either a tsv or csv. Defaults to '\t'."
+        },
     }
 
     arg_descriptions["vocab"] = {
