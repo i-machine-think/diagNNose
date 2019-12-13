@@ -1,15 +1,28 @@
 {
     "activations": {
-        "activations_dir": "../experiments/pai/activations",
         "activation_names": ["hx1"]
     },
     "corpus": {
-        "path": "../experiments/pai/corpus.txt",
-        "header": ["sen", "labels"]
+        "path": "../lm_data/corpora/npi/pol_markings_subset.tsv"
     },
-    "classify": {
-        "save_dir": "../experiments/pai/classifiers",
-        "classifier_type": "logreg",
-        "data_subset_size": 10000
+    "init_dc": {
+        "save_dir": "../experiments/dc_test",
+        "verbose": 1
+    },
+    "train_dc": {
+        "calc_class_weights": true,
+        "data_subset_size": -1,
+        "store_activations": true,
+        "rank": 2
+    },
+    "model": {
+        "type": "ForwardLSTM",
+        "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+    },
+    "vocab": {
+        "path": "../lm_data/models/gulordava/vocab.txt"
+    },
+    "init_states": {
+        "corpus_path": "../lm_data/corpora/init_sens/init_sen0.txt"
     }
 }

@@ -131,7 +131,7 @@ class DCTrainer:
         calc_class_weights: bool = False,
         data_subset_size: int = -1,
         train_test_split: float = 0.9,
-        remove_activations: bool = False,
+        store_activations: bool = True,
         rank: Optional[int] = None,
     ) -> Dict[ActivationName, Any]:
         """ Trains DCs on multiple activation names.
@@ -148,9 +148,9 @@ class DCTrainer:
             Percentage of the train/test split. If separate test
             activations are provided this split won't be used.
             Defaults to 0.9/0.1.
-        remove_activations : bool, optional
-            Set to True to remove the extracted activations. Defaults to
-            False.
+        store_activations : bool, optional
+            Set to True to store the extracted activations. Defaults to
+            True.
         rank : int, optional
             Matrix rank of the linear classifier. Defaults to the full
             rank if not provided.
@@ -167,7 +167,7 @@ class DCTrainer:
             )
             full_results_dict[activation_name] = results_dict
 
-        if remove_activations:
+        if not store_activations:
             for remove_callback in self.remove_callbacks:
                 remove_callback()
 
