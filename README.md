@@ -1,12 +1,12 @@
 # diagnnose &middot; [![Build Status](https://travis-ci.com/i-machine-think/diagnnose.svg?branch=master)](https://travis-ci.com/i-machine-think/diagnnose)
 
 This library contains a set of modules that can be used to analyse recurrent neural networks.
-In particular, it contains functionality for:
-- Extracting activations from different types of (language) models
-- Running diagnostic classifiers on extracted activations
-- Analysing word embeddings
-- Performing contextual decomposition (Murdoch et al., 2018) on a model
-- Running a broad linguistic downstream task suite
+In particular, it contains functionality for :
+- **Extracting** activations from different types of (language) models and providing quick access to these stored activations.
+- Running **diagnostic classifiers** ([Hupkes et al., 2018](https://arxiv.org/pdf/1711.10203.pdf)) on extracted activations.
+- Running **control tasks** ([Hewitt & Liang, 2019](https://arxiv.org/pdf/1909.03368.pdf)) parallel to these diagnostic classifiers.
+- Performing **contextual decomposition** ([Murdoch et al., 2018](https://arxiv.org/pdf/1801.05453.pdf)) on a model.
+- Running a broad linguistic [**downstream task suite**](https://github.com/i-machine-think/diagnnose/tree/master/diagnnose/downstream) on a language model.
 
 #### Quickstart
 
