@@ -23,6 +23,6 @@
         "path": "../lm_data/models/gulordava/vocab.txt"
     },
     "init_states": {
-        "corpus_path": "../diagnnose/activations/init_sentence.txt"
+        "corpus_path": "../diagnnose/utils/init_sentence.txt"
     }
 }

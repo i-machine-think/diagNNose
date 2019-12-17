@@ -4,7 +4,7 @@
     "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
   "init_states": {
-    "corpus_path": "../lm_data/corpora/init_sens/init_sen0.txt"
+    "corpus_path": "../diagnnose/utils/init_sentence.txt"
   },
   "vocab": {
     "path": "../lm_data/models/gulordava/vocab.txt"
