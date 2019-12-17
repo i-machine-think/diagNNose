@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     extractor = Extractor(model, corpus, **config_dict["activations"])
 
-    # Example selection_func, extract the final activation of each sentenceisort
+    # Example selection_func, extract the final activation of each sentence
     def selection_func(_sen_id: int, pos: int, item: Example):
         return pos == (len(item.sen) - 1)
 

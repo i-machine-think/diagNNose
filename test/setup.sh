@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Make data and output directories
-mkdir data
+mkdir data/model
 mkdir extracted
 
 # Download vocab
@@ -12,6 +12,3 @@ fileid="1w47WsZcZzPyBKDn83cMNd0Hb336e-_Sy"
 filename="data/model/state_dict.pt"
 curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
 curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
-
-# Download data
-# TODO I just put a mini corpus here now, but we should put it somewhere else and download it too
