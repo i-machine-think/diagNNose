@@ -1,10 +1,10 @@
 {
   "model": {
     "type": "ForwardLSTM",
-    "state_dict": "model/state_dict.pt"
+    "state_dict": "data/model/state_dict.pt"
   },
   "vocab": {
-    "path": "model/vocab.txt"
+    "path": "data/model/vocab.txt"
   },
   "corpus": {
     "path": "data/minicorpus.txt"

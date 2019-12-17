@@ -1,3 +1,5 @@
+from torchtext.data import Example
+
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import create_config_dict
 from diagnnose.corpus.import_corpus import import_corpus
@@ -18,4 +20,9 @@ if __name__ == "__main__":
     )
 
     extractor = Extractor(model, corpus, **config_dict["activations"])
-    extractor.extract(**config_dict["extract"])
+
+    # Example selection_func, extract the final activation of each sentenceisort
+    def selection_func(_sen_id: int, pos: int, item: Example):
+        return pos == (len(item.sen) - 1)
+
+    extractor.extract(selection_func=selection_func, **config_dict["extract"])

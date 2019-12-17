@@ -2,6 +2,7 @@
 Test the code in rnnalayse.activations.activation_reader.py.
 """
 import os
+import shutil
 import unittest
 from typing import List, Sequence
 
@@ -30,7 +31,7 @@ class TestActivationReader(unittest.TestCase):
         create_and_dump_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES,
             activations_dim=ACTIVATIONS_DIM,
-            max_tokens=5,
+            max_sen_len=5,
             activations_dir=ACTIVATIONS_DIR,
             activations_name=ACTIVATIONS_NAME,
             num_classes=2,
@@ -41,9 +42,7 @@ class TestActivationReader(unittest.TestCase):
     def tearDownClass(cls) -> None:
         # Remove files from previous tests
         if os.listdir(ACTIVATIONS_DIR):
-            os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
+            shutil.rmtree(ACTIVATIONS_DIR)
 
     def test_read_activations(self) -> None:
         """ Test reading activations from a pickle file. """

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 cd scripts
-sh setup.sh
+sh test/setup.sh
 
 python3 extract.py -c extract_test.json

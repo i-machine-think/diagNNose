@@ -7,45 +7,84 @@ import torch
 def create_and_dump_dummy_activations(
     num_sentences: int,
     activations_dim: int,
-    max_tokens: int,
+    max_sen_len: int,
     num_classes: int,
     activations_dir: str,
     activations_name: str,
-) -> torch.Tensor:
-    """ Create and dump activations for a fictitious corpus. """
+) -> int:
+    """ Create and dump activations for a dummy corpus.
+
+    Parameters
+    ----------
+    num_sentences : int
+        Number of sentences in the corpus.
+    activations_dim : int
+        Dimension of the dummy activations.
+    max_sen_len : int
+        Maximum sentence length.
+    num_classes : int
+        Number of label classes.
+    activations_dir : str
+        Directory to save the activations and corpus to.
+    activations_name : str
+        Type of activation for which activations will be extracted.
+
+    Returns
+    -------
+    num_labels : int
+        Total number of labels/activations that have been created.
+    """
 
     with open(f"{activations_dir}/{activations_name}.pickle", "wb") as f:
         num_labels = 0
-        activation_identifier = (
-            0
-        )  # Identify activations globally by adding a number on one end
+        # Identify activations globally by adding a number on one end
+        activation_identifier = 0
         sen_lens = []
+
+        corpus = []
 
         for i in range(num_sentences):
             # Determine the number of tokens in this sentence
-            num_activations = random.randint(1, max_tokens)
-            sen_lens.append((num_labels, num_labels + num_activations))
-            num_labels += num_activations
+            sen_len = random.randint(1, max_sen_len)
+            sen_lens.append((num_labels, num_labels + sen_len))
+            num_labels += sen_len
             activations = create_sentence_dummy_activations(
-                num_activations, activations_dim, activation_identifier
+                sen_len, activations_dim, activation_identifier
             )
-            activation_identifier += num_activations  # Increment global activation id
+            activation_identifier += sen_len  # Increment global activation id
+
+            sen = " ".join(
+                [
+                    str(w)
+                    for w in torch.multinomial(
+                        torch.arange(num_classes).float(), sen_len, replacement=True
+                    )
+                ]
+            )
+            labels = " ".join(
+                [
+                    str(w)
+                    for w in torch.multinomial(
+                        torch.arange(num_classes).float(), sen_len, replacement=True
+                    )
+                ]
+            )
+            corpus.append("\t".join((sen, labels)))
 
             pickle.dump(activations, f)
 
-    # Generate some random labels and dump them
-    with open(f"{activations_dir}/labels.pickle", "wb") as f:
-        labels = torch.rand(num_labels)
-        labels = (labels * 10).int() % num_classes
-        pickle.dump(labels, f)
+    # Create a new corpus .tsv file
+    with open(f"{activations_dir}/corpus.tsv", "w") as f:
+        f.write("\n".join(corpus))
 
+    # Create a new activation ranges file, indexed by non-consecutive keys
     with open(f"{activations_dir}/ranges.pickle", "wb") as f:
         ranges = {}
         for i in range(num_sentences):
             ranges[(i + 1) ** 2] = sen_lens[i]
         pickle.dump(ranges, f)
 
-    return labels
+    return num_labels
 
 
 def create_sentence_dummy_activations(

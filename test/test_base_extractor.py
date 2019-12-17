@@ -91,20 +91,21 @@ class TestExtractor(unittest.TestCase):
         The hog crawled .\t0 1 0 0\thairy
         Move the vat .\t0 0 1 0\tok"""
 
-        corpus_path = os.path.join(ACTIVATIONS_DIR, "corpus.txt")
+        corpus_path = os.path.join(ACTIVATIONS_DIR, "corpus.tsv")
         with open(corpus_path, "w") as f:
             f.write(test_corpus)
 
         cls.corpus = import_corpus(
             corpus_path, header=["sen", "labels", "quality"], vocab_from_corpus=True
         )
-        cls.examples = cls.corpus.examples
         cls.iterator = create_iterator(cls.corpus, batch_size=1)
 
         # Mock the activations the model produces
         cls.all_words = list(itertools.chain(*[item.sen for item in cls.corpus]))
         cls.all_tokens = [cls.corpus.vocab.stoi[w] for w in cls.all_words]
-        cls.all_labels = cls._merge_labels([example.labels for example in cls.corpus])
+        cls.all_labels = torch.tensor(
+            [label for batch in cls.iterator for label in batch.labels]
+        )
 
         test_sentence_activations = []
         identifier_value = 0
@@ -143,7 +144,7 @@ class TestExtractor(unittest.TestCase):
             os.remove(f"{ACTIVATIONS_DIR}/hx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/cx_l0.pickle")
             os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/corpus.txt")
+            os.remove(f"{ACTIVATIONS_DIR}/corpus.tsv")
 
     def test_extract_sentence(self) -> None:
         """ Test _extract_sentence for extracting the activations of whole sentences. """
@@ -195,10 +196,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on label. """
 
         def selection_func(_sen_id: int, pos: int, example: Example) -> bool:
-            return (
-                getattr(example, "labels") is not None
-                and getattr(example, "labels")[pos] == 1
-            )
+            return example.labels[pos] == 1
 
         extracted_activations, extracted_labels = self._base_extract(selection_func)
 
@@ -210,7 +208,7 @@ class TestExtractor(unittest.TestCase):
         )
         extracted_positions = extracted_activations[:, 0] - 1
         label_positions = torch.tensor(
-            [example.labels.index(1) for example in self.examples], dtype=config.DTYPE
+            [example.labels.index(1) for example in self.corpus], dtype=config.DTYPE
         )
         # Confirm that activations are from the position of the specified label
         self.assertTrue(
@@ -222,10 +220,7 @@ class TestExtractor(unittest.TestCase):
         """ Test the _extract_sentence function for extracting the activations based on token. """
 
         def selection_func(_sen_id: int, pos: int, example: Example) -> bool:
-            return (
-                getattr(example, "sen") is not None
-                and getattr(example, "sen")[pos] == "hog"
-            )
+            return example.sen[pos] == "hog"
 
         extracted_activations, extracted_labels = self._base_extract(selection_func)
 
@@ -324,11 +319,6 @@ class TestExtractor(unittest.TestCase):
             ],
             dim=0,
         )
-
-    @staticmethod
-    def _merge_labels(sentence_labels: List[List[int]]) -> Tensor:
-        """ Merge labels from different sentences into a single numpy array. """
-        return torch.tensor([x for l in sentence_labels for x in l])
 
     @staticmethod
     def is_tensor_dict(var: Any) -> bool:

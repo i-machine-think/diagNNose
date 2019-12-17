@@ -3,9 +3,11 @@ Test the code in rnnalayse.activations.activation_reader.py.
 """
 import os
 import random
+import shutil
 import unittest
 
 from diagnnose.activations.data_loader import DataLoader
+from diagnnose.corpus import import_corpus
 from diagnnose.typedefs.classifiers import DataDict
 
 from .test_utils import create_and_dump_dummy_activations
@@ -27,25 +29,23 @@ class TestDataLoader(unittest.TestCase):
             os.makedirs(ACTIVATIONS_DIR)
 
         # Create dummy data have reader read it
-        labels = create_and_dump_dummy_activations(
+        cls.num_labels = create_and_dump_dummy_activations(
             num_sentences=NUM_TEST_SENTENCES,
             activations_dim=ACTIVATIONS_DIM,
-            max_tokens=5,
+            max_sen_len=5,
             activations_dir=ACTIVATIONS_DIR,
             activations_name=ACTIVATIONS_NAME,
             num_classes=2,
         )
+        corpus = import_corpus(f"{ACTIVATIONS_DIR}/corpus.tsv")
 
-        cls.data_loader = DataLoader(ACTIVATIONS_DIR, labels=labels)
-        cls.num_labels = cls.data_loader.data_len
+        cls.data_loader = DataLoader(ACTIVATIONS_DIR, corpus)
 
     @classmethod
     def tearDownClass(cls) -> None:
         # Remove files from previous tests
         if os.listdir(ACTIVATIONS_DIR):
-            os.remove(f"{ACTIVATIONS_DIR}/{ACTIVATIONS_NAME}.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/ranges.pickle")
-            os.remove(f"{ACTIVATIONS_DIR}/labels.pickle")
+            shutil.rmtree(ACTIVATIONS_DIR)
 
     def test_create_data_split(self) -> None:
         """ Test creating the data set splits for Diagnostic Classifier training. """
