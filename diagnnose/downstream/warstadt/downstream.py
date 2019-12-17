@@ -67,7 +67,7 @@ def warstadt_init(
             corpus_dir,
             header_from_first_line=True,
             vocab_path=vocab_path,
-            tokenize_colums=["wsen"],
+            tokenize_columns=["wsen"],
         )
 
         iterator = create_iterator(

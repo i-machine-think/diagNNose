@@ -4,13 +4,26 @@
     "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
   "init_states": {
-    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+    "corpus_path": "../lm_data/corpora/init_sens/init_sen0.txt"
   },
   "vocab": {
     "path": "../lm_data/models/gulordava/vocab.txt"
   },
+  "activations": {
+    "dtype": "float32"
+  },
   "downstream": {
+    "tasks": ["warstadt", "marvin"],
     "config": {
+      "warstadt": {
+        "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv"
+      },
+      "marvin": {
+        "path": "../lm_data/corpora/downstream/marvin",
+        "tasks": ["npi_across_anim", "npi_across_inanim", "simple_npi_anim", "simple_npi_inanim"],
+        "task_activations": {
+        }
+      },
       "linzen": {
         "path": "../lm_data/corpora/downstream/linzen/1attr_sample.tsv"
       },
@@ -20,11 +33,6 @@
           "nounpp",
           "simple"
         ],
-        "task_activations": {
-        }
-      },
-      "marvin": {
-        "path": "../lm_data/corpora/downstream/marvin",
         "task_activations": {
         }
       }

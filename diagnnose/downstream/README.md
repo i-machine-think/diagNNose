@@ -1,0 +1,12 @@
+# Downstream tasks
+This directory contains utilities for running a suite of downstream tasks that have been proposed in recent papers that analyse the linguistic capacities of language models.
+
+These tasks can be run via the `DownstreamSuite` class of `suite.py`. A script for running this can be found in [`downstream.py`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.py) in the [`scripts`](https://github.com/i-machine-think/diagnnose/blob/master/scripts) directory, with configuration provided in [`downstream.json`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.json). Run the script as `python3 downstream.py -c downstream.json`. Note that only the tasks provided in `downstream.tasks` will be performed, to allow the setup of your other tasks to be stored in the same json.
+
+The following papers/corpora are currently implemented:
+- [Linzen et al. (2016)](https://arxiv.org/pdf/1611.01368.pdf) -- The landmark paper that instigated this field of research. Currently expects corpus file to be of a specific `.tsv` format which can be downloaded [here](https://www.dropbox.com/s/ajvj9ackil18ps0/1attr_sample.tsv?dl=0). Full corpus support will be added soon.
+- [Marvin & Linzen (2018)](https://arxiv.org/pdf/1808.09031.pdf) -- Broad array of linguistic phenomena, all of which are supported. Data can be found in [this repository](https://github.com/BeckyMarvin/LM_syneval/tree/master/data/templates), and the `downstream.config.marvin.path` field in `downstream.json` is expected to point to a directory containing these `.pickle` files.
+- [Lakretz et al. (2019)](https://www.aclweb.org/anthology/N19-1002.pdf) -- Extensive investigation into subject-verb agreement, based on a useful set of artifical constructions. Data can be found in [this repository](https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs/tree/master/datasets/NA_tasks), and the `downstream.config.lakretz.path` field in `downstream.json` is expected to point to a directory containing these `.txt` files.
+- [Warstadt et al. (2019)](https://arxiv.org/pdf/1909.02597.pdf) -- Extensive investigation into BERTs capacities of handling Negative Polarity Items, based on a richly constructed corpus. Data can be found [here](https://alexwarstadt.files.wordpress.com/2019/08/npi_lincensing_data.zip), which contains a `.tsv` towards which `downstream.config.warstadt.path` in `downstream.json` is expected to point.
+
+More documentation will be added soon.

@@ -260,7 +260,12 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions["downstream"] = {
         "config": {
             "help": "Dictionary mapping a downstream task to a config dict relating to that task."
-            "Current supported tasks are `linzen`, `marvin`, and `lakretz`. "
+            "Current supported tasks are `linzen`, `marvin`, `lakretz`, and `warstadt`."
+        },
+        "tasks": {
+            "nargs": "*",
+            "help": "List of tasks for which the downstream setup should be computed. This allows"
+            "to store the config of each task in the json if one wishes to skip it momentarily."
         }
     }
 
