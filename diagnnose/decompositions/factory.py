@@ -1,8 +1,13 @@
 from importlib import import_module
 from typing import List, Optional, Tuple, Type
 
-import diagnnose.typedefs.config as config
 import torch
+from numpy import ndarray
+from sklearn.externals import joblib
+from torch import Tensor
+from torch.nn.utils.rnn import pad_sequence
+
+import diagnnose.typedefs.config as config
 from diagnnose.activations.activation_index import (
     activation_index_len,
     activation_index_to_iterable,
@@ -21,10 +26,6 @@ from diagnnose.typedefs.activations import (
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.corpus import Corpus
-from numpy import ndarray
-from sklearn.externals import joblib
-from torch import Tensor
-from torch.nn.utils.rnn import pad_sequence
 
 from .base_decomposer import BaseDecomposer
 

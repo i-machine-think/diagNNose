@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-
 # sen_id -> (licensor, scope, npi_present) -> item
 CorpusDict = Dict[int, Dict[Tuple[int, int, int], Dict[str, Any]]]
 EnvIdDict = Dict[str, List[int]]
@@ -136,7 +135,7 @@ def create_downstream_corpus(
     orig_corpus: Union[str, CorpusDict],
     output_path: str,
     conditions: Optional[List[Tuple[int, int, int]]] = None,
-    envs: Optional[List[str]] = None
+    envs: Optional[List[str]] = None,
 ) -> List[str]:
     """ Create a new corpus from the original one that contains the
     subsentences up to the position of the NPI.
@@ -289,8 +288,8 @@ def create_lc_detection_corpus(
         env = correct_item["env"]
 
         if label_each_env:
-            correct_label = correct_item["env"]+"_downward"
-            wrong_label = correct_item["env"]+"_upward"
+            correct_label = correct_item["env"] + "_downward"
+            wrong_label = correct_item["env"] + "_upward"
         else:
             correct_label = "downward"
             wrong_label = "upward"
@@ -313,7 +312,7 @@ def create_lc_detection_corpus(
                         correct_label,
                         env,
                         npi,
-                        str(correct_sen[:correct_npi_idx].count(" ")+1),
+                        str(correct_sen[:correct_npi_idx].count(" ") + 1),
                         correct_item["crucial_item"],
                     )
                 ),
@@ -323,7 +322,7 @@ def create_lc_detection_corpus(
                         wrong_label,
                         env,
                         npi,
-                        str(wrong_sen[:wrong_npi_idx].count(" ")+1),
+                        str(wrong_sen[:wrong_npi_idx].count(" ") + 1),
                         wrong_item["crucial_item"],
                     )
                 ),
@@ -341,6 +340,6 @@ if __name__ == "__main__":
         "../../../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
         "../../../lm_data/corpora/npi/lc_detection_binary.tsv",
         label_each_env=False,
-        use_full_sens=False
+        use_full_sens=False,
     )
     print(len(new_corpus))

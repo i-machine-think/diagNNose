@@ -18,7 +18,7 @@ def calc_final_hidden(
     sen_column: str = "sen",
     skip_every: int = 1,
     skip_final: Optional[int] = None,
-    sort_sens: bool = False
+    sort_sens: bool = False,
 ) -> Tensor:
     sens, slens = getattr(batch, sen_column)
     batch_size = batch.batch_size

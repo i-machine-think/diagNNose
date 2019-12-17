@@ -14,7 +14,10 @@ from diagnnose.utils.misc import merge_dicts
 
 
 def create_config_dict(
-    argparser: ArgumentParser, required_args: RequiredArgs, arg_groups: Set[str], validate: bool = True
+    argparser: ArgumentParser,
+    required_args: RequiredArgs,
+    arg_groups: Set[str],
+    validate: bool = True,
 ) -> ConfigDict:
     """ Sets up the configuration for extraction.
 

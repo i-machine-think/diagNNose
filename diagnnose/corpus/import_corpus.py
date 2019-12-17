@@ -96,7 +96,11 @@ def import_corpus(
             )
         elif field == labels_column:
             fields[field] = Field(
-                use_vocab=True, pad_token=None, unk_token=None, is_target=True
+                use_vocab=True,
+                pad_token=None,
+                unk_token=None,
+                is_target=True,
+                preprocessing=pipeline,
             )
         else:
             fields[field] = RawField(preprocessing=pipeline)

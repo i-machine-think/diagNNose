@@ -6,8 +6,8 @@ import sklearn.metrics as metrics
 import torch
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV
-from torch import Tensor
 from skorch import NeuralNetClassifier
+from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.extractors.simple_extract import simple_extract
@@ -86,8 +86,8 @@ class DCTrainer:
         model: Optional[LanguageModel] = None,
         selection_func: SelectFunc = lambda sen_id, pos, example: True,
         test_selection_func: Optional[SelectFunc] = None,
-        classifier_type: str = "logreg_torch",
         control_task: Optional[ControlTask] = None,
+        classifier_type: str = "logreg_torch",
         verbose: int = 0,
     ) -> None:
         self.save_dir = save_dir

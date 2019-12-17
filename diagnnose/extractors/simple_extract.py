@@ -9,7 +9,7 @@ from diagnnose.utils.misc import suppress_print
 BATCH_SIZE = 1024
 
 
-@suppress_print
+# @suppress_print
 def simple_extract(
     model: LanguageModel,
     activations_dir: str,
@@ -29,7 +29,7 @@ def simple_extract(
     extractor = Extractor(model, corpus, activations_dir, activation_names)
 
     extractor.extract(
-        batch_size=BATCH_SIZE, dynamic_dumping=False, selection_func=selection_func
+        batch_size=BATCH_SIZE, dynamic_dumping=True, selection_func=selection_func
     )
 
     def remove_activations():

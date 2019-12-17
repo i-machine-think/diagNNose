@@ -82,7 +82,9 @@ def marvin_init(
         corpora: Dict[str, Corpus] = {}
         iterators: Dict[str, BucketIterator] = {}
 
-        def create_corpus(sens_: List[List[str]], condition_: str, batch_size_: int) -> None:
+        def create_corpus(
+            sens_: List[List[str]], condition_: str, batch_size_: int
+        ) -> None:
             examples = create_examples(task, sens_, fields)
             corpus = Dataset(examples, fields)
             attach_vocab(corpus, vocab_path)

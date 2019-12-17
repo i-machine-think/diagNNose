@@ -1,7 +1,8 @@
-import torch.nn as nn
 from typing import Optional
-from torch import Tensor
+
+import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 
 
 class LogRegModule(nn.Module):

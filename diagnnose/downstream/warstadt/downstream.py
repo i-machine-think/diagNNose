@@ -11,8 +11,8 @@ from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models.lm import LanguageModel
 
-from .preproc import ENVS, create_downstream_corpus, preproc_warstadt
 from ..misc import calc_final_hidden, create_unk_sen_mask
+from .preproc import ENVS, create_downstream_corpus, preproc_warstadt
 
 TMP_DIR = "warstadt_activations"
 
