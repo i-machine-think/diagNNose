@@ -16,6 +16,8 @@ class CellDecomposer(BaseDecomposer):
 
     @overrides
     def _decompose(self) -> Dict[str, np.ndarray]:
+        self._append_init_states()
+
         return {"beta": self.calc_beta(), "gamma": self.calc_gamma()}
 
     def calc_beta(self) -> np.ndarray:
@@ -86,6 +88,38 @@ class CellDecomposer(BaseDecomposer):
         assert np.allclose(
             original_logits, decomposed_logit, rtol=1e-4
         ), f"Decomposed logits not equal to original\n{original_logits}\n\n{decomposed_logit}"
+
+    def _append_init_states(self) -> None:
+        """Append icx/ihx to cx/hx activations."""
+        for layer, name in self.activation_dict:
+            if name.startswith("i") and name[1:] in ["cx", "hx"]:
+                cell_type = name[1:]
+                if (layer, cell_type) in self.activation_dict:
+                    self.activation_dict[(layer, cell_type)] = torch.cat(
+                        (
+                            self.activation_dict[(layer, name)].unsqueeze(1),
+                            self.activation_dict[(layer, cell_type)],
+                        ),
+                        dim=1,
+                    )
+
+                    if cell_type == "hx" and layer == self.toplayer:
+                        self.final_index += 1
+
+                    # 0cx activations should be concatenated in front of the icx activations.
+                    if (layer, f"0{cell_type}") in self.activation_dict:
+                        self.activation_dict[(layer, cell_type)] = torch.cat(
+                            (
+                                self.activation_dict[
+                                    (layer, f"0{cell_type}")
+                                ].unsqueeze(1),
+                                self.activation_dict[(layer, cell_type)],
+                            ),
+                            dim=1,
+                        )
+
+                        if cell_type == "hx" and layer == self.toplayer:
+                            self.final_index += 1
 
     @overrides
     def _validate_activation_shapes(self) -> None:
