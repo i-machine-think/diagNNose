@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Callable, List, Optional, Set, Tuple, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import torch
 from overrides import overrides
@@ -119,10 +119,9 @@ class ContextualDecomposer(BaseDecomposer):
             start_index = max(0, start)
         else:
             start_index = 0
-        batch_size, slen = self.activation_dict[0, "emb"].shape[:2]
 
         self._split_model_bias()
-        self._reset_decompositions(start, batch_size, slen, use_extracted_activations)
+        self._reset_decompositions(start, self.batch_size, self.slen, use_extracted_activations)
 
         self.bias_bias_only_in_phrase = bias_bias_only_in_phrase
         self.only_source_rel = only_source_rel
@@ -130,7 +129,7 @@ class ContextualDecomposer(BaseDecomposer):
         self.init_states_rel = init_states_rel
 
         for layer in range(self.model.num_layers):
-            for i in range(start_index, slen):
+            for i in range(start_index, self.slen):
                 inside_phrase = self._get_inside_phrase(start, stop, i)
 
                 self._calc_activations(layer, i, start, inside_phrase, input_never_rel)
