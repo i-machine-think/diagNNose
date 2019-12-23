@@ -13,7 +13,11 @@ from diagnnose.activations.activation_index import (
     activation_index_to_iterable,
 )
 from diagnnose.activations.activation_reader import ActivationReader
-from diagnnose.decompositions import CellDecomposer, ContextualDecomposer
+from diagnnose.decompositions import (
+    CellDecomposer,
+    ContextualDecomposer,
+    ShapleyDecomposer,
+)
 from diagnnose.extractors.simple_extract import simple_extract
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.models.lm import LanguageModel
@@ -125,7 +129,9 @@ class DecomposerFactory:
                 (self.model.num_layers - 1, name)
                 for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
             ]
-        elif issubclass(self.decomposer_constructor, ContextualDecomposer):
+        elif issubclass(
+            self.decomposer_constructor, ContextualDecomposer
+        ) or issubclass(self.decomposer_constructor, ShapleyDecomposer):
             activation_names = [(0, "emb")]
             for l in range(self.model.num_layers):
                 activation_names.extend([(l, "cx"), (l, "hx")])

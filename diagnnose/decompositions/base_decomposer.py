@@ -43,13 +43,13 @@ class BaseDecomposer:
 
         self.final_index = final_index
         self.batch_size = final_index.size(0)
+        self.slen = max(final_index).item() + 1
         self.toplayer = model.num_layers - 1
         self.extra_classes = extra_classes
 
         self._validate_activation_shapes()
-        self._append_init_states()
 
-    def _decompose(self, *arg: Any, **kwargs: Any) -> NamedTensors:
+    def _decompose(self, *arg: Any, **kwargs: Any) -> Union[NamedTensors, Tensor]:
         raise NotImplementedError
 
     def decompose(

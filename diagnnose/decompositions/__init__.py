@@ -1,3 +1,4 @@
 from diagnnose.decompositions.cell_decomposer import CellDecomposer
 from diagnnose.decompositions.contextual_decomposer import ContextualDecomposer
+from diagnnose.decompositions.shapley_decomposer import ShapleyDecomposer  # isort:skip
 from diagnnose.decompositions.factory import DecomposerFactory
