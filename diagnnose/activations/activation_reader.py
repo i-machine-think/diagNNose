@@ -229,8 +229,8 @@ class ActivationReader:
 
         Returns
         -------
-        activations : np.ndarray
-            Numpy array of activation values
+        activations : Tensor
+            Torch tensor of activation values
         """
         l, name = activation_name
         filename = os.path.join(self.activations_dir, f"{name}_l{l}.pickle")
