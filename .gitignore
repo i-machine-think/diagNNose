@@ -5,3 +5,7 @@
 .mypy_cache
 */.DS_Store
 lm_data
+experiments
+build
+dist
+.eggs

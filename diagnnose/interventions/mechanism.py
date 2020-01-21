@@ -10,7 +10,7 @@ from typing import Callable, Dict, Tuple
 from torch import Tensor
 
 from diagnnose.model_wrappers.intervention_lstm import InterventionLSTM
-from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.activations import ActivationDict
 
 
 class InterventionMechanism(ABC):
@@ -53,8 +53,8 @@ class InterventionMechanism(ABC):
 
         @wraps(forward_func)
         def wrapped(
-            inp: str, prev_activations: ActivationTensors, **additional: Dict
-        ) -> Tuple[Tensor, ActivationTensors]:
+            inp: str, prev_activations: ActivationDict, **additional: Dict
+        ) -> Tuple[Tensor, ActivationDict]:
 
             out, activations = forward_func(inp, prev_activations)
 
@@ -80,11 +80,11 @@ class InterventionMechanism(ABC):
     def intervention_func(
         self,
         inp: str,
-        prev_activations: ActivationTensors,
+        prev_activations: ActivationDict,
         out: Tensor,
-        activations: ActivationTensors,
+        activations: ActivationDict,
         **additional: Dict
-    ) -> Tuple[Tensor, ActivationTensors]:
+    ) -> Tuple[Tensor, ActivationDict]:
         """
         Define the intervention logic here.
 

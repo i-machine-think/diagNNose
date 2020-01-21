@@ -6,18 +6,19 @@
   "vocab": {
     "path": "../lm_data/models/gulordava/vocab.txt"
   },
+  "init_states": {
+    "corpus_path": "../lm_data/corpora/init_sens/init_sen0.txt"
+  },
   "corpus": {
-    "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt"
+    "path": "../lm_data/corpora/npi/warstadt_all_items.tsv",
+    "header_from_first_line": true
   },
   "activations": {
-    "activation_names": ["emb0","hx0", "cx0", "f_g0", "i_g0", "o_g0", "c_tilde_g0", "hx1", "cx1", "f_g1", "i_g1", "o_g1", "c_tilde_g1"],
-    "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
+    "activation_names": ["hx1"],
+    "activations_dir": "../lm_data/activations/extracted/warstadt_all_items"
   },
   "extract": {
     "dynamic_dumping": true,
     "batch_size": 1024
-  },
-  "init_states": {
-    "corpus_path": "../lm_data/corpora/init_sentence.txt"
   }
 }

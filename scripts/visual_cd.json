@@ -14,14 +14,18 @@
     "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
   },
   "init_states": {
-    "corpus_path": "../lm_data/corpora/init_sentence.txt"
+    "corpus_path": "../diagnnose/utils/init_sentence.txt"
   },
   "decompose": {
     "decomposer": "ContextualDecomposer",
     "rel_interactions": ["rel-rel", "rel-b", "rel-irrel"],
     "only_source_rel": true,
-    "normalize": false,
-    "decompose_o": true
+    "normalize": true,
+    "decompose_o": true,
+    "fix_shapley": false
   },
-  "plot_attention": {}
+  "plot_attention": {
+    "clim": [-0.26, 0.7],
+    "value_font_size": 22
+  }
 }

@@ -4,14 +4,9 @@ from typing import Any, List, Optional, Set, Tuple, Union
 import torch
 from overrides import overrides
 from torch import Tensor
-from torch.nn.utils.rnn import pack_padded_sequence
 
 import diagnnose.typedefs.config as config
-from diagnnose.typedefs.activations import (
-    ActivationTensors,
-    Decompositions,
-    NamedTensors,
-)
+from diagnnose.typedefs.activations import ActivationDict, Decompositions, NamedTensors
 
 from .base_decomposer import BaseDecomposer
 from .shapley_fixed import shapley_three, shapley_three_fixed, shapley_two
@@ -34,7 +29,7 @@ class ContextualDecomposer(BaseDecomposer):
         super().__init__(*args, **kwargs)
 
         self.weight: NamedTensors = {}
-        self.bias: ActivationTensors = {}
+        self.bias: ActivationDict = {}
         self.activations: NamedTensors = {}
         self.decompositions: Decompositions = {}
 
@@ -121,7 +116,9 @@ class ContextualDecomposer(BaseDecomposer):
             start_index = 0
 
         self._split_model_bias()
-        self._reset_decompositions(start, self.batch_size, self.slen, use_extracted_activations)
+        self._reset_decompositions(
+            start, self.batch_size, self.slen, use_extracted_activations
+        )
 
         self.bias_bias_only_in_phrase = bias_bias_only_in_phrase
         self.only_source_rel = only_source_rel
@@ -498,14 +495,13 @@ class ContextualDecomposer(BaseDecomposer):
         # All indices until the start position of the relevant token won't yield any contribution,
         # so we can directly set the cell/hidden states that have been computed already.
         if use_extracted_activations and isinstance(start, int):
-            for l in range(num_layers):
+            for layer in range(num_layers):
                 for i in range(start):
-                    self.decompositions[l]["irrel_c"][:, i] = self.activation_dict[
-                        (l, "cx")
-                    ][:, i + 1]
-                    self.decompositions[l]["irrel_h"][:, i] = self.activation_dict[
-                        (l, "hx")
-                    ][:, i + 1]
+                    irrel_c = self.activation_dict[layer, "cx"][:, i]
+                    irrel_h = self.activation_dict[layer, "hx"][:, i]
+
+                    self.decompositions[layer]["irrel_c"][:, i] = irrel_c
+                    self.decompositions[layer]["irrel_h"][:, i] = irrel_h
 
     def _set_rel_interactions(self, rel_interactions: Optional[List[str]]) -> None:
         all_interactions = {
@@ -523,35 +519,13 @@ class ContextualDecomposer(BaseDecomposer):
             {"irrel-irrel", "irrel-b"}
         ), "irrel-irrel and irrel-b can't be part of rel interactions"
 
-    def _split_model_bias(self) -> None:
-        for layer in range(self.model.num_layers):
-            bias = self.model.bias[layer]
-
-            self.bias.update(
-                {
-                    (layer, name): tensor
-                    for name, tensor in zip(
-                        self.model.split_order, torch.chunk(bias, 4, dim=0)
-                    )
-                }
-            )
-
     def _validate_decomposition(self) -> None:
-        true_hidden = self.activation_dict[self.toplayer, "hx"][:, 1:]
-        true_hidden = pack_padded_sequence(
-            true_hidden,
-            lengths=self.final_index,
-            batch_first=True,
-            enforce_sorted=False,
-        ).data
+        true_hidden = self.activation_dict[self.model.top_layer, "hx"]
 
         dec_hidden = (
-            self.decompositions[self.toplayer]["rel_h"]
-            + self.decompositions[self.toplayer]["irrel_h"]
+            self.decompositions[self.model.top_layer]["rel_h"]
+            + self.decompositions[self.model.top_layer]["irrel_h"]
         )
-        dec_hidden = pack_padded_sequence(
-            dec_hidden, lengths=self.final_index, batch_first=True, enforce_sorted=False
-        ).data
 
         avg_difference = torch.mean(true_hidden - dec_hidden)
         max_difference = torch.max(torch.abs(true_hidden - dec_hidden))
@@ -572,8 +546,8 @@ class ContextualDecomposer(BaseDecomposer):
             )
 
     def _calc_scores(self) -> NamedTensors:
-        rel_dec = self.decompositions[self.toplayer]["rel_h"]
-        irrel_dec = self.decompositions[self.toplayer]["irrel_h"]
+        rel_dec = self.decompositions[self.model.top_layer]["rel_h"]
+        irrel_dec = self.decompositions[self.model.top_layer]["irrel_h"]
 
         if self.extra_classes is not None:
             for i, j in enumerate(self.extra_classes, start=1):

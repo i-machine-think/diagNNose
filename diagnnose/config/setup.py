@@ -5,6 +5,7 @@ from functools import reduce
 from pprint import pprint
 from typing import Set
 
+import numpy as np
 import torch
 
 import diagnnose.typedefs.config as config
@@ -68,6 +69,7 @@ def create_config_dict(
     activation_dtype = activation_config.get("dtype", None)
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
+        config.DTYPE_np = getattr(np, activation_dtype)
     activation_names = activation_config.get("activation_names", [])
     if len(activation_names) == 0:
         activation_names = config_dict.get("train_dc", {}).get("activation_names", [])

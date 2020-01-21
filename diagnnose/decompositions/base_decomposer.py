@@ -1,4 +1,4 @@
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -6,7 +6,7 @@ from torch import Tensor
 from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
-    ActivationTensors,
+    ActivationDict,
     NamedTensors,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
@@ -32,19 +32,21 @@ class BaseDecomposer:
     def __init__(
         self,
         model: LanguageModel,
-        activation_dict: ActivationTensors,
+        activation_dict: ActivationDict,
         decoder: LinearDecoder,
         final_index: Tensor,
         extra_classes: List[int],
     ) -> None:
         self.model = model
+        self.weights: NamedTensors = {}
+        self.bias: ActivationDict = {}
         self.decoder_w, self.decoder_b = decoder
+
         self.activation_dict = activation_dict
 
         self.final_index = final_index
         self.batch_size = final_index.size(0)
         self.slen = max(final_index).item() + 1
-        self.toplayer = model.num_layers - 1
         self.extra_classes = extra_classes
 
         self._validate_activation_shapes()
@@ -54,7 +56,7 @@ class BaseDecomposer:
 
     def decompose(
         self, *arg: Any, append_bias: bool = False, **kwargs: Any
-    ) -> NamedTensors:
+    ) -> Union[Tensor, NamedTensors]:
         decomposition = self._decompose(*arg, **kwargs)
 
         if append_bias:
@@ -70,12 +72,12 @@ class BaseDecomposer:
 
     def calc_original_logits(self, normalize: bool = False) -> Tensor:
         assert (
-            self.toplayer,
+            self.model.top_layer,
             "hx",
         ) in self.activation_dict, (
             "'hx' should be provided to calculate the original logit"
         )
-        final_hidden_state = self.get_final_activations((self.toplayer, "hx"))
+        final_hidden_state = self.get_final_activations((self.model.top_layer, "hx"))
 
         original_logit = torch.exp(
             (final_hidden_state @ self.decoder_w.t()) + self.decoder_b
@@ -93,6 +95,25 @@ class BaseDecomposer:
         return self.activation_dict[a_name][
             range(self.batch_size), self.final_index + offset
         ]
+
+    def _split_model_bias(self, batch_size: Optional[int] = None) -> None:
+        for layer in range(self.model.num_layers):
+            bias = self.model.bias[layer]
+
+            self.bias.update(
+                {
+                    (layer, name): tensor
+                    for name, tensor in zip(
+                        self.model.split_order, torch.chunk(bias, 4, dim=0)
+                    )
+                }
+            )
+
+            self.bias[layer, "f"] += self.model.forget_offset
+
+        if batch_size is not None:
+            for a_name, tensor in self.bias.items():
+                self.bias[a_name] = tensor.repeat((batch_size, 1))
 
     def _validate_activation_shapes(self) -> None:
         pass

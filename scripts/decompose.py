@@ -33,19 +33,14 @@ if __name__ == "__main__":
 
     print("Initializing decomposition")
 
-    sen_ids = [0]
+    sen_ids = slice(0, 1)
 
     constructor = DecomposerFactory(model, corpus=corpus, sen_ids=sen_ids, **decompose_args)
-    decomposer = constructor.create(sen_ids, classes=torch.tensor([0]), subsen_index=slice(0, 3))
+    decomposer = constructor.create(sen_ids, classes=torch.tensor([0]), subsen_index=slice(0, None))
 
     print("Decomposing...")
 
     cd = decomposer.decompose(
-        None,
-        # ["rel-rel", "rel-b", "b-b"],
-        decompose_o=True,
-        use_extracted_activations=False,
+        0, 1, ["rel-rel", "rel-b", "rel-irrel"], only_source_rel=True, decompose_o=True
     )
-    print(cd[0, :, 3, 0])
-    import datetime
-    print(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+    print(cd)

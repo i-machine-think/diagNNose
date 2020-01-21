@@ -3,7 +3,7 @@ from typing import Dict
 from overrides import overrides
 
 from diagnnose.model_wrappers.forward_lstm import ForwardLSTM
-from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.activations import ActivationDict
 
 
 class InterventionLSTM(ForwardLSTM):
@@ -15,7 +15,7 @@ class InterventionLSTM(ForwardLSTM):
 
     @overrides
     def forward(
-        self, inp: str, prev_activations: ActivationTensors, **additional: Dict
+        self, inp: str, prev_activations: ActivationDict, **additional: Dict
     ):
         """
         Parameters

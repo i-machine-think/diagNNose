@@ -37,16 +37,8 @@ class CDAttention:
         self.corpus = corpus
         self.include_init = include_init
         self.plot_dec_bias = plot_dec_bias
-
-        if cd_config is None:
-            self.cd_config: Dict[str, Any] = {}
-        else:
-            self.cd_config = cd_config
-
-        if plot_config is None:
-            self.plot_config: Dict[str, Any] = {}
-        else:
-            self.plot_config = plot_config
+        self.cd_config = cd_config or {}
+        self.plot_config = plot_config or {}
 
     def plot_by_sen_id(
         self,
@@ -102,19 +94,24 @@ class CDAttention:
             # decomposed we should pass a slice of N items along from here.
             sen_ids = slice(0, activation_index_len(sen_ids), 1)
 
+        decomposer_constructor = self.cd_config.pop("decomposer", "ContextualDecomposer")
         factory = DecomposerFactory(
             self.model,
             activations_dir or TMP_DIR,
             create_new_activations=(activations_dir is None),
             corpus=self.corpus,
             sen_ids=sen_ids,
+            decomposer=decomposer_constructor
         )
 
         decomposer = factory.create(
             sen_ids, classes=classes, extra_classes=extra_classes
         )
 
-        arr = self.calc_attention(decomposer)
+        if decomposer_constructor == "ContextualDecomposer":
+            arr = self.calc_attention_cd(decomposer)
+        else:
+            arr = self.calc_attention_shapley(decomposer)
 
         factory.remove_activations()
 
@@ -123,9 +120,9 @@ class CDAttention:
 
         return arr
 
-    def calc_attention(self, decomposer: BaseDecomposer) -> Tensor:
+    def calc_attention_cd(self, decomposer: BaseDecomposer) -> Tensor:
         start_id = 0 if self.include_init else 1
-        sen_len = int(decomposer.final_index[0])
+        sen_len = int(decomposer.final_index[0]) + 1
         normalize = self.cd_config.pop("normalize", True)
         normalize_w_betas = self.cd_config.pop("normalize_w_betas", False)
 
@@ -174,6 +171,19 @@ class CDAttention:
         self.cd_config["normalize_w_betas"] = normalize_w_betas
 
         return rel_scores
+
+    def calc_attention_shapley(self, decomposer: BaseDecomposer):
+        arr = decomposer.decompose()[:, :-1, 1:-1]
+        arr = torch.diagonal(arr, dim1=2, dim2=3)
+
+        bias = decomposer.decoder_b
+
+        full_logit = torch.sum(arr, dim=1) + bias
+
+        if self.plot_dec_bias:
+            arr = torch.cat((arr, bias.unsqueeze(1)), dim=1)
+
+        return arr / full_logit.unsqueeze(1)
 
     def plot_attention(self, arr: Tensor, save_plot_as: Optional[str] = None) -> None:
         arr = arr.numpy()

@@ -1,5 +1,5 @@
 from importlib import import_module
-from typing import List, Optional, Tuple, Type
+from typing import List, Optional, Type
 
 import torch
 from numpy import ndarray
@@ -7,11 +7,7 @@ from sklearn.externals import joblib
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 
-import diagnnose.typedefs.config as config
-from diagnnose.activations.activation_index import (
-    activation_index_len,
-    activation_index_to_iterable,
-)
+from diagnnose.activations.activation_index import activation_index_to_iterable
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.decompositions import (
     CellDecomposer,
@@ -25,7 +21,7 @@ from diagnnose.typedefs.activations import (
     ActivationIndex,
     ActivationName,
     ActivationNames,
-    ActivationTensors,
+    ActivationDict,
     RemoveCallback,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
@@ -74,11 +70,13 @@ class DecomposerFactory:
         self.decomposer_constructor: Type[BaseDecomposer] = getattr(module, decomposer)
 
         self.remove_callback: Optional[RemoveCallback] = None
+
         if create_new_activations:
             assert (
                 corpus is not None
             ), "Corpus should be provided if no activations_dir is passed."
             self._extract_activations(activations_dir, sen_ids, corpus)
+
         self.activation_reader = ActivationReader(
             activations_dir, store_multiple_activations=True
         )
@@ -121,87 +119,38 @@ class DecomposerFactory:
             BaseDecomposer instance pertaining to the provided
             parameters.
         """
-        batch_size = activation_index_len(sen_ids)
-        decoder = self._read_decoder(classes, batch_size)
-
         if issubclass(self.decomposer_constructor, CellDecomposer):
             activation_names = [
-                (self.model.num_layers - 1, name)
+                (self.model.top_layer, name)
                 for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
             ]
-        elif issubclass(
-            self.decomposer_constructor, ContextualDecomposer
-        ) or issubclass(self.decomposer_constructor, ShapleyDecomposer):
+        elif issubclass(self.decomposer_constructor, ContextualDecomposer):
             activation_names = [(0, "emb")]
-            for l in range(self.model.num_layers):
-                activation_names.extend([(l, "cx"), (l, "hx")])
-                activation_names.extend([(l, "icx"), (l, "ihx")])
+            for layer in range(self.model.num_layers):
+                for name in ["icx", "ihx", "cx", "hx"]:
+                    activation_names.append((layer, name))
+        elif issubclass(self.decomposer_constructor, ShapleyDecomposer):
+            activation_names = [(0, "emb")]
+            for layer in range(self.model.num_layers):
+                for name in ["icx", "ihx", "hx", "f_g", "i_g", "o_g"]:
+                    activation_names.append((layer, name))
         else:
             raise ValueError("Decomposer constructor not understood")
-
-        activation_dict, final_index = self._create_activations(
-            activation_names, sen_ids, subsen_index
-        )
-
-        if extra_classes is None:
-            extra_classes = []
-
-        decomposer = self.decomposer_constructor(
-            self.model, activation_dict, decoder, final_index, extra_classes
-        )
-
-        return decomposer
-
-    def _create_activations(
-        self,
-        activation_names: ActivationNames,
-        sen_ids: ActivationIndex,
-        subsen_index: slice = slice(None, None, None),
-    ) -> Tuple[ActivationTensors, Tensor]:
-        activation_dict: ActivationTensors = {}
 
         final_index = self._create_final_index(sen_ids, subsen_index)
         batch_size = final_index.size(0)
 
-        for a_name in activation_names:
-            if a_name[1] in ["icx", "0cx", "ihx", "0hx"]:
-                activations = self._create_init_activations(
-                    a_name, sen_ids, subsen_index, batch_size
-                )
-            else:
-                activations = self._read_activations(a_name, sen_ids)
-                activations = activations[:, subsen_index]
+        activation_dict = self._gather_activations(
+            activation_names, sen_ids, batch_size, subsen_index
+        )
 
-            activation_dict[a_name] = activations
+        decoder = self._create_decoder(classes, batch_size)
 
-        return activation_dict, final_index
+        decomposer = self.decomposer_constructor(
+            self.model, activation_dict, decoder, final_index, extra_classes or []
+        )
 
-    def _create_init_activations(
-        self,
-        activation_name: ActivationName,
-        sen_ids: ActivationIndex,
-        subsen_index: slice,
-        batch_size: int,
-    ) -> Tensor:
-        """ Creates the init state activations. """
-
-        # name can only be icx/ihx or 0cx/0hx
-        layer, name = activation_name
-
-        if name[0] == "0":
-            cell_type = name[1]
-            return torch.zeros(
-                (batch_size, self.model.sizes[layer][cell_type]), dtype=config.DTYPE
-            )
-
-        if subsen_index.start == 0 or subsen_index.start is None:
-            init_state: Tensor = self.model.init_hidden(batch_size)[layer, name[1:]]
-        else:
-            activations = self._read_activations((layer, name[1:]), sen_ids)
-            init_state = activations[:, subsen_index.start - 1]
-
-        # Shape: (batch_size, nhid)
-        return init_state
+        return decomposer
 
     def _create_final_index(
         self, sen_ids: ActivationIndex, subsen_index: slice
@@ -238,23 +187,72 @@ class DecomposerFactory:
         batch_lens : Tensor
             Tensor of the sentence length of each batch item.
         """
-        activation_key_config = {"indextype": "pos", "a_name": (0, "cx")}
-        cell_states = self.activation_reader[sen_ids, activation_key_config]
-        batch_lens = torch.tensor([cx.size(0) for cx in cell_states])
+        activation_key_config = {"indextype": "pos", "a_name": (0, "hx")}
+        states = self.activation_reader[sen_ids, activation_key_config]
+        batch_lens = torch.tensor([hx.size(0) for hx in states])
 
         return batch_lens
+
+    def _gather_activations(
+        self,
+        activation_names: ActivationNames,
+        sen_ids: ActivationIndex,
+        batch_size: int,
+        subsen_index: slice = slice(None, None, None),
+    ) -> ActivationDict:
+        """ Gather activations needed for decomposition. """
+        activation_dict: ActivationDict = {}
+
+        for a_name in activation_names:
+            layer, name = a_name
+            if name in ["icx", "ihx"]:
+                activations = self._create_init_activations(
+                    a_name, sen_ids, subsen_index, batch_size
+                )
+            elif a_name[1] in ["0cx", "0hx"]:
+                activations = self.model.create_zero_state(batch_size, layer, name[1])
+            else:
+                activations = self._read_activations(a_name, sen_ids)
+                activations = activations[:, subsen_index]
+
+            activation_dict[a_name] = activations
+
+        return activation_dict
+
+    def _create_init_activations(
+        self,
+        activation_name: ActivationName,
+        sen_ids: ActivationIndex,
+        subsen_index: slice,
+        batch_size: int,
+    ) -> Tensor:
+        """ Creates the init state based on some initial sentence. """
+        layer, name = activation_name
+
+        if subsen_index.start == 0 or subsen_index.start is None:
+            init_state: Tensor = self.model.init_hidden(batch_size)[layer, name[1:]]
+        else:
+            # If subsen_index doesn't start with the initial states we provide the cell states at
+            # the previous step instead.
+            activations = self._read_activations((layer, name[1:]), sen_ids)
+            init_state = activations[:, subsen_index.start - 1]
+
+        # Shape: (batch_size, nhid)
+        return init_state
 
     def _read_activations(
         self, a_name: ActivationName, sen_ids: ActivationIndex
     ) -> Tensor:
+        """ Reads activations of `a_name` from file. """
         activation_key_config = {"indextype": "pos", "a_name": a_name}
         activations = self.activation_reader[sen_ids, activation_key_config]
         padded_activations: Tensor = pad_sequence(
             list(activations), batch_first=True, padding_value=float("nan")
         )
+
         return padded_activations
 
-    def _read_decoder(
+    def _create_decoder(
         self,
         classes: Optional[ActivationIndex],
         batch_size: int,
@@ -287,6 +285,7 @@ class DecomposerFactory:
                 f" {classes.size(0)} != {batch_size} (bsz)"
             )
 
+        # Permute for correct torch.bmm shape later on
         decoder_w = decoder_w[classes].permute(0, 2, 1)
         decoder_b = decoder_b[classes]
 
@@ -297,7 +296,7 @@ class DecomposerFactory:
     ) -> None:
         activation_names = self._get_activation_names()
 
-        if sen_ids.stop is None:
+        if isinstance(sen_ids, slice) and sen_ids.stop is None:
             sen_ids = slice(sen_ids.start, len(corpus), sen_ids.step)
         sen_id_range = activation_index_to_iterable(sen_ids)
 
@@ -313,19 +312,21 @@ class DecomposerFactory:
         )
 
     def _get_activation_names(self) -> ActivationNames:
+        """ Activation names that will be stored during extraction. """
         activation_names: ActivationNames = []
 
         if issubclass(self.decomposer_constructor, ContextualDecomposer):
-            for l in range(self.model.num_layers):
-                activation_names.extend([(l, "cx"), (l, "hx")])
             activation_names.append((0, "emb"))
+            for layer in range(self.model.num_layers):
+                activation_names.extend([(layer, "cx"), (layer, "hx")])
+        elif issubclass(self.decomposer_constructor, ShapleyDecomposer):
+            activation_names.append((0, "emb"))
+            for layer in range(self.model.num_layers):
+                for name in ["hx", "f_g", "o_g", "i_g"]:
+                    activation_names.append((layer, name))
         else:
-            activation_names.extend(
-                [
-                    (self.model.num_layers - 1, name)
-                    for name in ["f_g", "o_g", "hx", "cx", "icx", "0cx"]
-                ]
-            )
+            for name in ["f_g", "o_g", "hx", "cx"]:
+                activation_names.append((self.model.top_layer, name))
 
         return activation_names
 

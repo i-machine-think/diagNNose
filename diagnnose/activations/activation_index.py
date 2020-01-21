@@ -6,6 +6,7 @@ from diagnnose.typedefs.activations import ActivationIndex
 
 
 def activation_index_to_iterable(activation_index: ActivationIndex) -> Iterable:
+    """ Transforms an activation index into an iterable object. """
     if isinstance(activation_index, Iterable):
         return activation_index
 
@@ -32,6 +33,7 @@ def activation_index_to_iterable(activation_index: ActivationIndex) -> Iterable:
 
 
 def activation_index_len(activation_index: ActivationIndex) -> int:
+    """ Returns the number of items in an activation index. """
     activation_iterable = activation_index_to_iterable(activation_index)
     if isinstance(activation_iterable, Sized):
         return len(activation_iterable)

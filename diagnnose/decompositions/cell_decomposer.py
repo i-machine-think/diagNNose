@@ -1,6 +1,7 @@
 from typing import Dict
 
 import numpy as np
+import torch
 from overrides import overrides
 
 from .base_decomposer import BaseDecomposer
@@ -29,7 +30,9 @@ class CellDecomposer(BaseDecomposer):
         -------
         beta : np.ndarray (num_tokens+1, num_classes)
         """
-        beta = self._decompose_cell_states(self.activation_dict[self.toplayer, "cx"])
+        beta = self._decompose_cell_states(
+            self.activation_dict[self.model.top_layer, "cx"]
+        )
 
         return beta
 
@@ -43,13 +46,13 @@ class CellDecomposer(BaseDecomposer):
         gamma : np.ndarray (num_tokens+1, num_classes)
         """
 
-        gated_cells = np.zeros(self.activation_dict[self.toplayer, "cx"].shape)
-        for i in range(self.activation_dict[self.toplayer, "cx"].shape[1]):
+        gated_cells = np.zeros(self.activation_dict[self.model.top_layer, "cx"].shape)
+        for i in range(self.activation_dict[self.model.top_layer, "cx"].shape[1]):
             forget_product = np.prod(
-                self.activation_dict[self.toplayer, "f_g"][:, i:], axis=1
+                self.activation_dict[self.model.top_layer, "f_g"][:, i:], axis=1
             )
             gated_cells[:, i] = (
-                self.activation_dict[self.toplayer, "cx"][:, i] * forget_product
+                self.activation_dict[self.model.top_layer, "cx"][:, i] * forget_product
             )
 
         gamma = self._decompose_cell_states(gated_cells)
@@ -59,7 +62,7 @@ class CellDecomposer(BaseDecomposer):
     def _decompose_cell_states(self, cell_states: np.ndarray) -> np.ndarray:
         cell_diffs = np.tanh(cell_states[:, 1:]) - np.tanh(cell_states[:, :-1])
 
-        final_output_gate = self.get_final_activations((self.toplayer, "o_g"))
+        final_output_gate = self.get_final_activations((self.model.top_layer, "o_g"))
         final_output_gate = np.expand_dims(final_output_gate, axis=1)
 
         decomposed_h = final_output_gate * cell_diffs
@@ -74,9 +77,11 @@ class CellDecomposer(BaseDecomposer):
         decomposed_logit = np.prod(decomposition, axis=1) * self.decompose_bias()
 
         # Cell state array has 2 init states appended to it, hence the offset
-        final_cell_state = self.get_final_activations((self.toplayer, "cx"), offset=2)
-        final_output_gate = self.get_final_activations((self.toplayer, "o_g"))
-        final_hidden_state = self.get_final_activations((self.toplayer, "hx"))
+        final_cell_state = self.get_final_activations(
+            (self.model.top_layer, "cx"), offset=2
+        )
+        final_output_gate = self.get_final_activations((self.model.top_layer, "o_g"))
+        final_hidden_state = self.get_final_activations((self.model.top_layer, "hx"))
 
         reconstructed_h = final_output_gate * np.tanh(final_cell_state)
 
@@ -103,7 +108,7 @@ class CellDecomposer(BaseDecomposer):
                         dim=1,
                     )
 
-                    if cell_type == "hx" and layer == self.toplayer:
+                    if cell_type == "hx" and layer == self.model.top_layer:
                         self.final_index += 1
 
                     # 0cx activations should be concatenated in front of the icx activations.
@@ -118,7 +123,7 @@ class CellDecomposer(BaseDecomposer):
                             dim=1,
                         )
 
-                        if cell_type == "hx" and layer == self.toplayer:
+                        if cell_type == "hx" and layer == self.model.top_layer:
                             self.final_index += 1
 
     @overrides
@@ -127,16 +132,16 @@ class CellDecomposer(BaseDecomposer):
         decoder_shape = self.decoder_w.shape
 
         # (batch_size, max_sen_len, hidden_size)
-        output_gate_shape = self.activation_dict[self.toplayer, "o_g"].shape
+        output_gate_shape = self.activation_dict[self.model.top_layer, "o_g"].shape
 
         # (batch_size, max_sen_len, hidden_size)
-        forget_gates_shape = self.activation_dict[self.toplayer, "f_g"].shape
+        forget_gates_shape = self.activation_dict[self.model.top_layer, "f_g"].shape
 
         # (batch_size, 1, hidden_size)
-        init_cell_shape = self.activation_dict[self.toplayer, "icx"].shape
+        init_cell_shape = self.activation_dict[self.model.top_layer, "icx"].shape
 
         # (batch_size, max_sen_len, hidden_size)
-        cell_states_shape = self.activation_dict[self.toplayer, "cx"].shape
+        cell_states_shape = self.activation_dict[self.model.top_layer, "cx"].shape
 
         assert (
             decoder_shape[1] == output_gate_shape[2]

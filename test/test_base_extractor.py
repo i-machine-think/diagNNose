@@ -19,7 +19,7 @@ from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, SelectFunc
+from diagnnose.typedefs.activations import ActivationDict, SelectFunc
 from diagnnose.utils.misc import suppress_print
 
 from .test_utils import create_sentence_dummy_activations
@@ -61,9 +61,9 @@ class MockLanguageModel(LanguageModel):
     def forward(
         self,
         token: torch.Tensor,
-        _activations: ActivationTensors,
+        _activations: ActivationDict,
         compute_out: bool = False,
-    ) -> Tuple[None, ActivationTensors]:
+    ) -> Tuple[None, ActivationDict]:
         # Consume next activation, make sure it's the right token
         next_token, next_activation = next(self.all_pairs)
         assert token.item() == next_token
@@ -309,7 +309,7 @@ class TestExtractor(unittest.TestCase):
 
     @staticmethod
     def _merge_sentence_activations(
-        sentences_activations: List[ActivationTensors]
+        sentences_activations: List[ActivationDict]
     ) -> Tensor:
         """ Merge activations from different sentences into one single numpy array. """
         return torch.cat(

@@ -7,8 +7,8 @@ class W2I(dict):
     Non-existing tokens are mapped to the id of an unk token that should
     be present in the vocab file.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     w2i : Dict[str, int]
         Dictionary that maps strings to indices. This dictionary can be
         created using `create_vocab`.

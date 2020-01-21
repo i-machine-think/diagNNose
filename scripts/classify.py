@@ -37,8 +37,7 @@ if __name__ == "__main__":
 
     if config_dict["init_dc"].get("test_corpus", None) is not None:
         test_corpus = import_corpus(
-            config_dict["init_dc"].pop("test_corpus"),
-            vocab_path=vocab_path,
+            config_dict["init_dc"].pop("test_corpus"), vocab_path=vocab_path
         )
 
     label_vocab = corpus.fields["labels"].vocab.itos

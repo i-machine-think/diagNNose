@@ -17,7 +17,7 @@
     "activations_dir": "../lm_data/activations/extracted/test"
   },
   "decompose": {
-    "decomposer": "ShapleyDecomposer",
+    "decomposer": "ContextualDecomposer",
     "create_new_activations": false
   }
 }

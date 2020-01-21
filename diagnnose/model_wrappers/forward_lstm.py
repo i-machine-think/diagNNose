@@ -7,7 +7,7 @@ from torch import Tensor
 
 import diagnnose.typedefs.config as config
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
+from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 
 
 class ForwardLSTM(LanguageModel):
@@ -86,7 +86,7 @@ class ForwardLSTM(LanguageModel):
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> ActivationTensors:
+    ) -> ActivationDict:
         """ Performs the forward step of 1 RNN layer.
 
         Parameters
@@ -140,9 +140,9 @@ class ForwardLSTM(LanguageModel):
     def forward(
         self,
         input_: Tensor,
-        prev_activations: Optional[ActivationTensors] = None,
+        prev_activations: Optional[ActivationDict] = None,
         compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], ActivationTensors]:
+    ) -> Tuple[Optional[Tensor], ActivationDict]:
         """Performs 1 (batched) forward step for a multi-layer RNN.
 
         Parameters
@@ -168,7 +168,7 @@ class ForwardLSTM(LanguageModel):
             prev_activations = self.init_hidden(bsz)
 
         # Iteratively compute and store intermediate rnn activations
-        activations: ActivationTensors = {}
+        activations: ActivationDict = {}
         for l in range(self.num_layers):
             prev_hx = prev_activations[l, "hx"]
             prev_cx = prev_activations[l, "cx"]

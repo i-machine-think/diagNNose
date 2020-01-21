@@ -8,7 +8,7 @@ from torch import Tensor, nn
 import diagnnose.typedefs.config as config
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.activations import ActivationDict
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
@@ -28,7 +28,7 @@ class LanguageModel(ABC, nn.Module):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__()
-        self.init_states: ActivationTensors = {}
+        self.init_states: ActivationDict = {}
 
     @property
     def num_layers(self) -> int:
@@ -47,9 +47,9 @@ class LanguageModel(ABC, nn.Module):
     def forward(
         self,
         input_: Tensor,
-        prev_activations: ActivationTensors,
+        prev_activations: ActivationDict,
         compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], ActivationTensors]:
+    ) -> Tuple[Optional[Tensor], ActivationDict]:
         """ Performs a single forward pass across all rnn layers.
 
         Parameters
@@ -76,7 +76,7 @@ class LanguageModel(ABC, nn.Module):
             tensor.
         """
 
-    def init_hidden(self, batch_size: int) -> ActivationTensors:
+    def init_hidden(self, batch_size: int) -> ActivationDict:
         """Creates a batch of initial states.
 
         Parameters
@@ -96,7 +96,7 @@ class LanguageModel(ABC, nn.Module):
 
         return init_states
 
-    def final_hidden(self, hidden: ActivationTensors) -> Tensor:
+    def final_hidden(self, hidden: ActivationDict) -> Tensor:
         """ Returns the final hidden state.
 
         Parameters
@@ -127,8 +127,8 @@ class LanguageModel(ABC, nn.Module):
         Note that `init_states_pickle` takes precedence over
         `init_states_corpus` in case both are provided.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         pickle_path : str, optional
             Path to pickled file with initial lstm states. If not
             provided zero-valued init states will be created.
@@ -150,7 +150,7 @@ class LanguageModel(ABC, nn.Module):
         """
         if pickle_path is not None:
             print("Loading extracted init states from file")
-            init_states: ActivationTensors = load_pickle(pickle_path)
+            init_states: ActivationDict = load_pickle(pickle_path)
             self._validate(init_states)
         elif corpus_path is not None:
             assert (
@@ -161,23 +161,51 @@ class LanguageModel(ABC, nn.Module):
                 corpus_path, vocab_path, save_init_states_to
             )
         else:
-            init_states = self.create_zero_state()
+            init_states = self.create_zero_states()
 
         self.init_states = init_states
 
-    def create_zero_state(self, batch_size: int = 1) -> ActivationTensors:
-        """Zero-initialized states if no init state is provided."""
-        init_states: ActivationTensors = {}
+    def create_zero_states(self, batch_size: int = 1) -> ActivationDict:
+        """Zero-initialized states if no init state is provided.
+
+        Parameters
+        ----------
+        batch_size : int, optional
+            Batch size should be provided if it's larger than 1.
+
+        Returns
+        -------
+        init_states : ActivationTensors
+            Dictionary mapping (layer, name) tuple to zero-tensor.
+        """
+        init_states: ActivationDict = {}
 
         for layer in range(self.num_layers):
-            init_states[layer, "cx"] = torch.zeros(
-                (batch_size, self.sizes[layer]["c"]), dtype=config.DTYPE
-            )
-            init_states[layer, "hx"] = torch.zeros(
-                (batch_size, self.sizes[layer]["h"]), dtype=config.DTYPE
-            )
+            init_states[layer, "cx"] = self.create_zero_state(batch_size, layer, "c")
+            init_states[layer, "hx"] = self.create_zero_state(batch_size, layer, "h")
 
         return init_states
+
+    def create_zero_state(self, batch_size: int, layer: int, cell_type: str) -> Tensor:
+        """ Create single zero tensor for given layer/cell_type.
+
+        Parameters
+        ----------
+        batch_size : int
+            Batch size for model task.
+        layer : int
+            Model layer.
+        cell_type : str
+            Either `h` or `c`.
+
+        Returns
+        -------
+        tensor : Tensor
+            Zero-valued tensor of the correct size.
+        """
+        return torch.zeros(
+            (batch_size, self.sizes[layer][cell_type]), dtype=config.DTYPE
+        )
 
     @suppress_print
     def _create_init_states_from_corpus(
@@ -185,10 +213,10 @@ class LanguageModel(ABC, nn.Module):
         init_states_corpus: str,
         vocab_path: str,
         save_init_states_to: Optional[str],
-    ) -> ActivationTensors:
+    ) -> ActivationDict:
         corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
 
-        self.init_states = self.create_zero_state()
+        self.init_states = self.create_zero_states()
         extractor = Extractor(self, corpus, save_init_states_to)
         init_states = extractor.extract(
             create_avg_eos=True, only_return_avg_eos=(save_init_states_to is None)
@@ -197,7 +225,7 @@ class LanguageModel(ABC, nn.Module):
 
         return init_states
 
-    def _validate(self, init_states: ActivationTensors) -> None:
+    def _validate(self, init_states: ActivationDict) -> None:
         """ Performs a simple validation of the new initial states.
 
         Parameters
@@ -228,10 +256,10 @@ class LanguageModel(ABC, nn.Module):
                 )
 
     def _expand_batch_size(
-        self, init_states: ActivationTensors, batch_size: int
-    ) -> ActivationTensors:
+        self, init_states: ActivationDict, batch_size: int
+    ) -> ActivationDict:
         """Expands the init_states in the batch dimension."""
-        batch_init_states: ActivationTensors = {}
+        batch_init_states: ActivationDict = {}
 
         for layer in range(self.num_layers):
             for hc in ["hx", "cx"]:

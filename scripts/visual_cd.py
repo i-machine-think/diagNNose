@@ -32,7 +32,15 @@ if __name__ == "__main__":
         plot_config=config_dict["plot_attention"],
     )
 
-    attention.plot_config["sen"] = [
+    # sen = [
+    #     "The",
+    #     "NP$_{plur}$",
+    #     "PREP",
+    #     "the",
+    #     "NP$_{sing}$",
+    #     "VP$_{plur}$",
+    # ]
+    sen = [
         "The",
         "NP$_{sing}$",
         "PREP",
@@ -40,10 +48,11 @@ if __name__ == "__main__":
         "NP$_{plur}$",
         "VP$_{sing}$",
     ]
-    attention.plot_config["value_font_size"] = 16
-    attention.plot_config["title"] = "NounPP Gulordava PS"
+    attention.plot_config.update({
+        "xtext": sen[1:],
+        "ytext": sen[:-1],
+    })
+    attention.plot_config["title"] = "NounPP Gulordava PS - CD"
     attention.plot_by_sen_id(
-        slice(2400, 3600, 2),
-        avg_decs=True,
-        **config_dict["activations"]
+        slice(1200, 2400, 2), avg_decs=True, #**config_dict["activations"]
     )

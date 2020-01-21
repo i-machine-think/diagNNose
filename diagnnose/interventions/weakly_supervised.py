@@ -21,7 +21,7 @@ from torch.optim import SGD
 
 from diagnnose.interventions.mechanism import InterventionMechanism
 from diagnnose.model_wrappers.forward_lstm import ForwardLSTM
-from diagnnose.typedefs.activations import ActivationTensors
+from diagnnose.typedefs.activations import ActivationDict
 from diagnnose.typedefs.interventions import DiagnosticClassifierDict
 
 
@@ -94,7 +94,7 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     def select_diagnostic_classifier(
         self,
         inp: str,
-        prev_activations: ActivationTensors,
+        prev_activations: ActivationDict,
         layer: str,
         activation_type: str,
         **additional: dict
@@ -120,8 +120,8 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     @abstractmethod
     def dc_trigger_func(
         self,
-        prev_activations: ActivationTensors,
-        activations: ActivationTensors,
+        prev_activations: ActivationDict,
+        activations: ActivationDict,
         out: Tensor,
         prediction: Tensor,
         **additional: dict
@@ -204,11 +204,11 @@ class WeaklySupervisedMechanism(InterventionMechanism, ABC):
     def intervention_func(
         self,
         inp: str,
-        prev_activations: ActivationTensors,
+        prev_activations: ActivationDict,
         out: Tensor,
-        activations: ActivationTensors,
+        activations: ActivationDict,
         **additional: Dict
-    ) -> Tuple[Tensor, ActivationTensors]:
+    ) -> Tuple[Tensor, ActivationDict]:
         """
         Conduct an intervention based on weak supervision signal.
 

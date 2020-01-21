@@ -15,13 +15,13 @@ LayeredTensors = Dict[int, Tensor]
 # Maps an arbitrary string to a tensor
 NamedTensors = Dict[str, Tensor]
 
-ActivationTensors = Dict[ActivationName, Tensor]
-ActivationTensorLists = Dict[ActivationName, List[Tensor]]
+ActivationDict = Dict[ActivationName, Tensor]
+ActivationListDict = Dict[ActivationName, List[Tensor]]
 
 # Batch id to ActivationTensors
 BatchActivationTensors = Dict[int, Dict[ActivationName, Tensor]]
 # Batch id to ActivationTensorLists
-BatchActivationTensorLists = Dict[int, ActivationTensorLists]
+BatchActivationTensorLists = Dict[int, ActivationListDict]
 
 
 # EXTRACTION

@@ -12,7 +12,7 @@ from diagnnose.typedefs.activations import (
     ActivationKey,
     ActivationName,
     ActivationRanges,
-    ActivationTensors,
+    ActivationDict,
     Range,
 )
 from diagnnose.utils.pickle import load_pickle
@@ -52,7 +52,7 @@ class ActivationReader:
         ), f"Activations dir not found: {activations_dir}"
         self.activations_dir = activations_dir
 
-        self._tensor_dict: ActivationTensors = {}
+        self._tensor_dict: ActivationDict = {}
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
 

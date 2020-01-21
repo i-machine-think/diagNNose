@@ -9,7 +9,7 @@ from torch import Tensor
 
 import diagnnose.typedefs.config as config
 from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationTensors, LayeredTensors
+from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 from diagnnose.vocab import C2I, create_char_vocab
 
 
@@ -93,16 +93,16 @@ class GoogleLM(LanguageModel):
         return self.lstm.bias
 
     @property
-    def peepholes(self) -> ActivationTensors:
+    def peepholes(self) -> ActivationDict:
         return self.lstm.peepholes
 
     @overrides
     def forward(
         self,
         tokens: List[str],
-        prev_activations: ActivationTensors,
+        prev_activations: ActivationDict,
         compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], ActivationTensors]:
+    ) -> Tuple[Optional[Tensor], ActivationDict]:
         # Create the embeddings of the input words
         embs = self.encoder(tokens)
 
@@ -196,7 +196,7 @@ class LSTM(nn.Module):
         # Projects cell state dimension (8192) back to hidden dimension (1024)
         self.weight_P: LayeredTensors = {}
         # The 3 peepholes are weighted by a diagonal matrix
-        self.peepholes: ActivationTensors = {}
+        self.peepholes: ActivationDict = {}
 
         self._load_lstm(ckpt_dir, device)
 
@@ -243,7 +243,7 @@ class LSTM(nn.Module):
 
     def forward_step(
         self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> ActivationTensors:
+    ) -> ActivationDict:
         proj: Tensor = torch.cat((emb, prev_hx), dim=1) @ self.weight[layer]
         proj += self.bias[layer]
 
@@ -273,10 +273,10 @@ class LSTM(nn.Module):
 
     @overrides
     def forward(
-        self, input_: Tensor, prev_activations: ActivationTensors
-    ) -> Tuple[Optional[Tensor], ActivationTensors]:
+        self, input_: Tensor, prev_activations: ActivationDict
+    ) -> Tuple[Optional[Tensor], ActivationDict]:
         # Iteratively compute and store intermediate rnn activations
-        activations: ActivationTensors = {}
+        activations: ActivationDict = {}
 
         for l in range(self.num_layers):
             prev_hx = prev_activations[l, "hx"]
