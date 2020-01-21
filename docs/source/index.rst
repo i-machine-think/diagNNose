@@ -16,6 +16,7 @@ This is a test::
    :maxdepth: 2
 
    test
+   contents
 
 
 Indices and tables
