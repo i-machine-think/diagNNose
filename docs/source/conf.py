@@ -177,4 +177,4 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-autodoc_mock_imports = ['torch']
+autodoc_mock_imports = ['torch', 'skorch', 'torchtext']
