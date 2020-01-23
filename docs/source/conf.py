@@ -12,16 +12,27 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+#sys.path.insert(0, os.path.abspath('.'))
 
+sys.path.append(os.path.join(os.path.dirname(__name__), ".."))
+
+#sys.path.insert(0, "../..")
+
+#modules = [
+#    "decompositions"
+#]
+
+#for m in modules:
+#    sys.path.insert(0, f"../../diagnnose/{m}")
 
 # -- Project information -----------------------------------------------------
 
 project = 'diagnnose'
 copyright = '2020, Jaap Jumelet'
 author = 'Jaap Jumelet'
+
 
 # The short X.Y version
 version = ''
@@ -75,7 +86,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -175,3 +186,5 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+
+autodoc_mock_imports = ['torch']

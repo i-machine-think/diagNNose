@@ -1,22 +1,11 @@
 diagnnose documentation
 =====================================
 
-Test
-^^^^
-
-Test2
-=====
-
-This is a test::
-
-	print(test)
-	>>test
-
 .. toctree::
    :maxdepth: 2
 
    test
-   contents
+   decompositions
 
 
 Indices and tables
