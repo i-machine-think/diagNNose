@@ -53,12 +53,14 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        "numpy>=1.16.2",
-        "scipy",
-        "dataclasses",
-        "overrides",
-        "tqdm",
-        "unidecode",
+        # "numpy>=1.16.2",
+        # "torch>=1.1.0",
+        # "scipy",
+        # "dataclasses",
+        # "overrides",
+        # "tqdm",
+        # "torchtext",
+        # "unidecode",
     ],
     python_requires=">=3.7.0",
     # List additional groups of dependencies here (e.g. development
