@@ -1,16 +1,11 @@
 diagnnose documentation
 =====================================
 
+.. note::
+   Under construction
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
+   :caption: API documentation:
 
-   test
-   decompositions
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   diagnnose
