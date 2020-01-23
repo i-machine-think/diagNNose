@@ -33,16 +33,7 @@ setup(
     keywords="introspection, analysis, deep learning, nlp",
     url="https://github.com/i-machine-think/diagnnose",
     packages=find_packages(exclude=["contrib", "docs", "test", "scripts"]),
-    install_requires=[
-        "numpy>=1.16.2",
-        "torch>=1.1.0",
-        "scipy",
-        "dataclasses",
-        "overrides",
-        "tqdm",
-        "torchtext",
-        "unidecode",
-    ],
+    install_requires=install_requires,
     python_requires=">=3.7.0",
     extras_require={"dev": ["check-manifest"], "test": ["coverage"]},
 )
