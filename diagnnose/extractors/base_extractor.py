@@ -43,15 +43,6 @@ class Extractor:
         `self.extract`.
     activation_names : List[tuple[int, str]]
         List of (layer, activation_name) tuples
-
-    Attributes
-    ----------
-    model : LanguageModel
-    corpus : Corpus
-    activation_names : List[tuple[int, str]]
-    activations_dir : str
-    activation_writer : ActivationWriter
-        Auxiliary class that writes activations to file.
     """
 
     def __init__(

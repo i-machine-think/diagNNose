@@ -15,11 +15,12 @@ def calc_shapley_factors(n: int) -> Dict[Sequence[int], int]:
     These factors are based on the original Shapley formulation:
     https://en.wikipedia.org/wiki/Shapley_value
 
-    If, for instance, we were to compute these factors for item `a` in
-    the set N = {a, b, c}, we would pass `|N|-1`. This returns:
-      `{(): 2, (0,): 1, (1,): 1, (0, 1): 2}`,
-    which should be interpreted as the indices for the set N\\{a}:
-    (0: b, 1: c), mapped to their factors: len(ids)! * (n - len(ids))!
+    If, for instance, we were to compute these factors for item :math:`a` in
+    the set :math:`N = \{a, b, c\}`, we would pass :math:`|N|-1`. This
+    returns the dict :math:`\{(): 2, (0,): 1, (1,): 1, (0, 1): 2\}`,
+    whose keys should be interpreted as the indices for the set
+    :math:`N\setminus\{a\}: (0 \Rightarrow b, 1 \Rightarrow c)`, mapped to
+    their factors: :math:`|ids|! \cdot (n - |ids|)!`.
 
     Parameters
     ----------

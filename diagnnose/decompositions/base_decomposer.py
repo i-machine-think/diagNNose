@@ -21,8 +21,9 @@ class BaseDecomposer:
         LanguageModel for which decomposition will be performed
     activation_dict : PartialArrayDict
         Dictionary containing the necessary activations for decomposition
-    decoder : (Tensor, Tensor) ((num_classes, hidden_dim), (hidden_dim,))
-        (Coefficients, bias) tuple of the (linear) decoding layer
+    decoder : (Tensor, Tensor)
+        (Coefficients, bias) tuple of the (linear) decoding layer.
+        Expected dimensions: ((num_classes, hidden_dim), (hidden_dim,)).
     final_index : Tensor
         1-d Tensor with index of final element of a batch element.
         Due to masking for sentences of uneven length the final index
