@@ -19,5 +19,5 @@ python:
   install:
     - requirements: docs/source/requirements.txt
     - method: pip
-      path: docs/source/setup.py
+      path: docs/source
   system_packages: true
