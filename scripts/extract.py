@@ -18,9 +18,9 @@ if __name__ == "__main__":
     vocab_path = get_vocab_from_config(config_dict)
     corpus: Corpus = import_corpus(vocab_path=vocab_path, **config_dict["corpus"])
 
-    extractor = Extractor(model, corpus, **config_dict["activations"])
-
+    # Example selection_func, only extracts the final activation of each sentence
     def selection_func(_sen_id: int, pos: int, item: Example):
         return pos == (len(item.sen) - 1)
 
+    extractor = Extractor(model, corpus, **config_dict["activations"])
     extractor.extract(selection_func=selection_func, **config_dict["extract"])

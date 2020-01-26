@@ -3,15 +3,15 @@
     "type": "ForwardLSTM",
     "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
+  "init_states": {
+    "corpus_path": "../diagnnose/utils/init_sentence.txt"
+  },
   "corpus": {
     "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
     "header": ["sen", "type", "correct", "idx"]
   },
   "vocab": {
     "path": "../lm_data/models/gulordava/vocab.txt"
-  },
-  "init_states": {
-    "corpus_path": "../diagnnose/utils/init_sentence.txt"
   },
   "activations" : {
     "activations_dir": "../lm_data/activations/extracted/test"

@@ -9,9 +9,6 @@
   "vocab": {
     "path": "../lm_data/models/gulordava/vocab.txt"
   },
-  "activations": {
-    "dtype": "float32"
-  },
   "downstream": {
     "tasks": ["warstadt", "marvin"],
     "config": {
@@ -20,7 +17,7 @@
       },
       "marvin": {
         "path": "../lm_data/corpora/downstream/marvin",
-        "tasks": ["npi_across_anim", "npi_across_inanim", "simple_npi_anim", "simple_npi_inanim"],
+        "subtasks": ["npi_across_anim", "npi_across_inanim"],
         "task_activations": {
         }
       },
@@ -29,7 +26,7 @@
       },
       "lakretz": {
         "path": "../lm_data/corpora/downstream/lakretz",
-        "tasks": [
+        "subtasks": [
           "nounpp",
           "simple"
         ],
