@@ -9,4 +9,4 @@ The following papers/corpora are currently implemented:
 - [Lakretz et al. (2019)](https://www.aclweb.org/anthology/N19-1002.pdf) -- Extensive investigation into subject-verb agreement, based on a useful set of artifical constructions. Data can be found in [this repository](https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs/tree/master/datasets/NA_tasks), and the `downstream.config.lakretz.path` field in `downstream.json` is expected to point to a directory containing these `.txt` files.
 - [Warstadt et al. (2019)](https://arxiv.org/pdf/1909.02597.pdf) -- Extensive investigation into BERTs capacities of handling Negative Polarity Items, based on a richly constructed corpus. Data can be found [here](https://alexwarstadt.files.wordpress.com/2019/08/npi_lincensing_data.zip), which contains a `.tsv` towards which `downstream.config.warstadt.path` in `downstream.json` is expected to point.
 
-More documentation will be added soon.
+An explanation on how to run the suite is provided in the documentation [here](https://diagnnose.readthedocs.io/en/latest/scripts.downstream.html).
