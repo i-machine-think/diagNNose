@@ -18,7 +18,6 @@ Subpackages
    diagnnose.decompositions
    diagnnose.downstream
    diagnnose.extractors
-   diagnnose.interventions
    diagnnose.model_wrappers
    diagnnose.models
    diagnnose.typedefs

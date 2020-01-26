@@ -27,9 +27,3 @@ Submodules
    :undoc-members:
    :show-inheritance:
 
-
-.. automodule:: diagnnose.model_wrappers.intervention_lstm
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
