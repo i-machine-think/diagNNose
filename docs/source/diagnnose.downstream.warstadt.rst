@@ -1,5 +1,5 @@
-diagnnose.downstream.warstadt package
-=====================================
+diagnnose.downstream.warstadt
+=============================
 
 .. automodule:: diagnnose.downstream.warstadt
    :members:
@@ -9,12 +9,16 @@ diagnnose.downstream.warstadt package
 Submodules
 ----------
 
+diagnnose.downstream.warstadt.downstream module
+-----------------------------------------------
 
 .. automodule:: diagnnose.downstream.warstadt.downstream
    :members:
    :undoc-members:
    :show-inheritance:
 
+diagnnose.downstream.warstadt.preproc module
+--------------------------------------------
 
 .. automodule:: diagnnose.downstream.warstadt.preproc
    :members:

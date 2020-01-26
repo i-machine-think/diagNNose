@@ -1,5 +1,5 @@
-diagnnose.models package
-========================
+diagnnose.models
+================
 
 .. automodule:: diagnnose.models
    :members:
@@ -9,12 +9,16 @@ diagnnose.models package
 Submodules
 ----------
 
+diagnnose.models.import\_model module
+-------------------------------------
 
 .. automodule:: diagnnose.models.import_model
    :members:
    :undoc-members:
    :show-inheritance:
 
+diagnnose.models.lm module
+--------------------------
 
 .. automodule:: diagnnose.models.lm
    :members:

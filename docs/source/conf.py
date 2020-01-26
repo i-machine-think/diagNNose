@@ -189,6 +189,6 @@ html_theme_options = {
     # Toc options
     'collapse_navigation': False,
     'sticky_navigation': False,
-    'navigation_depth': 4,
+    'navigation_depth': 2,
     'titles_only': False
 }

@@ -29,6 +29,6 @@ The library is structured as follows:
    scripts
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
-   modules
+   diagnnose_

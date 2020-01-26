@@ -1,5 +1,5 @@
-diagnnose.classifiers package
-=============================
+diagnnose.classifiers
+=====================
 
 .. automodule:: diagnnose.classifiers
    :members:
@@ -9,12 +9,16 @@ diagnnose.classifiers package
 Submodules
 ----------
 
+diagnnose.classifiers.dc\_trainer module
+----------------------------------------
 
 .. automodule:: diagnnose.classifiers.dc_trainer
    :members:
    :undoc-members:
    :show-inheritance:
 
+diagnnose.classifiers.logreg module
+-----------------------------------
 
 .. automodule:: diagnnose.classifiers.logreg
    :members:

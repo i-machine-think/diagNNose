@@ -1,13 +1,10 @@
-diagnnose package
+diagnnose 
 =================
 
 .. automodule:: diagnnose
    :members:
    :undoc-members:
    :show-inheritance:
-
-Subpackages
------------
 
 .. toctree::
 
@@ -20,6 +17,6 @@ Subpackages
    diagnnose.extractors
    diagnnose.model_wrappers
    diagnnose.models
-   diagnnose.typedefs
    diagnnose.utils
    diagnnose.vocab
+   custom_typedefs

@@ -1,5 +1,5 @@
-diagnnose.utils package
-=======================
+diagnnose.utils
+===============
 
 .. automodule:: diagnnose.utils
    :members:
@@ -9,18 +9,24 @@ diagnnose.utils package
 Submodules
 ----------
 
+diagnnose.utils.midpoint module
+-------------------------------
 
 .. automodule:: diagnnose.utils.midpoint
    :members:
    :undoc-members:
    :show-inheritance:
 
+diagnnose.utils.misc module
+---------------------------
 
 .. automodule:: diagnnose.utils.misc
    :members:
    :undoc-members:
    :show-inheritance:
 
+diagnnose.utils.pickle module
+-----------------------------
 
 .. automodule:: diagnnose.utils.pickle
    :members:
