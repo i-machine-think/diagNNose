@@ -1,5 +1,5 @@
-diagnnose
-=========
+Modules
+=======
 
 .. toctree::
    :maxdepth: 4

@@ -12,18 +12,17 @@ In particular, it contains functionality for :
 
 Our library is officially registered with pip and can be installed by running `pip install diagnnose`.
 
-We will shortly update this README with explanations for the different scripts provided in the library.
-
+**Documentation** can be found at [diagnnose.readthedocs.io](https://diagnnose.readthedocs.io).
 
 #### Requirements
 
-This library runs with Pytorch >=1.1. The preferred version of Python is >=3.7.
+The preferred version of Python is ≥3.7. The required packages can be found in [`requirements.txt`](https://github.com/i-machine-think/diagnnose/blob/master/requirements.txt).
 
 ### Research using `diagnnose`
 - Jumelet, Zuidema & Hupkes (2019): _[Analysing Neural Language Models: Contextual Decomposition Reveals Default Reasoning in Number and Gender Assignment](https://arxiv.org/pdf/1909.08975.pdf)_
 
 ### Citing
-If you intend on using `diagnnose` for your research, please cite us as (and feel free to reach out, we'd love to help!):
+If you intend on using `diagnnose` for your research, please cite us as follows. Feel free to reach out, we'd love to help!
 ```
 @article{diagnnose,
     title={diagnnose: A Neural Net Analysis Library},

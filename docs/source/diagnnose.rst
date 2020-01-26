@@ -1,6 +1,11 @@
 diagnnose package
 =================
 
+.. automodule:: diagnnose
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
@@ -19,11 +24,3 @@ Subpackages
    diagnnose.typedefs
    diagnnose.utils
    diagnnose.vocab
-
-Module contents
----------------
-
-.. automodule:: diagnnose
-   :members:
-   :undoc-members:
-   :show-inheritance:

@@ -15,13 +15,11 @@ if __name__ == "__main__":
     config_dict = create_config_dict(arg_parser, required_args, arg_groups)
 
     model: LanguageModel = import_model(config_dict)
-    corpus: Corpus = import_corpus(
-        vocab_path=get_vocab_from_config(config_dict), **config_dict["corpus"]
-    )
+    vocab_path = get_vocab_from_config(config_dict)
+    corpus: Corpus = import_corpus(vocab_path=vocab_path, **config_dict["corpus"])
 
     extractor = Extractor(model, corpus, **config_dict["activations"])
 
-    # Example selection_func, extract the final activation of each sentence
     def selection_func(_sen_id: int, pos: int, item: Example):
         return pos == (len(item.sen) - 1)
 
