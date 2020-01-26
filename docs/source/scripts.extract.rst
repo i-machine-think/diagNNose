@@ -16,8 +16,8 @@ It can be seen that the file is split up in several sections:
 
 * ``model`` contains the model ``type``, that should be set to one of the model types in `model_wrappers <diagnnose.model_wrappers.html>`_.
   Note that ``model.state_dict`` should point to the pickled ``state_dict`` of the model, and not the pickled class instance.
-* ``vocab.path`` points to a ``.txt`` file that contains a vocab entry at each line.
 * ``init_states.corpus_path`` is an optional argument that points to a corpus for which the end-of-sequence hidden states will be used at initialisation.
+* ``vocab.path`` points to a ``.txt`` file that contains a vocab entry at each line.
 * ``corpus`` contains the parameters that are passed to the `import_corpus <diagnnose.corpus.html#diagnnose.corpus.import_corpus.import_corpus>`_ method.
 * ``activations.activation_names`` is a list containing the activations that will be extracted.
   Items are of the form ``{name}{layer}``.
@@ -28,12 +28,6 @@ It can be seen that the file is split up in several sections:
 Script
 ^^^^^^
 The `extract.py <https://github.com/i-machine-think/diagnnose/blob/master/scripts/extract.py>`_ script is structured as follows.
-
-.. literalinclude:: ../../scripts/extract.py
-    :lines: -10
-    :linenos:
-
-We import the required classes and methods from the ``diagnnose`` library.
 
 .. literalinclude:: ../../scripts/extract.py
     :lines: 12-15
@@ -55,12 +49,21 @@ Note that the full ``config_dict`` is passed, as the initialisation depends on m
 We then extract the ``vocab_path`` and pass this to `import_corpus <diagnnose.corpus.html#diagnnose.corpus.import_corpus.import_corpus>`_.
 
 .. literalinclude:: ../../scripts/extract.py
-    :lines: 21-26
-    :lineno-start: 21
+    :lines: 22-23
+    :lineno-start: 22
     :linenos:
 
-The ``model`` and ``corpus`` are passed to the ``Extractor`` class, alongside the ``activations`` configuration.
 We can optionally define a ``selection_func``, that allows us to define which exact activations we want to extract.
 A ``selection_func`` receives a sentence index, the current position in that sentence, and the ``torchtext.Example`` item that contains additional information.
 The ``selection_func`` presented here will only select the last activations of a sentence.
+
+.. literalinclude:: ../../scripts/extract.py
+    :lines: 25-26
+    :lineno-start: 25
+    :linenos:
+
+The ``model`` and ``corpus`` are passed to the ``Extractor`` class, alongside the ``activations`` configuration.
 Extraction is performed by calling ``extractor.extract``.
+
+The extracted activations will be stored as pickled tensors in ``activations_activations_dir``.
+These can later be accessed using an `ActivationReader <diagnnose.activations.html#diagnnose.activations.activation_reader.ActivationReader>`_.
