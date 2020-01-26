@@ -38,12 +38,13 @@ def lakretz_init(
     vocab_path: str,
     path: str,
     task_activations: Optional[Dict[str, str]] = None,
-    tasks: Optional[List[str]] = None,
+    subtasks: Optional[List[str]] = None,
     device: str = "cpu",
 ) -> Dict[str, Dict[str, Any]]:
     """ Initializes the tasks described in Lakretz et al. (2019)
 
     Arxiv link: https://arxiv.org/pdf/1903.07435.pdf
+
     Repo: https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs
 
     Parameters
@@ -57,7 +58,7 @@ def lakretz_init(
         Dictionary mapping task names to directories to which the
         Lakretz task embeddings have been extracted. If a task is not
         provided the activations will be created during the task.
-    tasks : List[str], optional
+    subtasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
     device : str, optional
@@ -72,12 +73,12 @@ def lakretz_init(
 
     task_activations = task_activations or {}
 
-    if tasks is None:
-        tasks = list(lakretz_descriptions.keys())
+    if subtasks is None:
+        subtasks = list(lakretz_descriptions.keys())
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
-    for task in tasks:
+    for task in subtasks:
         assert task in lakretz_descriptions, f"Provided task {task} is not recognised!"
 
         activation_dir = task_activations.get(task, None)
@@ -117,6 +118,7 @@ def lakretz_downstream(
     """ Performs the downstream tasks described in Lakretz et al. (2019)
 
     Arxiv link: https://arxiv.org/pdf/1903.07435.pdf
+
     Repo: https://github.com/FAIRNS/Number_and_syntax_units_in_LSTM_LMs
 
     Parameters

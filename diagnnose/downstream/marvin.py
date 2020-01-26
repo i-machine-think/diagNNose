@@ -18,7 +18,7 @@ from .misc import calc_final_hidden, create_unk_sen_mask
 def marvin_init(
     vocab_path: str,
     path: str,
-    tasks: Optional[List[str]] = None,
+    subtasks: Optional[List[str]] = None,
     device: str = "cpu",
     use_full_model_probs: bool = False,
     **kwargs: Any,
@@ -27,6 +27,7 @@ def marvin_init(
     Marvin & Linzen (2018)
 
     Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
+
     Repo: https://github.com/BeckyMarvin/LM_syneval
 
     Parameters
@@ -36,7 +37,7 @@ def marvin_init(
     path : str
         Path to directory containing the Marvin datasets that can be
         found in the github repo.
-    tasks : List[str], optional
+    subtasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.
     device : str, optional
@@ -54,11 +55,11 @@ def marvin_init(
     all_tasks = [path.split("/")[-1].split(".")[0] for path in all_paths]
     task2path = dict(zip(all_tasks, all_paths))
 
-    tasks = tasks or all_tasks
+    subtasks = subtasks or all_tasks
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
-    for task in tasks:
+    for task in subtasks:
         corpus_dict = load_pickle(task2path[task])
 
         if "npi" in task:
@@ -168,6 +169,7 @@ def marvin_downstream(
     """ Performs the downstream tasks of Marvin & Linzen (2018)
 
     Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
+
     Repo: https://github.com/BeckyMarvin/LM_syneval
 
     Parameters

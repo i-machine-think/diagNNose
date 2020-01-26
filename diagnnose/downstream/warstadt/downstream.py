@@ -20,7 +20,7 @@ TMP_DIR = "warstadt_activations"
 def warstadt_init(
     vocab_path: str,
     path: str,
-    tasks: Optional[List[str]] = None,
+    subtasks: Optional[List[str]] = None,
     device: str = "cpu",
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
@@ -35,7 +35,7 @@ def warstadt_init(
         Path to vocabulary file of the Language Model.
     path : str
         Path to the original corpus.
-    tasks : List[str], optional
+    subtasks : List[str], optional
         The licensing environments that will be tested. If not provided
         this will default to the full set of environments.
     device : str, optional
@@ -47,8 +47,8 @@ def warstadt_init(
         Dictionary containing the initial env setup, mapping each env
         to to required fields.
     """
-    if tasks is None:
-        tasks = ENVS
+    if subtasks is None:
+        subtasks = ENVS
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
@@ -57,7 +57,7 @@ def warstadt_init(
 
     orig_corpus = preproc_warstadt(path)[0]
 
-    for env in tasks:
+    for env in subtasks:
         assert env in ENVS, f"Provided env {env} is not recognised!"
 
         corpus_dir = os.path.join(TMP_DIR, f"{env}.tsv")

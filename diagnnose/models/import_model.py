@@ -18,7 +18,8 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
 
     Returns
     --------
-    A LanguageModel created from the given files
+    model : LanguageModel
+        A LanguageModel instance, based on the provided config_dict.
     """
     model_type = config_dict["model"].pop("type")
 
@@ -50,6 +51,12 @@ def import_decoder_from_model(
         Attribute name of the decoder coefficients in the LM.
     decoder_b : str
         Attribute name of the decoder bias in the LM.
+
+    Returns
+    -------
+    decoder : LinearDecoder
+        A linear decoder is represented as a tuple of tensors, of the
+        form (w, b).
     """
     w = getattr(model, decoder_w)
     b = getattr(model, decoder_b)

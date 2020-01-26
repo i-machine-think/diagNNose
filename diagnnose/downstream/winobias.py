@@ -35,7 +35,7 @@ def winobias_init(
     vocab_path: str,
     path: str,
     task_activations: Optional[str] = None,
-    tasks: Optional[List[str]] = None,
+    subtasks: Optional[List[str]] = None,
     device: str = "cpu",
     save_activations: bool = True,
     **kwargs: Any,
@@ -43,6 +43,7 @@ def winobias_init(
     """ Initializes the adapted tasks of Zhao et al. (2018)
 
     Arxiv link: https://arxiv.org/abs/1804.06876
+
     Repo: https://github.com/i-machine-think/gcd4lm
 
     Parameters
@@ -55,7 +56,7 @@ def winobias_init(
     task_activations : str, optional
         Path to folder containing the extracted activations. If not
         provided new activations will be extracted.
-    tasks : List[str], optional
+    subtasks : List[str], optional
         The downstream tasks that will be tested. If not provided this
         will default to the full set of conditions.re
     device : str, optional
@@ -71,12 +72,12 @@ def winobias_init(
         to to required fields.
     """
 
-    if tasks is None:
-        tasks = list(winobias_descriptions.keys())
+    if subtasks is None:
+        subtasks = list(winobias_descriptions.keys())
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
-    for task in tasks:
+    for task in subtasks:
         init_dict[task] = {}
         for condition in winobias_descriptions[task]:
             assert (
@@ -117,6 +118,7 @@ def winobias_downstream(
     """ Performs the adapted tasks of Zhao et al. (2018)
 
     Arxiv link: https://arxiv.org/abs/1804.06876
+
     Repo: https://github.com/i-machine-think/gcd4lm
 
     Parameters
