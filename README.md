@@ -8,20 +8,15 @@ In particular, it contains functionality for :
 - Performing **contextual decomposition** ([Murdoch et al., 2018](https://arxiv.org/pdf/1801.05453.pdf)) on a model.
 - Running a broad linguistic [**downstream task suite**](https://github.com/i-machine-think/diagnnose/tree/master/diagnnose/downstream) on a language model.
 
-#### Quickstart
-
-Our library is officially registered with pip and can be installed by running `pip install diagnnose`.
-
 **Documentation** can be found at [diagnnose.readthedocs.io](https://diagnnose.readthedocs.io).
 
-#### Requirements
-
-The preferred version of Python is ≥3.7. The required packages can be found in [`requirements.txt`](https://github.com/i-machine-think/diagnnose/blob/master/requirements.txt).
+Our library is officially registered with pip and can be installed by running `pip install diagnnose`.
+The preferred version of Python is ≥3.7. The required packages are stated in [`requirements.txt`](https://github.com/i-machine-think/diagnnose/blob/master/requirements.txt).
 
 ### Research using `diagnnose`
 - Jumelet, Zuidema & Hupkes (2019): _[Analysing Neural Language Models: Contextual Decomposition Reveals Default Reasoning in Number and Gender Assignment](https://arxiv.org/pdf/1909.08975.pdf)_
 
-### Citing
+#### Citing
 If you intend on using `diagnnose` for your research, please cite us as follows. Feel free to reach out, we'd love to help!
 ```
 @article{diagnnose,

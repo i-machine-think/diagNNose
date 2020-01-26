@@ -1,12 +1,5 @@
 # Activation extraction
 
-This folder contains several classes that help to extract activations from different pytorch language models.
+The extraction documentation can be found [here](https://diagnnose.readthedocs.io/en/latest/diagnnose.extractors.html).
 
-TODO:
-- implement these classes (can be copied from what we already had)
-- explain in this README how this is implemented
-- explain how it can be used (including what is the output format) 
-- write down potential other ones that could be implemented (such as GRU?)
-
-
-
+We also provide an explanation for a simple extraction script [here](https://diagnnose.readthedocs.io/en/latest/scripts.extract.html).
