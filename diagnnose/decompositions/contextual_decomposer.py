@@ -37,7 +37,7 @@ class ContextualDecomposer(BaseDecomposer):
         self.irrel_interactions: Set[str] = set()
 
     @overrides
-    def _decompose(
+    def decompose(
         self,
         start: Union[int, Tensor],
         stop: Union[int, Tensor],

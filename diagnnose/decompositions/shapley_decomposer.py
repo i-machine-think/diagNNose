@@ -37,7 +37,7 @@ class ShapleyDecomposer(BaseDecomposer):
         self.decompose_bias = False
 
     @overrides
-    def _decompose(
+    def decompose(
         self,
         input_partitions: Optional[List[InputPartition]] = None,
         decompose_gates: bool = False,

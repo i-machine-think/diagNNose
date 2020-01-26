@@ -52,19 +52,18 @@ class BaseDecomposer:
 
         self._validate_activation_shapes()
 
-    def _decompose(self, *arg: Any, **kwargs: Any) -> Union[NamedTensors, Tensor]:
+    def decompose(self, *arg: Any, **kwargs: Any) -> Union[NamedTensors, Tensor]:
         raise NotImplementedError
 
-    def decompose(
-        self, *arg: Any, append_bias: bool = False, **kwargs: Any
+    def decompose_with_bias(
+        self, *arg: Any, **kwargs: Any
     ) -> Union[Tensor, NamedTensors]:
-        decomposition = self._decompose(*arg, **kwargs)
+        decomposition = self.decompose(*arg, **kwargs)
 
-        if append_bias:
-            bias = self.decompose_bias()
-            bias = torch.repeat_interleave(bias.unsqueeze(0), 2, dim=0).unsqueeze(1)
-            for key, arr in decomposition.items():
-                decomposition[key] = torch.cat((arr, bias), dim=1)
+        bias = self.decompose_bias()
+        bias = torch.repeat_interleave(bias.unsqueeze(0), 2, dim=0).unsqueeze(1)
+        for key, arr in decomposition.items():
+            decomposition[key] = torch.cat((arr, bias), dim=1)
 
         return decomposition
 

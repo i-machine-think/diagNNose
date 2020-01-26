@@ -15,8 +15,7 @@ class CellDecomposer(BaseDecomposer):
     Memory Networks (2017) https://arxiv.org/pdf/1702.02540.pdf
     """
 
-    @overrides
-    def _decompose(self) -> Dict[str, np.ndarray]:
+    def decompose(self) -> Dict[str, np.ndarray]:
         self._append_init_states()
 
         return {"beta": self.calc_beta(), "gamma": self.calc_gamma()}
