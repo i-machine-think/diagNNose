@@ -7,3 +7,5 @@ We provide example scripts for each of the different functionalities of the libr
     :maxdepth: 1
 
     scripts.extract
+    scripts.downstream
+    scripts.decompose

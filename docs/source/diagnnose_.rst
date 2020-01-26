@@ -1,13 +1,7 @@
 diagnnose 
-=================
-
-.. automodule:: diagnnose
-   :members:
-   :undoc-members:
-   :show-inheritance:
+=========
 
 .. toctree::
-
    diagnnose.activations
    diagnnose.classifiers
    diagnnose.config
