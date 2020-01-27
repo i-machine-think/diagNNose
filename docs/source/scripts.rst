@@ -9,3 +9,4 @@ We provide example scripts for each of the different functionalities of the libr
     scripts.extract
     scripts.downstream
     scripts.decompose
+    scripts.shapley_cd
