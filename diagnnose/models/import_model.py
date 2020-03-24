@@ -28,7 +28,7 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
     model: LanguageModel = model_constructor(**config_dict["model"])
 
     vocab_path = get_vocab_from_config(config_dict)
-    model.set_init_states(vocab_path=vocab_path, **config_dict["init_states"])
+    model.set_init_states(vocab_path=vocab_path, **config_dict.get("init_states", {}))
 
     config_dict["model"]["type"] = model_type
 

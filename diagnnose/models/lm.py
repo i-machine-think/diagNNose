@@ -109,7 +109,7 @@ class LanguageModel(ABC, nn.Module):
         final_hidden : Tensor
             Tensor of the final hidden state.
         """
-        return hidden[self.num_layers - 1, "hx"].squeeze()
+        return hidden[self.top_layer, "hx"].squeeze()
 
     def set_init_states(
         self,
