@@ -255,6 +255,10 @@ def create_arg_descriptions() -> ArgDescriptions:
         "value_font_size": {
             "help": "(optional) Font size of the individual plotted values."
         },
+        "patches": {
+            "nargs": "*",
+            "help": "(optional) List of [x, y] tuples denoting highlighted patch indices."
+        }
     }
 
     arg_descriptions["downstream"] = {
