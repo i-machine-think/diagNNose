@@ -73,7 +73,7 @@ class DownstreamSuite:
             self.init_dicts[task] = task_inits[task](
                 vocab_path,
                 config.pop("path"),
-                tasks=config.pop("tasks", None),
+                subtasks=config.pop("subtasks", None),
                 task_activations=config.pop("task_activations", None),
                 device=device,
                 **config,

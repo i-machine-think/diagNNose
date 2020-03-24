@@ -157,7 +157,9 @@ def lakretz_downstream(
         iterator = init_task["iterator"]
         activation_reader = init_task["activation_reader"]
         activations_dir = os.path.join(TMP_DIR, task)
+
         if decompose_config is not None:
+            decompose_type = decompose_config.get("decomposer", "ContextualDecomposer")
             if activation_reader is not None:
                 activations_dir = activation_reader.activations_dir
             factory = DecomposerFactory(
@@ -165,9 +167,11 @@ def lakretz_downstream(
                 activations_dir,
                 create_new_activations=(activation_reader is None),
                 corpus=corpus,
+                decomposer=decompose_type
             )
         else:
             factory = None
+            decompose_type = None
 
         skipped = 0
         task_specs = lakretz_descriptions[task]
@@ -188,11 +192,19 @@ def lakretz_downstream(
                 sen_slice = slice(
                     cidx * items_per_class * 2, (cidx + 1) * items_per_class * 2, 2
                 )
-                if factory is not None:
+                if decompose_type == "ContextualDecomposer":
                     decomposer = factory.create(sen_slice, slice(0, -1))
                     final_hidden = decomposer.decompose(**decompose_config)["relevant"][
                         :, -1
                     ]
+                elif decompose_type == "ShapleyDecomposer":
+                    decomposer = factory.create(sen_slice, slice(0, -1))
+                    gate_bias_rel = decompose_config.get("gate_bias_rel", True)
+
+                    decomposition = decomposer.decompose(gate_bias_rel=gate_bias_rel)
+
+                    partition = slice(decompose_config["start"], decompose_config["stop"])
+                    final_hidden = decomposition[:, partition, -1].sum(1)  # n.b.: sum!
                 else:
                     final_hidden = torch.stack(
                         activation_reader[
@@ -201,8 +213,9 @@ def lakretz_downstream(
                         dim=0,
                     )[:, -2, :]
 
-            w1: Tensor = batch.sen[0][::2, -1]
-            w2: Tensor = batch.sen[0][1::2, -1]
+            w1: Tensor = batch.sen[0][::2, -1]  # correct forms
+            w2: Tensor = batch.sen[0][1::2, -1]  # incorrect forms
+            # shape: (batch_size, 2)
             classes = torch.stack((w1, w2), dim=1)
 
             if ignore_unk:
