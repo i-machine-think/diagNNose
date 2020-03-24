@@ -1,6 +1,6 @@
 from itertools import combinations
 from math import factorial
-from typing import Callable, Dict, Optional, Sequence
+from typing import Callable, Dict, Sequence
 import numpy as np
 import torch
 from scipy.special import expit as sigmoid
@@ -15,12 +15,13 @@ def calc_shapley_factors(n: int) -> Dict[Sequence[int], int]:
     These factors are based on the original Shapley formulation:
     https://en.wikipedia.org/wiki/Shapley_value
 
-    If, for instance, we were to compute these factors for item :math:`a` in
-    the set :math:`N = \{a, b, c\}`, we would pass :math:`|N|-1`. This
-    returns the dict :math:`\{(): 2, (0,): 1, (1,): 1, (0, 1): 2\}`,
-    whose keys should be interpreted as the indices for the set
-    :math:`N\setminus\{a\}: (0 \Rightarrow b, 1 \Rightarrow c)`, mapped to
-    their factors: :math:`|ids|! \cdot (n - |ids|)!`.
+    If, for instance, we were to compute these factors for item
+    :math:`a` in the set :math:`N = \{a, b, c\}`, we would pass
+    :math:`|N|-1`. This returns the dict
+    :math:`\{(): 2, (0,): 1, (1,): 1, (0, 1): 2\}`, whose keys should
+    be interpreted as the indices for the set
+    :math:`N\setminus\{a\}: (0 \Rightarrow b, 1 \Rightarrow c)`, mapped
+    to their factors: :math:`|ids|! \cdot (n - |ids|)!`.
 
     Parameters
     ----------
@@ -45,12 +46,12 @@ def calc_shapley_factors(n: int) -> Dict[Sequence[int], int]:
 
 
 def calc_full_shapley_values(
-    tensor: Tensor, func: Callable[[np.ndarray], np.ndarray]
+    tensor: Tensor, func: Callable[[np.ndarray], np.ndarray], bias_as_baseline: bool = False
 ) -> Tensor:
     """Computes Shapley values for a summed tensor over tanh/sigmoid.
 
     In more abstract terms, it's an exact calculation of the following:
-    f(sum_i(x_i)) = sum_i(S_f(x_i)), f = tanh/sigmoid
+    :math:`f(\sum_i(x_i)) = \sum_i(R_i(f))`
 
     This computation grows exponential in the number of input features,
     and is able to create exact Shapley values up to ~20 features.
@@ -67,6 +68,10 @@ def calc_full_shapley_values(
         Tensor of size (batch_size, n_features, nhid).
     func : Callable[[np.ndarray], np.ndarray]
         Either `np.tanh` or `scipy.special.expit` (sigmoid).
+    bias_as_baseline : bool, optional
+        If set to True the bias will be used as a baseline, instead of
+        an contributing feature. The bias is assumed to be situated in
+        the input tensor as final entry: tensor[:, -1].
 
     Returns
     -------
@@ -77,6 +82,11 @@ def calc_full_shapley_values(
     batch_size, n_features, nhid = tensor.shape
     # Shapley values are computed for numpy arrays, as it empirically turned out to be faster.
     tensor = tensor.numpy()
+
+    baseline = np.zeros((batch_size, nhid), dtype=config.DTYPE_np)
+    if bias_as_baseline:
+        n_features -= 1
+        baseline = tensor[:, -1]
 
     # Compute all subset indices + normalization factors
     shapley_coalitions = calc_shapley_factors(n_features - 1)
@@ -94,20 +104,12 @@ def calc_full_shapley_values(
             idx_wo = tuple(sub_idx[coalition_idx])
 
             # Create summation over subset of features
-            sum_wo = np.sum(tensor[:, idx_wo, :], axis=1)
+            sum_wo = np.sum(tensor[:, idx_wo, :], axis=1) + baseline
             sum_with = sum_wo + tensor[:, idx]
 
             # Calculate activation values over summed features
+            func_wo = func(sum_wo)
             func_with = func(sum_with)
-
-            # Don't subtract baseline values, this redistributes the baseline value of f(0)
-            # over all features, allowing the completeness axiom to hold (details in thesis).
-            no_baseline = func == sigmoid and len(idx_wo) == 0
-            func_wo = (
-                np.zeros((batch_size, nhid), dtype=config.DTYPE_np)
-                if no_baseline
-                else func(sum_wo)
-            )
 
             func_diff = func_with - func_wo
             func_diff *= factor
@@ -115,5 +117,9 @@ def calc_full_shapley_values(
             shapley_values[:, idx] += func_diff
 
     shapley_values /= factorial(n_features)
+
+    if bias_as_baseline:
+        baseline = func(np.expand_dims(baseline, 1))
+        shapley_values = np.concatenate((shapley_values, baseline), axis=1)
 
     return torch.from_numpy(shapley_values)

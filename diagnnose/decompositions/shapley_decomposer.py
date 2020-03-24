@@ -14,6 +14,8 @@ from .contextual_decomposer import BaseDecomposer
 from .shapley_full import calc_full_shapley_values
 
 
+# Tuple: range(start, end) or list of indices
+# First token of sentence is index 1, init states are index 0
 InputPartition = Union[Tuple[int, int], List[int]]
 
 
@@ -33,15 +35,13 @@ class ShapleyDecomposer(BaseDecomposer):
         self.idx2partition_idx: Dict[int, int] = {}
         self.num_partitions: int = 0
 
-        self.decompose_gates = False
-        self.decompose_bias = False
+        self.gate_bias_rel = True
 
     @overrides
     def decompose(
         self,
         input_partitions: Optional[List[InputPartition]] = None,
-        decompose_gates: bool = False,
-        decompose_bias: bool = False,
+        gate_bias_rel: bool = True,
     ) -> Tensor:
         """ Main loop for the contextual decomposition.
 
@@ -52,10 +52,11 @@ class ShapleyDecomposer(BaseDecomposer):
             a tuple of (start, stop) spans, or lists of indices that
             should be grouped together. If not provided each individual
             input will stand on its own.
-        decompose_gates : bool, optional
-            TODO: expand upon later
-        decompose_bias : bool, optional
-            TODO: expand upon later
+        gate_bias_rel : bool, optional
+            When using the relevance partition of Arras et al. (see
+            thesis for details) the gates don't need to be decomposed.
+            If we want separate splits for different gate interactions
+            this toggle can be set to False. Defaults to True.
 
         Returns
         -------
@@ -67,8 +68,7 @@ class ShapleyDecomposer(BaseDecomposer):
         self._set_input_partitions(input_partitions, self.slen)
         self._reset_decompositions(self.batch_size, self.slen)
 
-        self.decompose_gates = decompose_gates
-        self.decompose_bias = decompose_bias
+        self.gate_bias_rel = gate_bias_rel
 
         for layer in range(self.model.num_layers):
             for i in range(1, self.slen + 1):
@@ -106,6 +106,7 @@ class ShapleyDecomposer(BaseDecomposer):
         else:
             input_ = self.decompositions[layer - 1]["h"][:, :, i]
 
+        # TODO: future partitions need not to be taken into account here yet, saves computation
         prev_h = self.decompositions[layer]["h"][:, :, i - 1]
 
         if self.model.ih_concat_order == ["i", "h"]:
@@ -128,12 +129,12 @@ class ShapleyDecomposer(BaseDecomposer):
 
     def _add_forget_decomposition(self, layer: int, i: int) -> None:
         """ Calculates the forget gate decomposition, Equation (14) of the paper. """
-        if self.decompose_gates:
-            # Shape: (batch_size, num_partitions+1, nhid)
-            shapley_f = self._calc_shapley_values(layer, i, "f")
-        else:
+        if self.gate_bias_rel:
             # Shape: (batch_size, nhid)
             shapley_f = self.activation_dict[layer, "f_g"][:, i - 1]
+        else:
+            # Shape: (batch_size, num_partitions+1, nhid)
+            shapley_f = self._calc_shapley_values(layer, i, "f")
 
         # Shape: (batch_size, num_partitions, nhid)
         prev_c = self.decompositions[layer]["c"][:, :, i - 1]
@@ -142,21 +143,24 @@ class ShapleyDecomposer(BaseDecomposer):
 
     def _add_input_decomposition(self, layer: int, i: int) -> None:
         """ Calculates the input gate decomposition, Equation (17) of the paper. """
-        if self.decompose_gates:
-            # Shape: (batch_size, num_partitions+1, nhid)
-            shapley_i = self._calc_shapley_values(layer, i, "i")
-        else:
+        if self.gate_bias_rel:
             # Shape: (batch_size, nhid)
             shapley_i = self.activation_dict[layer, "i_g"][:, i - 1]
+        else:
+            # Shape: (batch_size, num_partitions+1, nhid)
+            shapley_i = self._calc_shapley_values(layer, i, "i")
 
         # Shape: (batch_size, num_partitions + 1, nhid)
         shapley_g = self._calc_shapley_values(layer, i, "g")
 
-        self._add_interactions(layer, i, shapley_i, shapley_g, split_source_bias=True)
+        self._add_interactions(layer, i, shapley_i, shapley_g)
 
     def _add_output_decomposition(self, layer: int, i: int) -> None:
         """ Calculates the output gate decomposition, Equation (23). """
-        if self.decompose_gates:
+        if self.gate_bias_rel:
+            # Shape: (batch_size, nhid)
+            shapley_o = self.activation_dict[layer, "o_g"][:, i - 1]
+        else:
             # Shape: (batch_size, num_partitions, nhid)
             c = self.decompositions[layer]["c"][:, :, i]
             if hasattr(self.model, "peepholes"):
@@ -164,14 +168,51 @@ class ShapleyDecomposer(BaseDecomposer):
 
             # Shape: (batch_size, num_partitions + 1, nhid)
             shapley_o = self._calc_shapley_values(layer, i, "o")
-        else:
-            # Shape: (batch_size, nhid)
-            shapley_o = self.activation_dict[layer, "o_g"][:, i - 1]
 
         # Shape: (batch_size, num_partitions, nhid)
         shapley_c = self._calc_shapley_values(layer, i, "c")
 
         self._add_interactions(layer, i, shapley_o, shapley_c, cell_type="h_wo_proj")
+
+    def _calc_shapley_values(self, layer: int, i: int, activation_type: str) -> Tensor:
+        """ Calculate the Shapley values at a specific instance.
+
+        We only need to take into account the activations of the
+        partitions that have been observed up to step i, which saves a
+        lot of computation.
+        """
+        partitions_seen = self._partitions_seen(i)
+
+        contains_bias = activation_type != "c"
+
+        if contains_bias:
+            # Shape: (batch_size, num_partitions + 1, nhid)
+            activations = self.activations[activation_type]
+            bias = self.bias[layer, activation_type].unsqueeze(1)
+            activations = torch.cat((activations, bias), dim=1)
+            partitions_seen.append(-1)
+        else:
+            # Shape: (batch_size, num_partitions, nhid)
+            activations = self.decompositions[layer]["c"][:, :, i]
+
+        shapley_values = torch.zeros(activations.shape, dtype=config.DTYPE)
+        activations = activations[:, partitions_seen]
+        func = np.tanh if activation_type in ["c", "g"] else sigmoid
+
+        # Shape: (batch_size, num_partitions (+ 1), nhid)
+        shapley_values[:, partitions_seen] = calc_full_shapley_values(
+            activations, func, bias_as_baseline=contains_bias
+        )
+
+        return shapley_values
+
+    def _partitions_seen(self, i: int) -> List[int]:
+        """ Return the set of partitions that have been seen at step i.
+        Future partitions to not need to be taken into account yet.
+        """
+        first_i_partitions = list(self.idx2partition_idx.values())[: i + 1]
+
+        return list(set(first_i_partitions))
 
     def _add_interactions(
         self,
@@ -179,31 +220,27 @@ class ShapleyDecomposer(BaseDecomposer):
         i: int,
         gate: Tensor,
         source: Tensor,
-        split_source_bias: bool = False,
         cell_type: str = "c",
     ) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
-        if split_source_bias and self.decompose_bias:
-            source_bias = source[:, -1, :]
-            source_signal = source[:, :-1, :]
-        else:
-            source_bias = None
-            source_signal = source
+
+        init_partition = self.idx2partition_idx[0]
+
+        # Add bias to init/bias partition
+        if source.size(1) != self.num_partitions:
+            source[:, init_partition] += source[:, -1]
+            source = source[:, :-1]
+
+        if not self.gate_bias_rel:
+            gate_bias = gate[:, -1]
+            gate = gate[:, :-1].sum(1)
+
+            self.decompositions[layer][cell_type][:, init_partition, i] += gate_bias * source.sum(1)
 
         for p_idx in range(self.num_partitions):
-            gated_source = gate * source_signal[:, p_idx]
-            if len(gate.shape) == 3:
-                gated_source = gated_source.sum(1)
+            gated_source = gate * source[:, p_idx]
 
             self.decompositions[layer][cell_type][:, p_idx, i] += gated_source
-
-        if source_bias is not None:
-            init_partition = self.idx2partition_idx[0]
-            gated_bias = gate * source_bias
-            if len(gate.shape) == 3:
-                gated_bias = gated_bias.sum(1)
-
-            self.decompositions[layer][cell_type][:, init_partition, i] += gated_bias
 
     def _project_hidden(self, layer: int, i: int) -> None:
         if self.model.sizes[layer]["h"] != self.model.sizes[layer]["c"]:
@@ -261,6 +298,7 @@ class ShapleyDecomposer(BaseDecomposer):
         else:
             self.num_partitions = len(input_partitions) + 1
             for idx in range(slen + 1):
+                # TODO: if init p_idx is provided, start=1 causes partition 0 to be unused
                 for p_idx, partition in enumerate(input_partitions, start=1):
                     if (isinstance(partition, tuple) and idx in range(*partition)) or (
                         isinstance(partition, list) and idx in partition
@@ -270,11 +308,6 @@ class ShapleyDecomposer(BaseDecomposer):
                         ), f"Input partitions are overlapping for item index {idx}!"
                         self.idx2partition_idx[idx] = p_idx
 
-                        # If 0 (i.e., init states + biases) is provided explicitly we don't need to
-                        # add a special partition for these interactions.
-                        if idx == 0:
-                            self.num_partitions -= 1
-
                 # If an index is not part of any partition we add it to the "drain" partition that
                 # contains all other indices, indexed by 0.
                 if idx not in self.idx2partition_idx:
@@ -282,45 +315,6 @@ class ShapleyDecomposer(BaseDecomposer):
                         self.idx2partition_idx[0] = 0
                     else:
                         self.idx2partition_idx[idx] = self.idx2partition_idx[0]
-
-    def _calc_shapley_values(self, layer: int, i: int, activation_type: str) -> Tensor:
-        """ Calculate the Shapley values at a specific instance.
-
-        We only need to take into account the activations of the
-        partitions that have been observed up to step i, which saves a
-        lot of computation.
-        """
-        partitions_seen = self._partitions_seen(i)
-
-        if activation_type != "c":
-            # Shape: (batch_size, num_partitions (+ 1), nhid)
-            activations = self.activations[activation_type]
-            bias = self.bias[layer, activation_type]
-            # If bias is not decomposed we add it to the "initial partition" instead.
-            if self.decompose_bias:
-                activations = torch.cat((activations, bias), dim=1)
-                partitions_seen.append(-1)
-            else:
-                init_partition = self.idx2partition_idx[0]
-                activations[:, init_partition] += bias
-        else:
-            # Shape: (batch_size, num_partitions, nhid)
-            activations = self.decompositions[layer]["c"][:, :, i]
-
-        shapley_values = torch.zeros(activations.shape, dtype=config.DTYPE)
-        activations = activations[:, partitions_seen]
-        func = np.tanh if activation_type in ["c", "g"] else sigmoid
-
-        # Shape: (batch_size, num_partitions (+ 1), nhid)
-        shapley_values[:, partitions_seen] = calc_full_shapley_values(activations, func)
-
-        return shapley_values
-
-    def _partitions_seen(self, i: int) -> List[int]:
-        """ Return the set of partitions that have been seen at step i. """
-        first_i_partitions = list(self.idx2partition_idx.values())[: i + 1]
-
-        return first_i_partitions
 
     def _validate_decomposition(self) -> None:
         """ Sum of decomposed state should equal original hidden state. """
@@ -330,7 +324,8 @@ class ShapleyDecomposer(BaseDecomposer):
         avg_difference = torch.mean(true_hidden - dec_hidden)
         max_difference = torch.max(torch.abs(true_hidden - dec_hidden))
 
-        assert torch.sum(torch.isnan(avg_difference)) == 0, "State contains nan values"
+        if torch.sum(torch.isnan(avg_difference)) != 0:
+            warnings.warn("Decomposed state contains NaN values.")
 
         if (
             not torch.allclose(true_hidden, dec_hidden, rtol=1e-3)

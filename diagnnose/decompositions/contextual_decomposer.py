@@ -50,6 +50,7 @@ class ContextualDecomposer(BaseDecomposer):
         input_never_rel: bool = False,
         init_states_rel: bool = False,
         use_extracted_activations: bool = True,
+        **kwargs: Any,
     ) -> NamedTensors:
         """ Main loop for the contextual decomposition.
 
@@ -530,7 +531,8 @@ class ContextualDecomposer(BaseDecomposer):
         avg_difference = torch.mean(true_hidden - dec_hidden)
         max_difference = torch.max(torch.abs(true_hidden - dec_hidden))
 
-        assert torch.sum(torch.isnan(avg_difference)) == 0
+        if torch.sum(torch.isnan(avg_difference)) != 0:
+            warnings.warn("Decomposed state contains NaN values.")
 
         # Sanity check: scores + irrel_scores should equal the original output
         if (
@@ -549,6 +551,7 @@ class ContextualDecomposer(BaseDecomposer):
         rel_dec = self.decompositions[self.model.top_layer]["rel_h"]
         irrel_dec = self.decompositions[self.model.top_layer]["irrel_h"]
 
+        # TODO: move extra_classes logic outside this class
         if self.extra_classes is not None:
             for i, j in enumerate(self.extra_classes, start=1):
                 rel_dec[:, -i] = rel_dec[:, j]

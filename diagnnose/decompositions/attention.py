@@ -94,14 +94,16 @@ class CDAttention:
             # decomposed we should pass a slice of N items along from here.
             sen_ids = slice(0, activation_index_len(sen_ids), 1)
 
-        decomposer_constructor = self.cd_config.pop("decomposer", "ContextualDecomposer")
+        decomposer_constructor = self.cd_config.get(
+            "decomposer", "ContextualDecomposer"
+        )
         factory = DecomposerFactory(
             self.model,
             activations_dir or TMP_DIR,
             create_new_activations=(activations_dir is None),
             corpus=self.corpus,
             sen_ids=sen_ids,
-            decomposer=decomposer_constructor
+            decomposer=decomposer_constructor,
         )
 
         decomposer = factory.create(
@@ -111,9 +113,10 @@ class CDAttention:
         if decomposer_constructor == "ContextualDecomposer":
             arr = self.calc_attention_cd(decomposer)
         else:
-            arr = self.calc_attention_shapley(decomposer)
+            arr = self.calc_attention_shapley(decomposer, extra_classes)
 
-        factory.remove_activations()
+        if activations_dir is None:
+            factory.remove_activations()
 
         if save_arr_as is not None:
             torch.save(arr, save_arr_as)
@@ -123,8 +126,8 @@ class CDAttention:
     def calc_attention_cd(self, decomposer: BaseDecomposer) -> Tensor:
         start_id = 0 if self.include_init else 1
         sen_len = int(decomposer.final_index[0]) + 1
-        normalize = self.cd_config.pop("normalize", True)
-        normalize_w_betas = self.cd_config.pop("normalize_w_betas", False)
+        normalize = self.cd_config.get("normalize", True)
+        normalize_w_betas = self.cd_config.get("normalize_w_betas", False)
 
         # Number of input features to be decomposed (init + w0 -- wn-1)
         ndecomp = sen_len - 1 + int(self.include_init)
@@ -165,15 +168,22 @@ class CDAttention:
         if self.plot_dec_bias:
             rel_scores = torch.cat((rel_scores, bias), dim=1)
 
-        # These flags are popped in order to pass cd_config directly to the decomposer,
-        # but should be set back if CDAttention were to be used again.
-        self.cd_config["normalize"] = normalize
-        self.cd_config["normalize_w_betas"] = normalize_w_betas
-
         return rel_scores
 
-    def calc_attention_shapley(self, decomposer: BaseDecomposer):
-        arr = decomposer.decompose()[:, :-1, 1:-1]
+    def calc_attention_shapley(
+        self, decomposer: BaseDecomposer, extra_classes: Optional[List[int]]
+    ) -> Tensor:
+        full_dec = decomposer.decompose()
+        # We discard the contribution of the final partition (:-1)
+        # We also discard the decomposition of the first position (i.e. the initial state)
+        # + the decomposition of the final state, as no predictions are based on that (1:-1)
+        arr = full_dec[:, :-1, 1:-1]
+
+        if extra_classes is not None:
+            for j in extra_classes:
+                extra_logits = arr[:, :, [j + 1]]
+                arr = torch.cat((arr, extra_logits), dim=2)
+
         arr = torch.diagonal(arr, dim1=2, dim2=3)
 
         bias = decomposer.decoder_b
@@ -183,7 +193,12 @@ class CDAttention:
         if self.plot_dec_bias:
             arr = torch.cat((arr, bias.unsqueeze(1)), dim=1)
 
-        return arr / full_logit.unsqueeze(1)
+        norm_arr = arr / full_logit.unsqueeze(1)
+
+        if not self.include_init:
+            norm_arr = norm_arr[:, 1:]
+
+        return norm_arr
 
     def plot_attention(self, arr: Tensor, save_plot_as: Optional[str] = None) -> None:
         arr = arr.numpy()
@@ -216,54 +231,47 @@ class CDAttention:
 
         if "xtext" in self.plot_config:
             xtext = self.plot_config["xtext"]
+            xtext_labelsize = self.plot_config.get("xtext_labelsize", 32)
 
             ax.set_xticks(range(len(xtext)))
             ax.set_xticklabels(xtext, rotation=35, ha="left", rotation_mode="anchor")
-            ax.tick_params(axis="x", which="both", labelsize=32)
+            ax.tick_params(axis="x", which="both", labelsize=xtext_labelsize)
         else:
             ax.set_xticks([])
 
         if "ytext" in self.plot_config:
             ytext = self.plot_config["ytext"]
             if self.include_init:
-                ytext = ["INIT"] + ytext
+                ytext = ["$h_0+b$"] + ytext
             if self.plot_dec_bias:
-                ytext += ["BIAS"]
+                ytext += ["$b_{dec}$"]
+            ytext_labelsize = self.plot_config.get("ytext_labelsize", 32)
 
             ax.set_yticks(range(len(ytext)))
             ax.set_yticklabels(ytext)
-            ax.tick_params(axis="y", which="both", labelsize=32)
+            ax.tick_params(axis="y", which="both", labelsize=ytext_labelsize)
         else:
             ax.set_yticks([])
 
         if self.plot_config.get("plot_values", True):
-            fs = self.plot_config.get("value_font_size", 22)
+            fontsize = self.plot_config.get("value_font_size", 22)
             for (j, i), label in np.ndenumerate(arr):
                 if label == 0.0:
                     continue
-                if (cmin / 1.4) < label < (cmax / 1.4):
-                    ax.text(
-                        i,
-                        j,
-                        f"{label:.2f}",
-                        ha="center",
-                        va="center",
-                        fontsize=fs,
-                        color="black",
-                    )
-                else:
-                    ax.text(
-                        i,
-                        j,
-                        f"{label:.2f}",
-                        ha="center",
-                        va="center",
-                        fontsize=fs,
-                        color="white",
-                    )
+                color = "black" if (cmin / 1.4) < label < (cmax / 1.4) else "white"
+                ax.text(
+                    i,
+                    j,
+                    f"{label:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=fontsize,
+                    color=color,
+                )
 
-        ax.set_ylabel("Decomposed token", fontsize=28)
-        ax.set_xlabel("Predicted class", fontsize=28)
+        if not self.plot_config.get("skip_axis_labels", False):
+            ax.set_ylabel("Decomposed token", fontsize=28)
+            ax.set_xlabel("Predicted class", fontsize=28)
 
         ax.xaxis.tick_top()
         ax.xaxis.set_label_position("top")

@@ -246,6 +246,8 @@ class DecomposerFactory:
         """ Reads activations of `a_name` from file. """
         activation_key_config = {"indextype": "pos", "a_name": a_name}
         activations = self.activation_reader[sen_ids, activation_key_config]
+
+        # N.B.: padding with NaN values!
         padded_activations: Tensor = pad_sequence(
             list(activations), batch_first=True, padding_value=float("nan")
         )
