@@ -6,11 +6,11 @@ from overrides import overrides
 from torch import Tensor
 
 import diagnnose.typedefs.config as config
-from diagnnose.models.lm import LanguageModel
+from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 
 
-class ForwardLSTM(LanguageModel):
+class ForwardLSTM(RecurrentLM):
     """ Defines a default uni-directional n-layer LSTM.
 
     Allows for extraction of intermediate states and gate activations.
@@ -23,11 +23,13 @@ class ForwardLSTM(LanguageModel):
         Torch device on which forward passes will be run.
         Defaults to cpu.
     rnn_name : str, optional
-        Name of the rnn of the model. Defaults to `rnn`.
+        Name of the rnn in the model state_dict. Defaults to `rnn`.
     encoder_name : str, optional
-        Name of the embedding encoder. Defaults to `encoder`.
+        Name of the embedding encoder in the model state_dict.
+        Defaults to `encoder`.
     decoder_name : str, optional
-        Name of the linear decoder. Defaults to `decoder`.
+        Name of the linear decoder in the model state_dict.
+        Defaults to `decoder`.
     """
 
     ih_concat_order = ["h", "i"]
@@ -53,27 +55,32 @@ class ForwardLSTM(LanguageModel):
 
         # LSTM weights
         layer = 0
+        # 1 layer RNNs do not have a layer suffix in the state_dict
+        no_suffix = self.param_names(0, rnn_name, no_suffix=True)["weight_hh"] in params
         assert (
-            self.rnn_names(0, rnn_name)["weight_hh"] in params
+                self.param_names(0, rnn_name, no_suffix=no_suffix)["weight_hh"] in params
         ), "rnn weight name not found, check if setup is correct"
 
-        while self.rnn_names(layer, rnn_name)["weight_hh"] in params:
-            rnn_names = self.rnn_names(layer, rnn_name)
+        while self.param_names(layer, rnn_name, no_suffix=no_suffix)["weight_hh"] in params:
+            param_names = self.param_names(layer, rnn_name, no_suffix=no_suffix)
 
-            w_h = params[rnn_names["weight_hh"]]
-            w_i = params[rnn_names["weight_ih"]]
+            w_h = params[param_names["weight_hh"]]
+            w_i = params[param_names["weight_ih"]]
 
             # Shape: (emb_size+nhid_h, 4*nhid_c)
             self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(config.DTYPE)
 
-            if rnn_names["bias_hh"] in params:
+            if param_names["bias_hh"] in params:
                 # Shape: (4*nhid_c,)
                 self.bias[layer] = (
-                    params[rnn_names["bias_hh"]] + params[rnn_names["bias_ih"]]
+                    params[param_names["bias_hh"]] + params[param_names["bias_ih"]]
                 ).to(config.DTYPE)
 
             self.sizes[layer] = {"x": w_i.size(1), "h": w_h.size(1), "c": w_h.size(1)}
             layer += 1
+
+            if no_suffix:
+                break
 
         # Encoder and decoder weights
         self.encoder = params[f"{encoder_name}.weight"].to(config.DTYPE)
@@ -184,7 +191,33 @@ class ForwardLSTM(LanguageModel):
         return out, activations
 
     @staticmethod
-    def rnn_names(layer: int, rnn_name: str) -> Dict[str, str]:
+    def param_names(layer: int, rnn_name: str, no_suffix: bool = False) -> Dict[str, str]:
+        """ Creates a dictionary of parameter names in a state_dict.
+
+        Parameters
+        ----------
+        layer : int
+            Current layer index.
+        rnn_name : str
+            Name of the rnn in the model state_dict. Defaults to `rnn`.
+        no_suffix : bool, optional
+            Toggle to omit the `_l{layer}` suffix from a parameter name.
+            1-layer RNNs do not have this suffix. Defaults to False.
+
+        Returns
+        -------
+        param_names : Dict[str, str]
+            Dictionary mapping a general parameter name to the model
+            specific parameter name.
+        """
+        if no_suffix:
+            return {
+                "weight_hh": f"{rnn_name}.weight_hh",
+                "weight_ih": f"{rnn_name}.weight_ih",
+                "bias_hh": f"{rnn_name}.bias_hh",
+                "bias_ih": f"{rnn_name}.bias_ih",
+            }
+
         return {
             "weight_hh": f"{rnn_name}.weight_hh_l{layer}",
             "weight_ih": f"{rnn_name}.weight_ih_l{layer}",

@@ -3,20 +3,21 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from overrides import overrides
-from torch import Tensor, nn
+from torch import nn, Tensor
 
-import diagnnose.typedefs.config as config
-from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import ActivationDict
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
 
+# layer -> name (hx/cx) -> size
 SizeDict = Dict[int, Dict[str, int]]
 
 
-class LanguageModel(ABC, nn.Module):
+class RecurrentLM(ABC, nn.Module):
     """ Abstract class for LM with intermediate activations """
 
     device: str = "cpu"
@@ -217,11 +218,8 @@ class LanguageModel(ABC, nn.Module):
         corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
 
         self.init_states = self.create_zero_states()
-        extractor = Extractor(self, corpus, save_init_states_to)
-        init_states = extractor.extract(
-            create_avg_eos=True, only_return_avg_eos=(save_init_states_to is None)
-        )
-        assert init_states is not None
+        extractor = Extractor(self, corpus, activations_dir=save_init_states_to)
+        init_states = extractor.extract(dynamic_dumping=False)
 
         return init_states
 

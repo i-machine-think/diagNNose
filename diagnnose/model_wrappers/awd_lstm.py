@@ -9,7 +9,7 @@ class AWDLSTM(ForwardLSTM):
         super().__init__(*args, **kwargs)
 
     @staticmethod
-    def rnn_names(layer: int, rnn_name: str) -> Dict[str, str]:
+    def param_names(layer: int, rnn_name: str, **kwargs) -> Dict[str, str]:
         return {
             "weight_hh": f"{rnn_name}.{layer}.module.weight_hh_l0_raw",
             "weight_ih": f"{rnn_name}.{layer}.module.weight_ih_l0",
