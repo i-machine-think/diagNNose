@@ -5,7 +5,7 @@ from diagnnose.downstream.linzen import linzen_downstream, linzen_init
 from diagnnose.downstream.marvin import marvin_downstream, marvin_init
 from diagnnose.downstream.warstadt.downstream import warstadt_downstream, warstadt_init
 from diagnnose.downstream.winobias import winobias_downstream, winobias_init
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
 task_inits: Dict[str, Callable] = {

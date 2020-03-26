@@ -9,7 +9,7 @@ from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.factory import DecomposerFactory
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 from .misc import calc_final_hidden, create_unk_sen_mask
 

@@ -8,12 +8,12 @@ from overrides import overrides
 from torch import Tensor
 
 import diagnnose.typedefs.config as config
-from diagnnose.models.lm import LanguageModel
+from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 from diagnnose.vocab import C2I, create_char_vocab
 
 
-class GoogleLM(LanguageModel):
+class GoogleLM(RecurrentLM):
     """ Reimplementation of the LM of Jozefowicz et al. (2016).
 
     Paper: https://arxiv.org/abs/1602.02410

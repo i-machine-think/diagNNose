@@ -8,7 +8,7 @@ from torchtext.data import Batch
 from torchtext.vocab import Vocab
 
 import diagnnose.typedefs.config as config
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 
 def calc_final_hidden(

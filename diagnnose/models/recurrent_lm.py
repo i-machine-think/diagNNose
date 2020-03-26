@@ -1,15 +1,18 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from overrides import overrides
-from torch import nn, Tensor
+from torch import Tensor, nn
 
+from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs import config as config
-from diagnnose.typedefs.activations import ActivationDict
+from diagnnose.typedefs.activations import ActivationDict, ActivationNames
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
 
@@ -116,6 +119,7 @@ class RecurrentLM(ABC, nn.Module):
         self,
         pickle_path: Optional[str] = None,
         corpus_path: Optional[str] = None,
+        use_default: bool = False,
         save_init_states_to: Optional[str] = None,
         vocab_path: Optional[str] = None,
     ) -> None:
@@ -149,6 +153,10 @@ class RecurrentLM(ABC, nn.Module):
         init_states : ActivationTensors
             ActivationTensors containing the init states for each layer.
         """
+        if use_default:
+            diagnnose_utils_dir = os.path.dirname(diagnnose_utils_init)
+            corpus_path = os.path.join(diagnnose_utils_dir, "init_sentence.txt")
+
         if pickle_path is not None:
             print("Loading extracted init states from file")
             init_states: ActivationDict = load_pickle(pickle_path)
@@ -217,9 +225,13 @@ class RecurrentLM(ABC, nn.Module):
     ) -> ActivationDict:
         corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
 
+        activation_names: ActivationNames = [
+            (layer, name) for layer in range(self.num_layers) for name in ["hx", "cx"]
+        ]
+
         self.init_states = self.create_zero_states()
-        extractor = Extractor(self, corpus, activations_dir=save_init_states_to)
-        init_states = extractor.extract(dynamic_dumping=False)
+        extractor = Extractor(self, corpus, activation_names, activations_dir=save_init_states_to)
+        init_states = extractor.extract(dynamic_dumping=False, selection_func=final_token)
 
         return init_states
 

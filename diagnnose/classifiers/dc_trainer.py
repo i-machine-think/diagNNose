@@ -11,10 +11,10 @@ from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.extractors.simple_extract import simple_extract
-from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationName, ActivationNames, SelectFunc
+from diagnnose.typedefs.activations import ActivationName, ActivationNames, SelectionFunc
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import dump_pickle
 
 from .logreg import LogRegModule
@@ -84,8 +84,8 @@ class DCTrainer:
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
         model: Optional[LanguageModel] = None,
-        selection_func: SelectFunc = lambda sen_id, pos, example: True,
-        test_selection_func: Optional[SelectFunc] = None,
+        selection_func: SelectionFunc = lambda sen_id, pos, example: True,
+        test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
         classifier_type: str = "logreg_torch",
         verbose: int = 0,
@@ -304,11 +304,11 @@ class DCTrainer:
         save_dir: str,
         corpus: Corpus,
         activation_names: ActivationNames,
-        selection_func: SelectFunc,
+        selection_func: SelectionFunc,
         activations_dir: Optional[str],
         test_activations_dir: Optional[str],
         test_corpus: Optional[Corpus],
-        test_selection_func: Optional[SelectFunc],
+        test_selection_func: Optional[SelectionFunc],
         model: Optional[LanguageModel],
     ) -> Tuple[str, Optional[str]]:
         if activations_dir is None:

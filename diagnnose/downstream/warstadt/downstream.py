@@ -1,15 +1,11 @@
 import os
-import shutil
 from typing import Any, Dict, List, Optional
 
 import torch
-from torch import Tensor
 
-from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
-from diagnnose.decompositions.factory import DecomposerFactory
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 from ..misc import calc_final_hidden, create_unk_sen_mask
 from .preproc import ENVS, create_downstream_corpus, preproc_warstadt
@@ -55,7 +51,7 @@ def warstadt_init(
     if not os.path.exists(TMP_DIR):
         os.mkdir(TMP_DIR)
 
-    orig_corpus = preproc_warstadt(path)[0]
+    orig_corpus, _ = preproc_warstadt(path)
 
     for env in subtasks:
         assert env in ENVS, f"Provided env {env} is not recognised!"

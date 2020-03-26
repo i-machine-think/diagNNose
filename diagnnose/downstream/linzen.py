@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.import_corpus import import_corpus
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 
 from .misc import calc_final_hidden
 
