@@ -19,7 +19,7 @@ def create_arg_descriptions() -> ArgDescriptions:
     arg_descriptions["model"].update(
         {
             "state_dict": {
-                "help": "Path to ForwardLSTM model parameters (pickled torch state_dict)"
+                "help": "Path to model parameters (pickled torch state_dict)"
             },
             "device": {
                 "help": "(optional) Torch device name on which model will be run. Defaults to cpu."
@@ -33,6 +33,16 @@ def create_arg_descriptions() -> ArgDescriptions:
             "decoder_name": {
                 "help": "(optional) Attribute name of model decoder, defaults to `decoder`."
             },
+        }
+    )
+
+    # Huggingface Transformer models
+    arg_descriptions["model"].update(
+        {
+            "tokenizer": {
+                "help": "Huggingface tokenizer that will be used for tokenization. Expected to be "
+                "of the form `transformers.{tokenizer}`."
+            }
         }
     )
 
@@ -72,9 +82,14 @@ def create_arg_descriptions() -> ArgDescriptions:
             "initial states to the model."
         },
         "save_init_states_to": {
-            "help": "Path to which the newly computed init_states will be saved. "
+            "help": "(optional) Path to which the newly computed init_states will be saved. "
             "If not provided these states won't be dumped."
         },
+        "use_default": {
+            "type": bool,
+            "help": "(optional) Toggle to use the default initial sentence `. <eos>`. "
+            "Defaults to False"
+        }
     }
 
     arg_descriptions["corpus"] = {

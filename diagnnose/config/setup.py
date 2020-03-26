@@ -17,7 +17,6 @@ from diagnnose.utils.misc import merge_dicts
 def create_config_dict(
     argparser: ArgumentParser,
     required_args: RequiredArgs,
-    arg_groups: Set[str],
     validate: bool = True,
 ) -> ConfigDict:
     """ Sets up the configuration for extraction.
@@ -39,10 +38,6 @@ def create_config_dict(
     required_args : RequiredArgs
         Set of arguments that should be at least provided in either the
         config file or as commandline argument.
-    arg_groups : Set[str]
-        Set of strings defining the arg groups related to this config.
-        The args of a group are defined in arg_parser.py. This makes it
-        easier to quickly pass different args to the parts of a module.
     validate : bool
         Toggle to validate the provided config on required args and arg
         groups. Defaults to True.
@@ -63,7 +58,7 @@ def create_config_dict(
     config_dict = add_cmd_args(config_dict, cmd_args)
 
     if validate:
-        validate_config(arg_groups, required_args, argparser, config_dict)
+        validate_config(required_args, argparser, config_dict)
 
     activation_config = config_dict.get("activations", {})
     activation_dtype = activation_config.get("dtype", None)
@@ -83,15 +78,11 @@ def create_config_dict(
 
 
 def validate_config(
-    arg_groups: Set[str],
     required_args: Set[str],
     argparser: ArgumentParser,
     config_dict: ArgDict,
 ) -> None:
-    """ Check if required args and arg groups are provided """
-    for group in arg_groups:
-        assert group in config_dict, f"Arg group `{group}` is missing in config file"
-
+    """ Check if all required args are provided """
     config_args = set(f"{g}.{k}" for g, v in config_dict.items() for k in v.keys())
     for arg in required_args:
         assert arg in config_args, argparser.error(f"--{arg} should be provided")
