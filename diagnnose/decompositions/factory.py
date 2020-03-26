@@ -16,16 +16,16 @@ from diagnnose.decompositions import (
 )
 from diagnnose.extractors.simple_extract import simple_extract
 from diagnnose.models.import_model import import_decoder_from_model
-from diagnnose.models.lm import LanguageModel
 from diagnnose.typedefs.activations import (
+    ActivationDict,
     ActivationIndex,
     ActivationName,
     ActivationNames,
-    ActivationDict,
     RemoveCallback,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 
 from .base_decomposer import BaseDecomposer
 

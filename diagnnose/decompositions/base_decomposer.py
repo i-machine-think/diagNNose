@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 import torch
 from torch import Tensor
 
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationDict,
@@ -71,6 +71,7 @@ class BaseDecomposer:
         return torch.exp(self.decoder_b)
 
     def calc_original_logits(self, normalize: bool = False) -> Tensor:
+
         assert (
             self.model.top_layer,
             "hx",
