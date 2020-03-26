@@ -1,7 +1,3 @@
-"""
-Test the code in rnnalayse.classifiers.dc_trainer.py.
-"""
-
 import os
 import shutil
 import unittest

@@ -1,7 +1,3 @@
-"""
-Test the code in diagnnose.extractors.base_extractor.py.
-"""
-
 import itertools
 import os
 import unittest
@@ -18,8 +14,8 @@ from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.models.lm import LanguageModel
-from diagnnose.typedefs.activations import ActivationDict, SelectFunc
+from diagnnose.models.recurrent_lm import RecurrentLM
+from diagnnose.typedefs.activations import ActivationDict, SelectionFunc
 from diagnnose.utils.misc import suppress_print
 
 from .test_utils import create_sentence_dummy_activations
@@ -30,7 +26,7 @@ ACTIVATION_NAMES = [(0, "hx"), (0, "cx")]
 ACTIVATIONS_DIR = "test/test_data"
 
 
-class MockLanguageModel(LanguageModel):
+class MockLanguageModel(RecurrentLM):
     """
     Create a Mock version of the LanguageModel class which returns pre-defined dummy activations.
     """
@@ -132,10 +128,9 @@ class TestExtractor(unittest.TestCase):
         cls.extractor = Extractor(
             cls.model,
             cls.corpus,
+            ACTIVATION_NAMES,
             activations_dir=ACTIVATIONS_DIR,
-            activation_names=ACTIVATION_NAMES,
         )
-        cls.extractor.activation_names = ACTIVATION_NAMES
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -289,7 +284,7 @@ class TestExtractor(unittest.TestCase):
             "Function was called with wrong type of variable, expected PartialActivationDict.",
         )
 
-    def _base_extract(self, selection_func: SelectFunc) -> Tuple[Tensor, Tensor]:
+    def _base_extract(self, selection_func: SelectionFunc) -> Tuple[Tensor, Tensor]:
         self.model.reset()
 
         sen_activations = []

@@ -1,6 +1,3 @@
-"""
-Test the code in rnnalayse.activations.activation_reader.py.
-"""
 import os
 import shutil
 import unittest
