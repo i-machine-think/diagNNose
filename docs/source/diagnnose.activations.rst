@@ -41,3 +41,11 @@ diagnnose.activations.data\_loader module
    :undoc-members:
    :show-inheritance:
 
+diagnnose.activations.selection\_funcs module
+---------------------------------------------
+
+.. automodule:: diagnnose.activations.selection_funcs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

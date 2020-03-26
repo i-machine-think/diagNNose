@@ -17,10 +17,18 @@ diagnnose.models.import\_model module
    :undoc-members:
    :show-inheritance:
 
-diagnnose.models.lm module
---------------------------
+diagnnose.models.recurrent\_lm module
+-------------------------------------
 
-.. automodule:: diagnnose.models.lm
+.. automodule:: diagnnose.models.recurrent_lm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+diagnnose.models.transformer\_lm module
+---------------------------------------
+
+.. automodule:: diagnnose.models.transformer_lm
    :members:
    :undoc-members:
    :show-inheritance:
