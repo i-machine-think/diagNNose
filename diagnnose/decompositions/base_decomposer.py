@@ -3,13 +3,9 @@ from typing import Any, List, Optional, Union
 import torch
 from torch import Tensor
 
-from diagnnose.typedefs.models import LanguageModel
-from diagnnose.typedefs.activations import (
-    ActivationName,
-    ActivationDict,
-    NamedTensors,
-)
+from diagnnose.typedefs.activations import ActivationDict, ActivationName, NamedTensors
 from diagnnose.typedefs.classifiers import LinearDecoder
+from diagnnose.typedefs.models import LanguageModel
 
 
 class BaseDecomposer:

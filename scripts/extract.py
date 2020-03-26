@@ -5,8 +5,8 @@ from diagnnose.config.setup import create_config_dict
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_from_config
 
 if __name__ == "__main__":

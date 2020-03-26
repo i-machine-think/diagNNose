@@ -88,8 +88,8 @@ def create_arg_descriptions() -> ArgDescriptions:
         "use_default": {
             "type": bool,
             "help": "(optional) Toggle to use the default initial sentence `. <eos>`. "
-            "Defaults to False"
-        }
+            "Defaults to False",
+        },
     }
 
     arg_descriptions["corpus"] = {
@@ -272,8 +272,8 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
         "patches": {
             "nargs": "*",
-            "help": "(optional) List of [x, y] tuples denoting highlighted patch indices."
-        }
+            "help": "(optional) List of [x, y] tuples denoting highlighted patch indices.",
+        },
     }
 
     arg_descriptions["downstream"] = {
@@ -284,8 +284,8 @@ def create_arg_descriptions() -> ArgDescriptions:
         "tasks": {
             "nargs": "*",
             "help": "List of tasks for which the downstream setup should be computed. This allows"
-            "to store the config of each task in the json if one wishes to skip it momentarily."
-        }
+            "to store the config of each task in the json if one wishes to skip it momentarily.",
+        },
     }
 
     return arg_descriptions

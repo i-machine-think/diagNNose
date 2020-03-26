@@ -49,10 +49,7 @@ class RecurrentLM(ABC, nn.Module):
     @overrides
     @abstractmethod
     def forward(
-        self,
-        input_: Tensor,
-        prev_activations: ActivationDict,
-        compute_out: bool = True,
+        self, input_: Tensor, prev_activations: ActivationDict, compute_out: bool = True
     ) -> Tuple[Optional[Tensor], ActivationDict]:
         """ Performs a single forward pass across all rnn layers.
 
@@ -230,8 +227,12 @@ class RecurrentLM(ABC, nn.Module):
         ]
 
         self.init_states = self.create_zero_states()
-        extractor = Extractor(self, corpus, activation_names, activations_dir=save_init_states_to)
-        init_states = extractor.extract(dynamic_dumping=False, selection_func=final_token)
+        extractor = Extractor(
+            self, corpus, activation_names, activations_dir=save_init_states_to
+        )
+        init_states = extractor.extract(
+            dynamic_dumping=False, selection_func=final_token
+        )
 
         return init_states
 

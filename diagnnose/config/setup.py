@@ -15,9 +15,7 @@ from diagnnose.utils.misc import merge_dicts
 
 
 def create_config_dict(
-    argparser: ArgumentParser,
-    required_args: RequiredArgs,
-    validate: bool = True,
+    argparser: ArgumentParser, required_args: RequiredArgs, validate: bool = True
 ) -> ConfigDict:
     """ Sets up the configuration for extraction.
 
@@ -78,9 +76,7 @@ def create_config_dict(
 
 
 def validate_config(
-    required_args: Set[str],
-    argparser: ArgumentParser,
-    config_dict: ArgDict,
+    required_args: Set[str], argparser: ArgumentParser, config_dict: ArgDict
 ) -> None:
     """ Check if all required args are provided """
     config_args = set(f"{g}.{k}" for g, v in config_dict.items() for k in v.keys())

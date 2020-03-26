@@ -1,10 +1,10 @@
-from diagnnose.config.setup import create_config_dict
 from diagnnose.config.arg_parser import create_arg_parser
+from diagnnose.config.setup import create_config_dict
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.attention import CDAttention
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_from_config
 
 if __name__ == "__main__":
@@ -32,19 +32,7 @@ if __name__ == "__main__":
         plot_config=config_dict["plot_attention"],
     )
 
-    sen = [
-        "The",
-        "NP$_{sing}$",
-        "PREP",
-        "the",
-        "NP$_{plur}$",
-        "VP$_{sing}$",
-    ]
-    attention.plot_config.update({
-        "xtext": sen[1:],
-        "ytext": sen[:-1],
-    })
+    sen = ["The", "NP$_{sing}$", "PREP", "the", "NP$_{plur}$", "VP$_{sing}$"]
+    attention.plot_config.update({"xtext": sen[1:], "ytext": sen[:-1]})
     attention.plot_config["title"] = "NounPP Gulordava SP - SD"
-    attention.plot_by_sen_id(
-        slice(1200, 1500, 2), avg_decs=True
-    )
+    attention.plot_by_sen_id(slice(1200, 1500, 2), avg_decs=True)

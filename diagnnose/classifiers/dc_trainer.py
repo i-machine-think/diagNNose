@@ -11,7 +11,11 @@ from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.extractors.simple_extract import simple_extract
-from diagnnose.typedefs.activations import ActivationName, ActivationNames, SelectionFunc
+from diagnnose.typedefs.activations import (
+    ActivationName,
+    ActivationNames,
+    SelectionFunc,
+)
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel

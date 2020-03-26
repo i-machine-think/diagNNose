@@ -8,11 +8,11 @@ from torch import Tensor
 
 import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import (
+    ActivationDict,
     ActivationIndex,
     ActivationKey,
     ActivationName,
     ActivationRanges,
-    ActivationDict,
     Range,
 )
 from diagnnose.utils.pickle import load_pickle

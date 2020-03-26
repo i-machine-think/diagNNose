@@ -167,7 +167,7 @@ def lakretz_downstream(
                 activations_dir,
                 create_new_activations=(activation_reader is None),
                 corpus=corpus,
-                decomposer=decompose_type
+                decomposer=decompose_type,
             )
         else:
             factory = None
@@ -203,7 +203,9 @@ def lakretz_downstream(
 
                     decomposition = decomposer.decompose(gate_bias_rel=gate_bias_rel)
 
-                    partition = slice(decompose_config["start"], decompose_config["stop"])
+                    partition = slice(
+                        decompose_config["start"], decompose_config["stop"]
+                    )
                     final_hidden = decomposition[:, partition, -1].sum(1)  # n.b.: sum!
                 else:
                     final_hidden = torch.stack(

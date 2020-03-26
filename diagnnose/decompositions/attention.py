@@ -13,9 +13,9 @@ from diagnnose.activations.activation_index import (
 )
 from diagnnose.decompositions import DecomposerFactory
 from diagnnose.decompositions.base_decomposer import BaseDecomposer
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.activations import ActivationIndex
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.midpoint import MidPointNorm
 
 plt.rcParams["figure.figsize"] = 15, 10

@@ -10,10 +10,10 @@ from tqdm import tqdm
 from diagnnose.activations.activation_writer import ActivationWriter
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationListDict,
     ActivationNames,
     ActivationRanges,
-    ActivationListDict,
-    ActivationDict,
     BatchActivationTensorLists,
     BatchActivationTensors,
     SelectionFunc,
@@ -108,11 +108,10 @@ class Extractor:
 
         with ExitStack() as stack:
             if dump_activations:
-                print(f"Saving activations to `{self.activation_writer.activations_dir}`")
-                self.activation_writer.create_output_files(
-                    stack,
-                    self.activation_names,
+                print(
+                    f"Saving activations to `{self.activation_writer.activations_dir}`"
                 )
+                self.activation_writer.create_output_files(stack, self.activation_names)
 
             for batch in tqdm(iterator, unit="batch"):
                 batch_activations, n_extracted = self._extract_sentence(
@@ -121,9 +120,7 @@ class Extractor:
 
                 for j in batch_activations.keys():
                     if dump_activations and dynamic_dumping:
-                        self.activation_writer.dump_activations(
-                            batch_activations[j]
-                        )
+                        self.activation_writer.dump_activations(batch_activations[j])
                     else:
                         for name in all_activations.keys():
                             all_activations[name].append(batch_activations[j][name])
@@ -145,9 +142,7 @@ class Extractor:
             else:
                 final_activations = {}
                 for name in all_activations.keys():
-                    final_activations[name] = torch.cat(
-                        all_activations[name], dim=0
-                    )
+                    final_activations[name] = torch.cat(all_activations[name], dim=0)
 
             if dump_activations:
                 self.activation_writer.dump_activation_ranges(activation_ranges)

@@ -126,10 +126,7 @@ class TestExtractor(unittest.TestCase):
 
         # Init extractor
         cls.extractor = Extractor(
-            cls.model,
-            cls.corpus,
-            ACTIVATION_NAMES,
-            activations_dir=ACTIVATIONS_DIR,
+            cls.model, cls.corpus, ACTIVATION_NAMES, activations_dir=ACTIVATIONS_DIR
         )
 
     @classmethod

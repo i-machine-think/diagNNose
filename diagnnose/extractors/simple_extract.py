@@ -1,9 +1,13 @@
 import shutil
 
 from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.typedefs.models import LanguageModel
-from diagnnose.typedefs.activations import ActivationNames, RemoveCallback, SelectionFunc
+from diagnnose.typedefs.activations import (
+    ActivationNames,
+    RemoveCallback,
+    SelectionFunc,
+)
 from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
 BATCH_SIZE = 1024

@@ -58,10 +58,13 @@ class ForwardLSTM(RecurrentLM):
         # 1 layer RNNs do not have a layer suffix in the state_dict
         no_suffix = self.param_names(0, rnn_name, no_suffix=True)["weight_hh"] in params
         assert (
-                self.param_names(0, rnn_name, no_suffix=no_suffix)["weight_hh"] in params
+            self.param_names(0, rnn_name, no_suffix=no_suffix)["weight_hh"] in params
         ), "rnn weight name not found, check if setup is correct"
 
-        while self.param_names(layer, rnn_name, no_suffix=no_suffix)["weight_hh"] in params:
+        while (
+            self.param_names(layer, rnn_name, no_suffix=no_suffix)["weight_hh"]
+            in params
+        ):
             param_names = self.param_names(layer, rnn_name, no_suffix=no_suffix)
 
             w_h = params[param_names["weight_hh"]]
@@ -191,7 +194,9 @@ class ForwardLSTM(RecurrentLM):
         return out, activations
 
     @staticmethod
-    def param_names(layer: int, rnn_name: str, no_suffix: bool = False) -> Dict[str, str]:
+    def param_names(
+        layer: int, rnn_name: str, no_suffix: bool = False
+    ) -> Dict[str, str]:
         """ Creates a dictionary of parameter names in a state_dict.
 
         Parameters

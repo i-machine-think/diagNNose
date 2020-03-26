@@ -1,6 +1,7 @@
 from itertools import combinations
 from math import factorial
 from typing import Callable, Dict, Sequence
+
 import numpy as np
 import torch
 from scipy.special import expit as sigmoid
@@ -46,7 +47,9 @@ def calc_shapley_factors(n: int) -> Dict[Sequence[int], int]:
 
 
 def calc_full_shapley_values(
-    tensor: Tensor, func: Callable[[np.ndarray], np.ndarray], bias_as_baseline: bool = False
+    tensor: Tensor,
+    func: Callable[[np.ndarray], np.ndarray],
+    bias_as_baseline: bool = False,
 ) -> Tensor:
     """Computes Shapley values for a summed tensor over tanh/sigmoid.
 

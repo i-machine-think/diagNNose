@@ -4,15 +4,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import torch
 from overrides import overrides
-from torch import Tensor
 from scipy.special import expit as sigmoid
+from torch import Tensor
 
 import diagnnose.typedefs.config as config
 from diagnnose.typedefs.activations import Decompositions, NamedTensors
 
 from .contextual_decomposer import BaseDecomposer
 from .shapley_full import calc_full_shapley_values
-
 
 # Tuple: range(start, end) or list of indices
 # First token of sentence is index 1, init states are index 0
@@ -215,12 +214,7 @@ class ShapleyDecomposer(BaseDecomposer):
         return list(set(first_i_partitions))
 
     def _add_interactions(
-        self,
-        layer: int,
-        i: int,
-        gate: Tensor,
-        source: Tensor,
-        cell_type: str = "c",
+        self, layer: int, i: int, gate: Tensor, source: Tensor, cell_type: str = "c"
     ) -> None:
         """ Allows for interactions to be grouped differently than as specified in the paper. """
 
@@ -235,7 +229,9 @@ class ShapleyDecomposer(BaseDecomposer):
             gate_bias = gate[:, -1]
             gate = gate[:, :-1].sum(1)
 
-            self.decompositions[layer][cell_type][:, init_partition, i] += gate_bias * source.sum(1)
+            self.decompositions[layer][cell_type][
+                :, init_partition, i
+            ] += gate_bias * source.sum(1)
 
         for p_idx in range(self.num_partitions):
             gated_source = gate * source[:, p_idx]

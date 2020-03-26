@@ -5,10 +5,10 @@ from contextlib import ExitStack
 from typing import BinaryIO, Optional
 
 from diagnnose.typedefs.activations import (
+    ActivationDict,
     ActivationFiles,
     ActivationNames,
     ActivationRanges,
-    ActivationDict,
 )
 from diagnnose.utils.pickle import dump_pickle
 
@@ -40,9 +40,7 @@ class ActivationWriter:
         self.activation_ranges_file: Optional[BinaryIO] = None
 
     def create_output_files(
-        self,
-        stack: ExitStack,
-        activation_names: ActivationNames,
+        self, stack: ExitStack, activation_names: ActivationNames
     ) -> None:
         """ Opens a file for each to-be-extracted activation. """
         self.activation_names = activation_names
@@ -56,8 +54,7 @@ class ActivationWriter:
         self.activation_files = {
             (layer, name): stack.enter_context(
                 open(
-                    os.path.join(self.activations_dir, f"{name}_l{layer}.pickle"),
-                    "wb",
+                    os.path.join(self.activations_dir, f"{name}_l{layer}.pickle"), "wb"
                 )
             )
             for (layer, name) in self.activation_names

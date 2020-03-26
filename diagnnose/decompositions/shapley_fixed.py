@@ -1,6 +1,7 @@
-from typing import Callable, Dict, List, Sequence
 from itertools import combinations
 from math import factorial
+from typing import Callable, Dict, List, Sequence
+
 import torch
 from torch import Tensor
 
