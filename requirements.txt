@@ -8,3 +8,4 @@ torchtext
 tqdm
 unidecode
 skorch==0.7.0
+transformers
