@@ -4,13 +4,13 @@ from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import create_config_dict
 from diagnnose.downstream.suite import DownstreamSuite
 from diagnnose.models.import_model import import_model
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_from_config
 
 if __name__ == "__main__":
     arg_groups = {"model", "vocab", "downstream", "init_states"}
     arg_parser, required_args = create_arg_parser(arg_groups)
-    config_dict = create_config_dict(arg_parser, required_args, arg_groups)
+    config_dict = create_config_dict(arg_parser, required_args)
 
     vocab_path = get_vocab_from_config(config_dict)
     assert vocab_path is not None, "vocab_path should be provided"
@@ -31,6 +31,6 @@ if __name__ == "__main__":
     )
 
     model: LanguageModel = import_model(config_dict)
-    results = suite.run(model, ignore_unk=True)
+    results = suite.run(model, ignore_unk=False, add_dec_bias=True)
 
     pprint(results)
