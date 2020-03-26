@@ -24,6 +24,32 @@ TMP_DIR = "tmp"
 
 
 class CDAttention:
+    """ Creates an attention-like plot based on CD scores.
+
+    An example of such plots can be found in Figure 2 of Jumelet et al.
+    (2019): https://www.aclweb.org/anthology/K19-1001.pdf
+
+    Parameters
+    ----------
+    model : LanguageModel
+        LM for which scores will be computed. Can be created using
+        `import_model`.
+    corpus : Corpus
+        Corpus object for which scores will be computed. Can be indexed
+        later when creating the actual attention plot.
+    include_init : bool, optional
+        Toggle to include the initial states in the final plot. Defaults
+        to True.
+    plot_dec_bias : bool, optional
+        Toggle to include the contribution of the decoder bias term.
+        Defaults to True.
+    cd_config : Dict[str, Any], optional
+        Dictionary containing the configuration that is passed to the
+        decomposer instance.
+    plot_config : Dict[str, Any], optional
+        Dictionary containing the configuration for the plot that is
+        created.
+    """
     def __init__(
         self,
         model: LanguageModel,
@@ -50,6 +76,54 @@ class CDAttention:
         save_arr_as: Optional[str] = None,
         save_plot_as: Optional[str] = None,
     ) -> Tensor:
+        """ Calculates the CD contributions and creates a plot.
+
+        Parameters
+        ----------
+        sen_ids : ActivationIndex
+            ActivationIndex that signifies the subset of sentences for
+            which the plot will be created.
+        activations_dir : str, optional
+            Directory in which activations are stored using Extractor.
+            If not provided new activations will be extracted and stored
+            temporarily.
+        avg_decs : bool, optional
+            Toggle to average the contribution scores of all the items
+            in the corpus subset. If set to True, only 1 plot is made.
+            If set to False, a plot will be created for each individual
+            item. Defaults to False.
+        extra_classes : List[int], optional
+            If we want to calculate the contributions to multiple tokens
+            at the same position, we should make sure we are basing
+            these contributions on the correct position of the sentence.
+            An example of such a case can be found in the aforementioned
+            paper, Figure 2, the latter 2 columns.
+
+            This argument allows you to define the position at which the
+            2nd (and 3rd, 4th, etc.) extra token should be placed.
+            Negative indices can be used. Extra tokens are for now
+            expected to be placed at the end of a sentence.
+
+            This functionality has not been polished at all, and should
+            be used with care. If uncertain, feel free to reach out to
+            the author for help.
+        arr_pickle : str, optional
+            Path to a pickled numpy array that contains the contribution
+            scores that have already been computed. If provided, no new
+            contributions will be created. Recommended to use when
+            refining the layout of the plot itself.
+        save_arr_as : str, optional
+            Optional path at which the computed contributions will be
+            stored.
+        save_plot_as : str, optional
+            Optional path at which the plots will be stored. Plots are
+            also shown using `plt.show()`, so can be saved either way.
+
+        Returns
+        -------
+        arr : Tensor
+            Torch tensor containing the computed contributions.
+        """
         if arr_pickle is not None:
             arr: Tensor = torch.load(arr_pickle)
         else:
@@ -85,6 +159,41 @@ class CDAttention:
         extra_classes: Optional[List[int]] = None,
         save_arr_as: Optional[str] = None,
     ) -> Tensor:
+        """ Calculates the CD contributions and creates a plot.
+
+        Parameters
+        ----------
+        sen_ids : ActivationIndex
+            ActivationIndex that signifies the subset of sentences for
+            which the plot will be created.
+        activations_dir : str, optional
+            Directory in which activations are stored using Extractor.
+            If not provided new activations will be extracted and stored
+            temporarily.
+        extra_classes : List[int], optional
+            If we want to calculate the contributions to multiple tokens
+            at the same position, we should make sure we are basing
+            these contributions on the correct position of the sentence.
+            An example of such a case can be found in the aforementioned
+            paper, Figure 2, the latter 2 columns.
+
+            This argument allows you to define the position at which the
+            2nd (and 3rd, 4th, etc.) extra token should be placed.
+            Negative indices can be used. Extra tokens are for now
+            expected to be placed at the end of a sentence.
+
+            This functionality has not been polished at all, and should
+            be used with care. If uncertain, feel free to reach out to
+            the author for help.
+        save_arr_as : str, optional
+            Optional path at which the computed contributions will be
+            stored.
+
+        Returns
+        -------
+        arr : Tensor
+            Torch tensor containing the computed contributions.
+        """
         if isinstance(sen_ids, int):
             sen_ids = [sen_ids]
         classes = self._create_output_classes(sen_ids)
@@ -111,9 +220,9 @@ class CDAttention:
         )
 
         if decomposer_constructor == "ContextualDecomposer":
-            arr = self.calc_attention_cd(decomposer)
+            arr = self._calc_attention_cd(decomposer)
         else:
-            arr = self.calc_attention_shapley(decomposer, extra_classes)
+            arr = self._calc_attention_shapley(decomposer, extra_classes)
 
         if activations_dir is None:
             factory.remove_activations()
@@ -123,7 +232,7 @@ class CDAttention:
 
         return arr
 
-    def calc_attention_cd(self, decomposer: BaseDecomposer) -> Tensor:
+    def _calc_attention_cd(self, decomposer: BaseDecomposer) -> Tensor:
         start_id = 0 if self.include_init else 1
         sen_len = int(decomposer.final_index[0]) + 1
         normalize = self.cd_config.get("normalize", True)
@@ -170,7 +279,7 @@ class CDAttention:
 
         return rel_scores
 
-    def calc_attention_shapley(
+    def _calc_attention_shapley(
         self, decomposer: BaseDecomposer, extra_classes: Optional[List[int]]
     ) -> Tensor:
         full_dec = decomposer.decompose()
@@ -200,6 +309,7 @@ class CDAttention:
 
         return norm_arr
 
+    # TODO: pass plot_config args individually for clarity here
     def plot_attention(self, arr: Tensor, save_plot_as: Optional[str] = None) -> None:
         arr = arr.numpy()
         arr_mask = np.ma.masked_array(arr, mask=(arr != 0.0))
