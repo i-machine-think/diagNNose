@@ -82,5 +82,5 @@ If this is set to ``None`` the partition will be created for each individual inp
 Otherwise a list can be passed, containing lists (indicating indices that are part of that partition) or tuples (indicating the range that constitutes that partition).
 
 The ``partition`` object that is a tensor that represents the partition.
-If ``classes`` has been provided the partitions is a tensor of shape :math:`bsz\times P\times P\times C`, with :math:`bsz` the batch size (number of ``sen_ids``), :math:`P` the number of partitions and :math:`C` the number of ``classes``.
-If ``classes`` has not been provided the partition is a tensor of shape :math:`bsz\times P\times P\times d_h``, with :math:`d_h` the dimension of the hidden state.
+If ``classes`` has been provided the partitions is a tensor of shape :math:`bsz\times P\times T\times C`, with :math:`bsz` the batch size (number of ``sen_ids``), :math:`P` the number of partitions, :math:`T` the sequence length (length of ``subsen_idx``), and :math:`C` the number of ``classes``.
+If ``classes`` has not been provided the partition is a tensor of shape :math:`bsz\times P\times T\times d_h``, with :math:`d_h` the dimension of the hidden state.
