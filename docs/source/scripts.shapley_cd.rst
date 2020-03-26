@@ -50,8 +50,8 @@ Note that the full ``config_dict`` is passed, as the initialisation depends on m
 We then extract the ``vocab_path`` and pass this to `import_corpus <diagnnose.corpus.html#diagnnose.corpus.import_corpus.import_corpus>`_.
 
 .. literalinclude:: ../../scripts/shapley_cd.py
-    :lines: 21-22,25-29
-    :lineno-start: 23
+    :lines: 25-27
+    :lineno-start: 25
     :linenos:
 
 We define the ``sen_ids`` that define the sentences for which the decomposition will be computed.
@@ -59,8 +59,8 @@ We then create a `DecomposerFactory <diagnnose.decompositions.html#diagnnose.dec
 The ``factory`` also takes care of reading in the required activations, and setting up other properties that are needed for decomposition.
 
 .. literalinclude:: ../../scripts/shapley_cd.py
-    :lines: 31-33
-    :lineno-start: 31
+    :lines: 29-31
+    :lineno-start: 29
     :linenos:
 
 The ``factory`` creates a new ``decomposer`` instance, that will compute the decomposition itself.
@@ -72,8 +72,8 @@ If ``classes`` is not provided the decomposed hidden state will be returned (:ma
 For instance, if we only need to create the decomposition up to the 4th step we pass along ``slice(0, 4)``.
 
 .. literalinclude:: ../../scripts/shapley_cd.py
-    :lines: 37-40
-    :lineno-start: 37
+    :lines: 35-37
+    :lineno-start: 35
     :linenos:
 
 The actual decomposition is performed by calling ``decompser.decompose``.

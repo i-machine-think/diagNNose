@@ -180,7 +180,7 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-autodoc_mock_imports = ['torch', 'skorch', 'torchtext', 'sklearn']
+autodoc_mock_imports = ['torch', 'skorch', 'torchtext', 'sklearn', 'transformers']
 
 html_theme_options = {
     'display_version': True,
