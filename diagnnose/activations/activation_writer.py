@@ -30,8 +30,6 @@ class ActivationWriter:
         List of (layer, activation_name) tuples
     activation_files : ActivationFiles
         Dict of files to which activations will be written.
-    avg_eos_file: Optional[BinaryIO]
-        File to which avg end of sentence activations will be written
     """
 
     def __init__(self, activations_dir: str) -> None:
@@ -40,14 +38,11 @@ class ActivationWriter:
         self.activation_names: ActivationNames = []
         self.activation_files: ActivationFiles = {}
         self.activation_ranges_file: Optional[BinaryIO] = None
-        self.avg_eos_file: Optional[BinaryIO] = None
 
     def create_output_files(
         self,
         stack: ExitStack,
         activation_names: ActivationNames,
-        dump_activations: bool = True,
-        dump_avg_eos: bool = False,
     ) -> None:
         """ Opens a file for each to-be-extracted activation. """
         self.activation_names = activation_names
@@ -58,23 +53,19 @@ class ActivationWriter:
         if os.listdir(self.activations_dir):
             warnings.warn("Output directory %s is not empty" % self.activations_dir)
 
-        if dump_activations:
-            self.activation_files = {
-                (layer, name): stack.enter_context(
-                    open(
-                        os.path.join(self.activations_dir, f"{name}_l{layer}.pickle"),
-                        "wb",
-                    )
+        self.activation_files = {
+            (layer, name): stack.enter_context(
+                open(
+                    os.path.join(self.activations_dir, f"{name}_l{layer}.pickle"),
+                    "wb",
                 )
-                for (layer, name) in self.activation_names
-            }
-            self.activation_ranges_file = stack.enter_context(
-                open(os.path.join(self.activations_dir, "ranges.pickle"), "wb")
             )
-        if dump_avg_eos:
-            self.avg_eos_file = stack.enter_context(
-                open(os.path.join(self.activations_dir, "avg_eos.pickle"), "wb")
-            )
+            for (layer, name) in self.activation_names
+        }
+
+        self.activation_ranges_file = stack.enter_context(
+            open(os.path.join(self.activations_dir, "ranges.pickle"), "wb")
+        )
 
     def dump_activations(self, activations: ActivationDict) -> None:
         """ Dumps the generated activations to a list of opened files
@@ -89,6 +80,7 @@ class ActivationWriter:
             assert (
                 activation_name in self.activation_files.keys()
             ), "Activation file is not opened"
+
             pickle.dump(
                 activations[activation_name], self.activation_files[activation_name]
             )
@@ -97,11 +89,6 @@ class ActivationWriter:
         assert self.activation_ranges_file is not None
 
         pickle.dump(activation_ranges, self.activation_ranges_file)
-
-    def dump_avg_eos(self, avg_eos_states: ActivationDict) -> None:
-        assert self.avg_eos_file is not None
-
-        pickle.dump(avg_eos_states, self.avg_eos_file)
 
     def concat_pickle_dumps(self, overwrite: bool = True) -> None:
         """ Concatenates a sequential pickle dump and pickles to file .

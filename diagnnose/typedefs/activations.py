@@ -19,14 +19,14 @@ ActivationDict = Dict[ActivationName, Tensor]
 ActivationListDict = Dict[ActivationName, List[Tensor]]
 
 # Batch id to ActivationTensors
-BatchActivationTensors = Dict[int, Dict[ActivationName, Tensor]]
+BatchActivationTensors = Dict[int, ActivationDict]
 # Batch id to ActivationTensorLists
 BatchActivationTensorLists = Dict[int, ActivationListDict]
 
 
 # EXTRACTION
 # sen_id, w position, batch item -> bool
-SelectFunc = Callable[[int, int, Example], bool]
+SelectionFunc = Callable[[int, int, Example], bool]
 
 Range = Tuple[int, int]
 ActivationRanges = Dict[int, Range]

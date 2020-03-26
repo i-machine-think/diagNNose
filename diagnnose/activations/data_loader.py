@@ -7,7 +7,7 @@ from torchtext.vocab import Vocab
 
 from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_labels import create_labels_from_corpus
-from diagnnose.typedefs.activations import ActivationName, SelectFunc
+from diagnnose.typedefs.activations import ActivationName, SelectionFunc
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
 from diagnnose.typedefs.corpus import Corpus
 
@@ -48,8 +48,8 @@ class DataLoader:
         corpus: Corpus,
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
-        selection_func: SelectFunc = lambda sen_id, pos, example: True,
-        test_selection_func: Optional[SelectFunc] = None,
+        selection_func: SelectionFunc = lambda sen_id, pos, example: True,
+        test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
     ) -> None:
         assert corpus is not None, "`corpus`should be provided!"
@@ -184,8 +184,8 @@ class DataLoader:
     @staticmethod
     def split_train_test_activations(
         corpus: Corpus,
-        selection_func: SelectFunc,
-        test_selection_func: Optional[SelectFunc] = None,
+        selection_func: SelectionFunc,
+        test_selection_func: Optional[SelectionFunc] = None,
     ) -> Tuple[Tensor, Tensor]:
         train_ids = []
         test_ids = []

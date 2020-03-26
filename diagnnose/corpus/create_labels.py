@@ -3,14 +3,14 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-from diagnnose.typedefs.activations import SelectFunc
+from diagnnose.typedefs.activations import SelectionFunc
 from diagnnose.typedefs.classifiers import ControlTask
 from diagnnose.typedefs.corpus import Corpus
 
 
 def create_labels_from_corpus(
     corpus: Corpus,
-    selection_func: SelectFunc = lambda sen_id, pos, example: True,
+    selection_func: SelectionFunc = lambda sen_id, pos, example: True,
     control_task: Optional[ControlTask] = None,
 ) -> Tensor:
     """ Creates labels based on the selection_func that was used during
