@@ -11,10 +11,9 @@
     "header": ["sen", "type", "correct", "idx"]
   },
   "activations": {
-    "activations_dir": "../lm_data/activations/extracted/lakretz_nounpp_float64"
   },
   "init_states": {
-    "corpus_path": "../diagnnose/utils/init_sentence.txt"
+    "use_default": true
   },
   "decompose": {
     "decomposer": "ContextualDecomposer",

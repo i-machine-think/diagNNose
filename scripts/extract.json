@@ -10,8 +10,8 @@
     "path": "../lm_data/models/gulordava/vocab.txt"
   },
   "corpus": {
-    "path": "../lm_data/corpora/npi/warstadt_all_items.tsv",
-    "header_from_first_line": true
+    "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
+    "header": ["sen", "condition", "wrong_correct", "sen_id"]
   },
   "activations": {
     "activation_names": ["hx1"],

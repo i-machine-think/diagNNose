@@ -7,7 +7,7 @@ from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import create_config_dict
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.import_model import import_model
-from diagnnose.models.lm import LanguageModel
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.vocab import get_vocab_from_config
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     }
     arg_parser, required_args = create_arg_parser(arg_groups)
     config_dict = create_config_dict(
-        arg_parser, required_args, arg_groups, validate=False
+        arg_parser, required_args, validate=False
     )
 
     vocab_path = get_vocab_from_config(config_dict)
@@ -45,14 +45,14 @@ if __name__ == "__main__":
 
     # Example selection_func/test_selection_func setup:
     # Evaluate on second hidden state, train on the rest
-    def selection_func(sen_id: int, pos: int, item: Example):
+    def selection_func(_sen_id: int, pos: int, _item: Example):
         return pos != 1
 
-    def test_selection_func(sen_id: int, pos: int, item: Example):
+    def test_selection_func(_sen_id: int, pos: int, _item: Example):
         return pos == 1
 
     # Use a random mapping based on the current token for the control task.
-    def control_task(sen_id: int, pos: int, item: Example):
+    def control_task(_sen_id: int, pos: int, item: Example):
         return corpus_vocab[item.sen[pos]] % len(label_vocab)
 
     dc_trainer = DCTrainer(
