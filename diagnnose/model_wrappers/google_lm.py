@@ -100,15 +100,18 @@ class GoogleLM(RecurrentLM):
     def forward(
         self,
         tokens: List[str],
-        prev_activations: ActivationDict,
+        prev_activations: Optional[ActivationDict] = None,
         compute_out: bool = True,
     ) -> Tuple[Optional[Tensor], ActivationDict]:
         # Create the embeddings of the input words
         embs = self.encoder(tokens)
 
+        if prev_activations is None:
+            prev_activations = self.init_hidden(1)
+
         logits, activations = self.lstm(embs, prev_activations)
 
-        if compute_out:
+        if compute_out and self.decoder_w is not None:
             out = self.decoder_w @ logits + self.decoder_b
         else:
             out = None

@@ -6,7 +6,7 @@ import diagnnose.model_wrappers as wrappers
 from diagnnose.typedefs.classifiers import LinearDecoder
 from diagnnose.typedefs.config import ConfigDict
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import get_vocab_from_config
+from diagnnose.vocab import get_vocab_path_from_config
 
 
 def import_model(config_dict: ConfigDict) -> LanguageModel:
@@ -38,7 +38,7 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
         model_constructor: Type[LanguageModel] = getattr(wrappers, model_type)
         model: LanguageModel = model_constructor(**config_dict["model"])
 
-        vocab_path = get_vocab_from_config(config_dict)
+        vocab_path = get_vocab_path_from_config(config_dict)
         model.set_init_states(
             vocab_path=vocab_path, **config_dict.get("init_states", {})
         )
