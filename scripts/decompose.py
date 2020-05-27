@@ -7,7 +7,7 @@ from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import get_vocab_from_config
+from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":
     arg_groups = {"model", "init_states", "corpus", "vocab", "activations", "decompose"}
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     config_dict = create_config_dict(arg_parser, required_args)
 
     model: LanguageModel = import_model(config_dict)
-    vocab_path = get_vocab_from_config(config_dict)
+    vocab_path = get_vocab_path_from_config(config_dict)
     corpus: Corpus = import_corpus(vocab_path=vocab_path, **config_dict["corpus"])
 
     decompose_args = {**config_dict["decompose"], **config_dict["activations"]}

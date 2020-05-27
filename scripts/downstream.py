@@ -5,14 +5,14 @@ from diagnnose.config.setup import create_config_dict
 from diagnnose.downstream.suite import DownstreamSuite
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import get_vocab_from_config
+from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":
     arg_groups = {"model", "vocab", "downstream", "init_states"}
     arg_parser, required_args = create_arg_parser(arg_groups)
     config_dict = create_config_dict(arg_parser, required_args)
 
-    vocab_path = get_vocab_from_config(config_dict)
+    vocab_path = get_vocab_path_from_config(config_dict)
     assert vocab_path is not None, "vocab_path should be provided"
 
     # Only pass along the selected set of tasks in the config

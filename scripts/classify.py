@@ -9,7 +9,7 @@ from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import get_vocab_from_config
+from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":
     arg_groups = {
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     arg_parser, required_args = create_arg_parser(arg_groups)
     config_dict = create_config_dict(arg_parser, required_args, validate=False)
 
-    vocab_path = get_vocab_from_config(config_dict)
+    vocab_path = get_vocab_path_from_config(config_dict)
 
     corpus: Corpus = import_corpus(vocab_path=vocab_path, **config_dict["corpus"])
     test_corpus: Optional[Corpus] = None

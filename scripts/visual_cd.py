@@ -5,7 +5,7 @@ from diagnnose.decompositions.attention import CDAttention
 from diagnnose.models.import_model import import_model
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import get_vocab_from_config
+from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":
     arg_groups = {
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     model: LanguageModel = import_model(config_dict)
     corpus: Corpus = import_corpus(
-        vocab_path=get_vocab_from_config(config_dict), **config_dict["corpus"]
+        vocab_path=get_vocab_path_from_config(config_dict), **config_dict["corpus"]
     )
 
     attention = CDAttention(
