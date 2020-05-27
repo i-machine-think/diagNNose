@@ -129,4 +129,16 @@ def import_corpus(
     if labels_column in corpus.fields:
         corpus.fields[labels_column].build_vocab(corpus)
 
+    if create_pos_tags:
+        import nltk
+        from tqdm import tqdm
+
+        nltk.download("averaged_perceptron_tagger")
+
+        fields["pos_tags"] = RawField(preprocessing=pipeline)
+        fields["pos_tags"].is_target = False
+        print("Tagging corpus...")
+        for item in tqdm(corpus):
+            item.pos_tags = [t[1] for t in nltk.pos_tag(item.sen)]
+
     return corpus
