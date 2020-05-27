@@ -1,8 +1,8 @@
 from typing import List, Optional, Union
 
-from torchtext.data import Field, Pipeline, RawField, TabularDataset
+from torchtext.data import Field, Pipeline, RawField
 
-from diagnnose.vocab import attach_vocab
+from diagnnose.typedefs.corpus import Corpus
 
 
 # TODO: add all args to arg_parser
@@ -114,7 +114,7 @@ def import_corpus(
             fields[field].is_target = False
 
     corpus_format = "tsv" if sep == "\t" else "cvs"
-    corpus = TabularDataset(
+    corpus = Corpus(
         fields=fields.items(),
         format=corpus_format,
         path=path,
