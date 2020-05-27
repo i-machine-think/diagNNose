@@ -118,7 +118,7 @@ def warstadt_downstream(
             all_sens = [ex.sen for ex in corpus.examples]
             final_hidden = calc_final_hidden(model, batch, all_sens)
             wfinal_hidden = calc_final_hidden(
-                model, batch, all_sens, sort_sens=True, sen_column="wsen"
+                model, batch, all_sens, sort_sens=True, sen_column="counter_sen"
             )
 
             classes = torch.tensor(

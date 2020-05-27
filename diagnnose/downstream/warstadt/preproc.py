@@ -1,8 +1,12 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from tqdm import tqdm
+
 # sen_id -> (licensor, scope, npi_present) -> item
-CorpusDict = Dict[int, Dict[Tuple[int, int, int], Dict[str, Any]]]
+ItemCondition = Tuple[int, int, int]
+CorpusItem = Dict[ItemCondition, Dict[str, Any]]
+CorpusDict = Dict[int, CorpusItem]
 EnvIdDict = Dict[str, List[int]]
 
 ENVS = [
@@ -40,25 +44,22 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
         type.
     """
     with open(path) as f:
-        fields = [line[:-1].split("\t") for line in f]
+        lines = [line[:-1].split("\t") for line in f]
 
     def preproc(s):
-        if s.isnumeric():
-            return int(s)
-        return s
+        return int(s) if s.isnumeric() else s
+
+    def preproc_sen(s):
+        return s.replace(".", " .").replace(",", " ,").replace("?", " ?").split()
 
     # map each line to a dictionary
     sendict: List[Dict[str, Any]] = [
         {
-            **{k: preproc(v) for k, v in [x.split("=") for x in l[0].split("-")]},
-            "correct": bool(int(l[1])),
-            "sen": l[-1]
-            .replace(".", " .")
-            .replace(",", " ,")
-            .replace("?", " ?")
-            .split(),
+            **{k: preproc(v) for k, v in [x.split("=") for x in line[0].split("-")]},
+            "correct": bool(int(line[1])),
+            "sen": preproc_sen(line[-1]),
         }
-        for l in fields
+        for line in lines
     ]
 
     extra_idx = 0
@@ -103,13 +104,15 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
 
         # Locates the index of the npi, and its distance to the licensor.
         if x["npi_present"] == 1:
+            # For multi-word NPIs we use the index of the final token, as the first token in itself
+            # does not yet depend on the presence of a licensor.
             if x["npi"] in ["atall", "inyears", "at all", "in years"]:
                 if " " not in x["npi"]:
                     x["npi"] = f"{x['npi'][:2]} {x['npi'][2:]}"
                 npi_idx = None
                 for j, (w1, w2) in enumerate(zip(lowsen[:-1], lowsen[1:])):
                     if [w1, w2] == x["npi"].split():
-                        npi_idx = j
+                        npi_idx = j + 1
             else:
                 npi_idx = lowsen.index(x["npi"])
             x["npi_idx"] = npi_idx
@@ -137,6 +140,7 @@ def create_downstream_corpus(
     output_path: str,
     conditions: Optional[List[Tuple[int, int, int]]] = None,
     envs: Optional[List[str]] = None,
+    skip_duplicate_items: bool = False,
 ) -> List[str]:
     """ Create a new corpus from the original one that contains the
     subsentences up to the position of the NPI.
@@ -147,22 +151,27 @@ def create_downstream_corpus(
         Either the path to the original corpus, or a CorpusDict that
         has been created using `preproc_warstadt`.
     output_path : str
-        Path to the output file that will be created
+        Path to the output file that will be created in .tsv format.
     conditions : List[Tuple[int, int, int]], optional
         List of corpus item conditions (licensor, scope, npi_present).
-        If not provided the correct NPI cases (1, 1, 1) and the cases
-        without a licensor (0, 1, 1) will be used.
-    envs: List[str], optional
+        If not provided the correct NPI cases (1, 1, 1) will be used.
+    envs : List[str], optional
         List of of licensing environments that should be used.
+    skip_duplicate_items : bool
+        Some corpus items only differ in their post-NPI content, and
+        will lead to equivalent results on a downstream task. Defaults
+        to False.
 
     Returns
     -------
     corpus : List[str]
-        List of strings representing each corpus item. The .tsv header
-        is not returned.
+        List of strings representing each corpus item. Note that the
+        first line of the list contains the .tsv header.
     """
     if envs is None:
         envs = ENVS
+    if conditions is None:
+        conditions = [(1, 1, 1)]
 
     if isinstance(orig_corpus, str):
         id2items = preproc_warstadt(orig_corpus)[0]
@@ -170,166 +179,68 @@ def create_downstream_corpus(
         id2items = orig_corpus
 
     sens_seen = set()
-    if conditions is None:
-        corpus = ["\t".join(["idx", "sen", "npi", "wsen", "env"])]
-    else:
-        corpus = ["\t".join(["idx", "sen", "npi", "condition", "env", "labels"])]
+    corpus = [
+        "\t".join(
+            [
+                "sen_idx",
+                "condition",
+                "sen",
+                "counter_sen",
+                "npi",
+                "full_npi",
+                "env",
+                "labels",
+                "distance",
+            ]
+        )
+    ]
 
-    for idx, items in id2items.items():
+    for idx, items in tqdm(id2items.items()):
         if items[1, 1, 1]["env"] not in envs:
             continue
 
-        if conditions is None:
-            correct_item = items[1, 1, 1]
-            wrong_item = items[0, 1, 1]
+        for condition in conditions:
+            licensor, scope, npi_present = condition
+            item = items[condition]
 
-            npi = correct_item["npi"]
-            correct_sen = " ".join(correct_item["sen"])
-            wrong_sen = " ".join(wrong_item["sen"])
+            # Flip licensor bool to create an item of the opposite licensing polarity.
+            counter_condition = (int(not licensor), scope, npi_present)
+            counter_item = items[counter_condition]
 
-            correct_npi_idx = correct_sen.index(npi)
-            wrong_npi_idx = wrong_sen.index(npi)
+            full_npi = item["npi"]
+            # For multi-phrase NPIs (at all, in years) we are interested in the final token
+            true_npi = full_npi.split()[-1]
+            sen = " ".join(item["sen"])
+            counter_sen = " ".join(counter_item["sen"])
 
-            if correct_sen + npi in sens_seen:
+            # Index of start of NPI phrase, to which we add the index of the final token
+            start_idx = sen.index(f" {full_npi} ") + 1
+            npi_idx = start_idx + sen[start_idx:].index(true_npi)
+            start_idx = counter_sen.index(f" {full_npi} ") + 1
+            counter_npi_idx = start_idx + counter_sen[start_idx:].index(true_npi)
+
+            monotonicity = "downward" if licensor == 1 else "upward"
+
+            if sen[:npi_idx] + full_npi in sens_seen and skip_duplicate_items:
                 continue
 
-            sens_seen.add(correct_sen + npi)
+            sens_seen.add(sen[:npi_idx] + full_npi)
+
             corpus.append(
                 "\t".join(
                     (
                         str(idx),
-                        correct_sen[:correct_npi_idx],
-                        npi,
-                        wrong_sen[:wrong_npi_idx],
-                        correct_item["env"],
+                        str(condition),
+                        sen[:npi_idx],
+                        counter_sen[:counter_npi_idx],
+                        true_npi,
+                        full_npi,
+                        item["env"],
+                        monotonicity,
+                        str(item["distance"]),
                     )
                 )
             )
-        else:
-            for label, condition in enumerate(conditions):
-                item = items[condition]
-
-                sen = " ".join(item["sen"])
-                npi = item["npi"]
-                npi_idx = sen.index(npi)
-
-                corpus.append(
-                    "\t".join(
-                        (
-                            str(idx),
-                            sen[:npi_idx],
-                            npi,
-                            str(condition),
-                            item["env"],
-                            str(label),
-                        )
-                    )
-                )
-
-    with open(output_path, "w") as f:
-        f.write("\n".join(corpus))
-
-    return corpus[1:]
-
-
-# TODO: combine into 1 with create_downstream_corpus?
-def create_lc_detection_corpus(
-    orig_corpus: Union[str, CorpusDict],
-    output_path: str,
-    envs: Optional[List[str]] = None,
-    label_each_env: bool = True,
-    use_full_sens: bool = True,
-) -> List[str]:
-    """ Create a new corpus from the original one that contains the
-    subsentences up to the position of the NPI, labeled by the
-    corresponding environment.
-
-    Parameters
-    ----------
-    orig_corpus : str
-        The path to the original corpus.
-    output_path : str
-        Path to the output file that will be created
-    envs: List[str], optional
-        List of of licensing environments that should be used.
-    label_each_env : bool, optional
-        Label each item with their respective environment (+ polarity),
-        or only mark the polarity. Defaults to True.
-    use_full_sens : bool, optional
-        Toggle to save the full sentence instead of only up till the
-        npi position. Defaults to True.
-
-    Returns
-    -------
-    corpus : List[str]
-        List of strings representing each corpus item.
-    """
-    if envs is None:
-        envs = ENVS
-
-    id2items = preproc_warstadt(orig_corpus)[0]
-
-    # We keep track of all subsentences (up to the position of the NPI) that have been seen.
-    sens_seen = set()
-    corpus = ["sen\tlabels\tenv\tnpi\tnpi_idx\tlc"]
-
-    for items in id2items.values():
-        if items[1, 1, 1]["env"] not in envs:
-            continue
-
-        correct_item = items[1, 1, 1]
-        wrong_item = items[0, 1, 1]
-
-        npi = correct_item["npi"]
-        correct_sen = " ".join(correct_item["sen"])
-        wrong_sen = " ".join(wrong_item["sen"])
-
-        correct_npi_idx = correct_sen.index(f" {npi} ")
-        wrong_npi_idx = wrong_sen.index(f" {npi} ")
-
-        env = correct_item["env"]
-
-        if label_each_env:
-            correct_label = correct_item["env"] + "_downward"
-            wrong_label = correct_item["env"] + "_upward"
-        else:
-            correct_label = "downward"
-            wrong_label = "upward"
-
-        if use_full_sens:
-            wrong_sen = " ".join(items[0, 1, 0]["sen"])
-        else:
-            correct_sen = correct_sen[:correct_npi_idx]
-            wrong_sen = wrong_sen[:wrong_npi_idx]
-
-        # if correct_sen + correct_label + npi in sens_seen:
-        #     continue
-
-        sens_seen.add(correct_sen + correct_label + npi)
-        corpus.extend(
-            [
-                "\t".join(
-                    (
-                        correct_sen,
-                        correct_label,
-                        env,
-                        npi,
-                        str(correct_sen[:correct_npi_idx].count(" ") + 1),
-                        correct_item["crucial_item"],
-                    )
-                ),
-                "\t".join(
-                    (
-                        wrong_sen,
-                        wrong_label,
-                        env,
-                        npi,
-                        str(wrong_sen[:wrong_npi_idx].count(" ") + 1),
-                        wrong_item["crucial_item"],
-                    )
-                ),
-            ]
-        )
 
     with open(output_path, "w") as f:
         f.write("\n".join(corpus))
@@ -338,10 +249,10 @@ def create_lc_detection_corpus(
 
 
 if __name__ == "__main__":
-    new_corpus = create_lc_detection_corpus(
+    new_corpus = create_downstream_corpus(
         "../../../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
-        "../../../lm_data/corpora/npi/lc_detection_binary.tsv",
-        label_each_env=False,
-        use_full_sens=False,
+        "../../../lm_data/corpora/npi/lc_detection_binary_NEW.tsv",
+        conditions=[(1, 1, 1), (0, 1, 1)],
+        skip_duplicate_items=False,
     )
     print(len(new_corpus))
