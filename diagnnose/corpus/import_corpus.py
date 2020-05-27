@@ -17,7 +17,9 @@ def import_corpus(
     labels_column: str = "labels",
     tokenize_columns: Optional[List[str]] = None,
     sep: str = "\t",
-) -> TabularDataset:
+    create_pos_tags: bool = False,
+    notify_unk: bool = False,
+) -> Corpus:
     """ Imports a corpus from a path.
 
     The corpus can either be a raw string or a pickled dictionary.
@@ -60,6 +62,11 @@ def import_corpus(
     sep : str, optional
         Column separator of corpus file, either a tsv or csv.
         Defaults to '\t'.
+    create_pos_tags : bool, optional
+        Toggle to create POS tags for each item. Defaults to False.
+    notify_unk : bool, optional
+        Notify when a requested token is not present in the vocab.
+        Defaults to False.
 
     Returns
     -------
@@ -118,7 +125,7 @@ def import_corpus(
     # The current torchtext Vocab does not allow a fixed vocab order so should be attached manually.
     if vocab_path is not None or vocab_from_corpus:
         for column in tokenize_columns + [sen_column]:
-            attach_vocab(corpus, vocab_path or path, sen_column=column)
+            corpus.attach_vocab(vocab_path or path, sen_column=column, notify_unk=notify_unk)
     if labels_column in corpus.fields:
         corpus.fields[labels_column].build_vocab(corpus)
 

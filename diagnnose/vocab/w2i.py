@@ -1,4 +1,5 @@
 from typing import Dict
+from warnings import warn
 
 
 class W2I(dict):
@@ -18,10 +19,17 @@ class W2I(dict):
     eos_token : str, optional
         The end-of-sentence token that is used in the corpus. Defaults
         to <eos>.
+    notify_unk : bool, optional
+        Notify when a requested token is not present in the vocab.
+        Defaults to False.
     """
 
     def __init__(
-        self, w2i: Dict[str, int], unk_token: str = "<unk>", eos_token: str = "<eos>"
+        self,
+        w2i: Dict[str, int],
+        unk_token: str = "<unk>",
+        eos_token: str = "<eos>",
+        notify_unk: bool = False,
     ) -> None:
         if unk_token not in w2i:
             w2i[unk_token] = len(w2i)
@@ -33,6 +41,7 @@ class W2I(dict):
         self.unk_idx = w2i[unk_token]
         self.unk_token = unk_token
         self.eos_token = eos_token
+        self.notify_unk = notify_unk
 
         self.i2w = list(w2i.keys())
 
@@ -41,4 +50,6 @@ class W2I(dict):
         return self
 
     def __missing__(self, key: str) -> int:
+        if self.notify_unk:
+            warn(f"`{key}` is not present in vocab")
         return self.unk_idx

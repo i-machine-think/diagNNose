@@ -117,7 +117,11 @@ def create_arg_descriptions() -> ArgDescriptions:
         "path": {
             "help": "Path to the model vocabulary, which should a file containing a vocab "
             "entry at each line."
-        }
+        },
+        "notify_unk": {
+            "type": bool,
+            "help": "Notify when a requested token is not present in the vocab. Defaults to False.",
+        },
     }
 
     arg_descriptions["activations"] = {
