@@ -10,7 +10,6 @@ from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.typedefs.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
-from diagnnose.vocab import attach_vocab
 
 from .misc import calc_final_hidden, create_unk_sen_mask
 
@@ -88,9 +87,9 @@ def marvin_init(
         ) -> None:
             examples = create_examples(task, sens_, fields)
             corpus = Dataset(examples, fields)
-            attach_vocab(corpus, vocab_path)
+            corpus.attach_vocab(vocab_path)
             if "npi" in task:
-                attach_vocab(corpus, vocab_path, sen_column="wsen")
+                corpus.attach_vocab(vocab_path, sen_column="wsen")
             corpora[condition_] = corpus
             iterators[condition_] = create_iterator(
                 corpus, batch_size=batch_size_, device=device, sort=True

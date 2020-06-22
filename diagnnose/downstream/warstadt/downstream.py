@@ -63,7 +63,7 @@ def warstadt_init(
             corpus_dir,
             header_from_first_line=True,
             vocab_path=vocab_path,
-            tokenize_columns=["wsen"],
+            tokenize_columns=["counter_sen"],
         )
 
         iterator = create_iterator(

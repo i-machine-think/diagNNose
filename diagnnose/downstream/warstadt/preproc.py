@@ -1,8 +1,6 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from tqdm import tqdm
-
 # sen_id -> (licensor, scope, npi_present) -> item
 ItemCondition = Tuple[int, int, int]
 CorpusItem = Dict[ItemCondition, Dict[str, Any]]
@@ -195,7 +193,7 @@ def create_downstream_corpus(
         )
     ]
 
-    for idx, items in tqdm(id2items.items()):
+    for idx, items in id2items.items():
         if items[1, 1, 1]["env"] not in envs:
             continue
 
