@@ -7,7 +7,7 @@ from torch.nn.functional import log_softmax
 from torchtext.data import BucketIterator, Dataset, Example, Field, RawField
 
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.typedefs.corpus import Corpus, attach_vocab
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
@@ -79,7 +79,7 @@ def marvin_init(
             fields[1][1].is_target = False
             fields[2][1].is_target = False
 
-        corpora: Dict[str, Corpus] = {}
+        corpora: Dict[str, Dataset] = {}
         iterators: Dict[str, BucketIterator] = {}
 
         def create_corpus(
@@ -87,9 +87,9 @@ def marvin_init(
         ) -> None:
             examples = create_examples(task, sens_, fields)
             corpus = Dataset(examples, fields)
-            corpus.attach_vocab(vocab_path)
+            attach_vocab(corpus, vocab_path)
             if "npi" in task:
-                corpus.attach_vocab(vocab_path, sen_column="wsen")
+                attach_vocab(corpus, vocab_path, sen_column="wsen")
             corpora[condition_] = corpus
             iterators[condition_] = create_iterator(
                 corpus, batch_size=batch_size_, device=device, sort=True
