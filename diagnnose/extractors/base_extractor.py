@@ -18,7 +18,7 @@ from diagnnose.typedefs.activations import (
     BatchActivationTensors,
     SelectionFunc,
 )
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 
 # https://stackoverflow.com/a/39757388/3511979
 if TYPE_CHECKING:

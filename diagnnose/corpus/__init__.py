@@ -1,1 +1,2 @@
-from diagnnose.corpus.import_corpus import import_corpus
+from .import_corpus import import_corpus
+from .corpus import Corpus

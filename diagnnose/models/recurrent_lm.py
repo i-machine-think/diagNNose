@@ -11,7 +11,7 @@ from diagnnose.corpus import import_corpus
 from diagnnose.extractors.base_extractor import Extractor
 from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import ActivationDict, ActivationNames
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle

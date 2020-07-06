@@ -7,7 +7,7 @@ from torch.nn.functional import log_softmax
 from torchtext.data import BucketIterator, Dataset, Example, Field, RawField
 
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.typedefs.corpus import Corpus, attach_vocab
+from diagnnose.corpus import Corpus, attach_vocab
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 

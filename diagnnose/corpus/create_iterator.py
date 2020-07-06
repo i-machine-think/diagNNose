@@ -2,7 +2,7 @@ from typing import Callable, Optional
 
 from torchtext.data import BucketIterator
 
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 
 
 def create_iterator(

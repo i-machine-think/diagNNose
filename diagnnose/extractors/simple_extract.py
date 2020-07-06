@@ -6,7 +6,7 @@ from diagnnose.typedefs.activations import (
     RemoveCallback,
     SelectionFunc,
 )
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
 

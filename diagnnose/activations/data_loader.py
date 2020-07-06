@@ -9,7 +9,7 @@ from diagnnose.activations.activation_reader import ActivationReader
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.typedefs.activations import ActivationName, SelectionFunc
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 
 
 class DataLoader:

@@ -24,7 +24,7 @@ from diagnnose.typedefs.activations import (
     RemoveCallback,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.typedefs.corpus import Corpus
+from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 
 from .base_decomposer import BaseDecomposer
