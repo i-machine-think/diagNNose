@@ -19,7 +19,7 @@ def marvin_init(
     path: str,
     subtasks: Optional[List[str]] = None,
     device: str = "cpu",
-    use_full_model_probs: bool = False,
+    use_full_model_probs: bool = True,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Performs the initialization for the tasks of
@@ -43,7 +43,8 @@ def marvin_init(
         Torch device name on which model will be run. Defaults to cpu.
     use_full_model_probs : bool, optional
         Toggle to calculate the full model probs for the NPI sentences.
-        Defaults to False.
+        If set to False only the NPI logits will be compared, instead
+        of their Softmax probabilities. Defaults to True.
 
     Returns
     -------
@@ -154,7 +155,7 @@ def create_examples(
 def marvin_downstream(
     init_dict: Dict[str, Dict[str, Any]],
     model: LanguageModel,
-    use_full_model_probs: bool = False,
+    use_full_model_probs: bool = True,
     ignore_unk: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
@@ -173,7 +174,8 @@ def marvin_downstream(
         Language model for which the accuracy is calculated.
     use_full_model_probs : bool, optional
         Toggle to calculate the full model probs for the NPI sentences.
-        Defaults to False.
+        If set to False only the NPI logits will be compared, instead
+        of their Softmax probabilities. Defaults to True.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
         is not part of the model vocabulary. Defaults to False.

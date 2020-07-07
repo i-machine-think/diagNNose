@@ -1,13 +1,13 @@
-import os
 from typing import Any, Dict, List, Optional
 
 import torch
-
-from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
-
+from torch import Tensor
+from torch.nn.functional import log_softmax
 from torchtext.data import Example
+
+from diagnnose.corpus import Corpus
+from diagnnose.corpus.create_iterator import create_iterator
+from diagnnose.typedefs.models import LanguageModel
 
 from ..misc import calc_final_hidden, create_unk_sen_mask
 from .preproc import ENVS, create_downstream_corpus, preproc_warstadt
@@ -18,6 +18,7 @@ def warstadt_init(
     path: str,
     subtasks: Optional[List[str]] = None,
     device: str = "cpu",
+    use_full_model_probs: bool = True,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Initializes the tasks described in Warstadt et al. (2019)
@@ -36,6 +37,10 @@ def warstadt_init(
         this will default to the full set of environments.
     device : str, optional
         Torch device name on which model will be run. Defaults to cpu.
+    use_full_model_probs : bool, optional
+        Toggle to calculate the full model probs for the NPI sentences.
+        If set to False only the NPI logits will be compared, instead
+        of their Softmax probabilities. Defaults to True.
 
     Returns
     -------
@@ -55,21 +60,20 @@ def warstadt_init(
 
         raw_corpus = create_downstream_corpus(orig_corpus, envs=[env])
 
-        header = raw_corpus[0].split('\t')
+        header = raw_corpus[0].split("\t")
         tokenize_columns = ["sen", "counter_sen"]
         fields = Corpus.create_fields(header, tokenize_columns=tokenize_columns)
         examples = [
             Example.fromlist(line.split("\t"), fields.items()) for line in raw_corpus
         ]
         corpus = Corpus(
-            examples,
-            fields,
-            vocab_path=vocab_path,
-            tokenize_columns=tokenize_columns,
+            examples, fields, vocab_path=vocab_path, tokenize_columns=tokenize_columns
         )
 
+        batch_size = 30 if use_full_model_probs else len(corpus)
+
         iterator = create_iterator(
-            corpus, batch_size=len(corpus), device=device, sort=True
+            corpus, batch_size=batch_size, device=device, sort=True
         )
 
         init_dict[env] = {"corpus": corpus, "iterator": iterator}
@@ -81,7 +85,7 @@ def warstadt_downstream(
     init_dict: Dict[str, Dict[str, Any]],
     model: LanguageModel,
     ignore_unk: bool = True,
-    add_dec_bias: bool = False,
+    use_full_model_probs: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, float]]:
     """ Performs the downstream tasks described in Warstadt et al. (2019)
@@ -98,10 +102,11 @@ def warstadt_downstream(
         Language model for which the accuracy is calculated.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
-        is not part of the model vocabulary. Defaults to True.
-    add_dec_bias : bool
-        Toggle to add the decoder bias to the score that is compared.
-        Defaults to False.
+        is not part of the model vocabulary. Defaults to False.
+    use_full_model_probs : bool, optional
+        Toggle to calculate the full model probs for the NPI sentences.
+        If set to False only the NPI logits will be compared, instead
+        of their Softmax probabilities. Defaults to True.
 
     Returns
     -------
@@ -123,34 +128,72 @@ def warstadt_downstream(
                 model, batch, all_sens, sort_sens=True, sen_column="counter_sen"
             )
 
-            classes = torch.tensor(
-                [corpus.vocab.stoi[npi] for npi in batch.npi]
-            ).unsqueeze(1)
+            npi_ids = torch.tensor([corpus.vocab.stoi[npi] for npi in batch.npi])
+
+            if use_full_model_probs:
+                classes = torch.tensor(list(corpus.vocab.stoi.values()))
+            else:
+                classes = npi_ids.unsqueeze(1)
 
             if ignore_unk:
                 # We base our mask on the correct sentences and apply that to both cases
                 mask = create_unk_sen_mask(corpus.vocab, all_sens)
-                skipped = int(torch.sum(mask))
+                skipped += int(torch.sum(mask))
                 classes = classes[~mask]
                 final_hidden = final_hidden[~mask]
                 wfinal_hidden = wfinal_hidden[~mask]
 
-            probs = torch.bmm(model.decoder_w[classes], final_hidden.unsqueeze(2))
-            probs = probs[:, :, 0]
-            wprobs = torch.bmm(model.decoder_w[classes], wfinal_hidden.unsqueeze(2))
-            wprobs = wprobs[:, :, 0]
-            if add_dec_bias:
-                probs += model.decoder_b[classes]
-                wprobs += model.decoder_b[classes]
+            acc = calc_acc(
+                model,
+                classes,
+                final_hidden,
+                wfinal_hidden,
+                npi_ids,
+                use_full_model_probs,
+                batch.batch_size,
+            )
+            accuracies[env] += acc * batch.batch_size
 
-            acc = torch.mean((probs > wprobs).to(torch.float)).item()
-            accuracies[env] = acc
-
-            print(f"{env}:\t{acc:.3f}")
-            if skipped > 0:
-                print(f"{skipped:.0f}/{batch.batch_size} items were skipped.\n")
-                skipped = 0
-
-    # shutil.rmtree(TMP_DIR)
+        accuracies[env] /= len(corpus)
+        print(f"{env}:\t{accuracies[env]:.3f}")
+        if skipped > 0:
+            print(f"{skipped:.0f}/{len(corpus)} items were skipped.\n")
 
     return accuracies
+
+
+def calc_acc(
+    model: LanguageModel,
+    classes: Tensor,
+    final_hidden: Tensor,
+    wfinal_hidden: Tensor,
+    npi_ids: Tensor,
+    use_full_model_probs: bool,
+    batch_size: int,
+) -> float:
+    decoder_w = model.decoder_w[classes]
+    decoder_b = model.decoder_b[classes].squeeze()
+
+    if use_full_model_probs:
+        if batch_size == 1:
+            final_hidden = final_hidden.unsqueeze(0)
+            wfinal_hidden = wfinal_hidden.unsqueeze(0)
+
+        # Calculate model logits
+        logits = final_hidden @ decoder_w.t() + decoder_b
+        wlogits = wfinal_hidden @ decoder_w.t() + decoder_b
+
+        # Retrieve SoftMax probabilities
+        probs = log_softmax(logits, dim=1)
+        wprobs = log_softmax(wlogits, dim=1)
+
+        # Select sentence-specific NPI probabilities
+        probs = probs[range(batch_size), npi_ids]
+        wprobs = wprobs[range(batch_size), npi_ids]
+    else:
+        probs = torch.bmm(decoder_w, final_hidden.unsqueeze(2)).squeeze() + decoder_b
+        wprobs = torch.bmm(decoder_w, wfinal_hidden.unsqueeze(2)).squeeze() + decoder_b
+
+    acc = torch.mean((probs >= wprobs).to(torch.float)).item()
+
+    return acc
