@@ -1,4 +1,3 @@
-import ast
 import json
 from argparse import ArgumentParser
 from datetime import datetime
@@ -94,7 +93,7 @@ def add_unk_args(cmd_args: ArgDict, unk_args: List[str]):
     unk_args = [x.split() for x in " ".join(unk_args).split("--") if len(x) > 0]
     for arg in unk_args:
         key = arg[0]
-        val = ast.literal_eval(arg[1]) if len(arg) == 2 else arg[1:]
+        val = arg[1] if len(arg) == 2 else arg[1:]
         cmd_args[key] = val
 
 
