@@ -4,13 +4,13 @@ from typing import Any, Dict, List, Optional
 import torch
 
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.corpus.import_corpus import import_corpus
+from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
+
+from torchtext.data import Example
 
 from ..misc import calc_final_hidden, create_unk_sen_mask
 from .preproc import ENVS, create_downstream_corpus, preproc_warstadt
-
-TMP_DIR = "warstadt_activations"
 
 
 def warstadt_init(
@@ -48,22 +48,24 @@ def warstadt_init(
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
-    if not os.path.exists(TMP_DIR):
-        os.mkdir(TMP_DIR)
-
-    orig_corpus, _ = preproc_warstadt(path)
+    orig_corpus = preproc_warstadt(path)[0]
 
     for env in subtasks:
         assert env in ENVS, f"Provided env {env} is not recognised!"
 
-        corpus_dir = os.path.join(TMP_DIR, f"{env}.tsv")
-        create_downstream_corpus(orig_corpus, corpus_dir, envs=[env])
+        raw_corpus = create_downstream_corpus(orig_corpus, envs=[env])
 
-        corpus = import_corpus(
-            corpus_dir,
-            header_from_first_line=True,
+        header = raw_corpus[0].split('\t')
+        tokenize_columns = ["sen", "counter_sen"]
+        fields = Corpus.create_fields(header, tokenize_columns=tokenize_columns)
+        examples = [
+            Example.fromlist(line.split("\t"), fields.items()) for line in raw_corpus
+        ]
+        corpus = Corpus(
+            examples,
+            fields,
             vocab_path=vocab_path,
-            tokenize_columns=["counter_sen"],
+            tokenize_columns=tokenize_columns,
         )
 
         iterator = create_iterator(

@@ -1,13 +1,13 @@
 import glob
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
-from torchtext.data import BucketIterator, Dataset, Example, Field, RawField
+from torchtext.data import BucketIterator, Dataset, Example, Field
 
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.corpus import Corpus, attach_vocab
+from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
@@ -54,42 +54,34 @@ def marvin_init(
     all_tasks = [path.split("/")[-1].split(".")[0] for path in all_paths]
     task2path = dict(zip(all_tasks, all_paths))
 
-    subtasks = subtasks or all_tasks
+    subtasks: List[str] = subtasks or all_tasks
 
     init_dict: Dict[str, Dict[str, Any]] = {}
 
     for task in subtasks:
-        corpus_dict = load_pickle(task2path[task])
+        corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(task2path[task])
 
         if "npi" in task:
-            fields = [
-                ("sen", Field(batch_first=True, include_lengths=True)),
-                ("wsen", Field(batch_first=True, include_lengths=True)),
-                ("postfix", RawField()),
-                ("idx", RawField()),
-            ]
-            fields[2][1].is_target = False
-            fields[3][1].is_target = False
+            header = ["sen", "wsen", "postfix", "idx"]
+            tokenize_columns = ["sen", "wsen"]
         else:
-            fields = [
-                ("sen", Field(batch_first=True, include_lengths=True)),
-                ("postfix", RawField()),
-                ("idx", RawField()),
-            ]
-            fields[1][1].is_target = False
-            fields[2][1].is_target = False
+            header = ["sen", "postfix", "idx"]
+            tokenize_columns = ["sen"]
 
+        fields = Corpus.create_fields(header, tokenize_columns=tokenize_columns)
         corpora: Dict[str, Dataset] = {}
         iterators: Dict[str, BucketIterator] = {}
 
         def create_corpus(
-            sens_: List[List[str]], condition_: str, batch_size_: int
+            sens_: List[Sequence[str]], condition_: str, batch_size_: int
         ) -> None:
             examples = create_examples(task, sens_, fields)
-            corpus = Dataset(examples, fields)
-            attach_vocab(corpus, vocab_path)
-            if "npi" in task:
-                attach_vocab(corpus, vocab_path, sen_column="wsen")
+            corpus = Corpus(
+                examples,
+                fields,
+                vocab_path=vocab_path,
+                tokenize_columns=tokenize_columns,
+            )
             corpora[condition_] = corpus
             iterators[condition_] = create_iterator(
                 corpus, batch_size=batch_size_, device=device, sort=True
@@ -97,6 +89,7 @@ def marvin_init(
 
         for condition, sens in corpus_dict.items():
             if "npi" in task:
+                # Split up the NPI performance on "no" and "few" licensed sentences
                 for i, licensor in enumerate(["no", "few"]):
                     clen = len(sens) // 2
                     sens_subset = sens[i * clen : (i + 1) * clen]
@@ -111,7 +104,7 @@ def marvin_init(
 
 
 def create_examples(
-    task: str, sens: List[List[str]], fields: List[Tuple[str, Field]]
+    task: str, sens: List[Sequence[str]], fields: Dict[str, Field]
 ) -> List[Example]:
     examples = []
     prefixes = set()
@@ -132,7 +125,7 @@ def create_examples(
                         s1[ever_idx:],  # postfix
                         len(prefixes),  # sen idx
                     ],
-                    fields,
+                    fields.items(),
                 )
                 prefixes.add(prefix)
                 examples.append(ex)
@@ -152,7 +145,7 @@ def create_examples(
             subsen = s1[: (verb_index + 1 or None)]
             wrong_verb = [s2[verb_index]]
             postfix = s1[len(s1) + verb_index + 1 : len(s1)]
-            ex = Example.fromlist([subsen + wrong_verb, postfix, idx], fields)
+            ex = Example.fromlist([subsen + wrong_verb, postfix, idx], fields.items())
             examples.append(ex)
 
     return examples
@@ -162,7 +155,7 @@ def marvin_downstream(
     init_dict: Dict[str, Dict[str, Any]],
     model: LanguageModel,
     use_full_model_probs: bool = False,
-    ignore_unk: bool = True,
+    ignore_unk: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, Any]]:
     """ Performs the downstream tasks of Marvin & Linzen (2018)
@@ -183,7 +176,7 @@ def marvin_downstream(
         Defaults to False.
     ignore_unk : bool, optional
         Ignore cases for which at least one of the cases of the verb
-        is not part of the model vocabulary. Defaults to True.
+        is not part of the model vocabulary. Defaults to False.
 
     Returns
     -------

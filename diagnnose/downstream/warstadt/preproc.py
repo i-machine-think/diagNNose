@@ -47,6 +47,7 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
     def preproc(s):
         return int(s) if s.isnumeric() else s
 
+    # Separate punctuation from adjacent tokens
     def preproc_sen(s):
         return s.replace(".", " .").replace(",", " ,").replace("?", " ?").split()
 
@@ -135,7 +136,7 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
 
 def create_downstream_corpus(
     orig_corpus: Union[str, CorpusDict],
-    output_path: str,
+    output_path: Optional[str] = None,
     conditions: Optional[List[Tuple[int, int, int]]] = None,
     envs: Optional[List[str]] = None,
     skip_duplicate_items: bool = False,
@@ -148,8 +149,9 @@ def create_downstream_corpus(
     orig_corpus : str | CorpusDict
         Either the path to the original corpus, or a CorpusDict that
         has been created using `preproc_warstadt`.
-    output_path : str
+    output_path : str, optional
         Path to the output file that will be created in .tsv format.
+        If not provided the corpus won't be written to disk.
     conditions : List[Tuple[int, int, int]], optional
         List of corpus item conditions (licensor, scope, npi_present).
         If not provided the correct NPI cases (1, 1, 1) will be used.
@@ -240,8 +242,9 @@ def create_downstream_corpus(
                 )
             )
 
-    with open(output_path, "w") as f:
-        f.write("\n".join(corpus))
+    if output_path is not None:
+        with open(output_path, "w") as f:
+            f.write("\n".join(corpus))
 
     return corpus
 
@@ -249,7 +252,7 @@ def create_downstream_corpus(
 if __name__ == "__main__":
     new_corpus = create_downstream_corpus(
         "../../../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
-        "../../../lm_data/corpora/npi/lc_detection_binary_NEW.tsv",
+        output_path="../../../lm_data/corpora/npi/lc_detection_binary_NEW.tsv",
         conditions=[(1, 1, 1), (0, 1, 1)],
         skip_duplicate_items=False,
     )
