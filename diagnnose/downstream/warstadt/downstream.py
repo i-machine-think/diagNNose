@@ -85,7 +85,7 @@ def warstadt_downstream(
     init_dict: Dict[str, Dict[str, Any]],
     model: LanguageModel,
     ignore_unk: bool = True,
-    use_full_model_probs: bool = False,
+    use_full_model_probs: bool = True,
     **kwargs: Any,
 ) -> Dict[str, Dict[str, float]]:
     """ Performs the downstream tasks described in Warstadt et al. (2019)
