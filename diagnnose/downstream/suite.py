@@ -70,10 +70,15 @@ class DownstreamSuite:
 
         self.init_dicts: Dict[str, Any] = {}
         for task, config in self.downstream_config.items():
+            # If a single subtask is passed as cmd arg it is not converted to a list yet
+            subtasks = config.pop("subtasks", None)
+            if isinstance(subtasks, str):
+                subtasks = [subtasks]
+
             self.init_dicts[task] = task_inits[task](
                 vocab_path,
                 config.pop("path"),
-                subtasks=config.pop("subtasks", None),
+                subtasks=subtasks,
                 task_activations=config.pop("task_activations", None),
                 device=device,
                 **config,

@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 from functools import reduce
 from pprint import pprint
-from typing import Set
+from typing import List, Set
 
 import numpy as np
 import torch
@@ -45,7 +45,8 @@ def create_config_dict(
     config_dict : ConfigDict
         Dictionary mapping each arg group to their config values.
     """
-    cmd_args = vars(argparser.parse_args())
+    args, unk_args = argparser.parse_known_args()
+    cmd_args = vars(args)
 
     # Load arguments from config
     config_dict: ArgDict = {}
@@ -53,6 +54,7 @@ def create_config_dict(
         with open(cmd_args["config"]) as f:
             config_dict.update(json.load(f))
 
+    add_unk_args(cmd_args, unk_args)
     config_dict = add_cmd_args(config_dict, cmd_args)
 
     if validate:
@@ -63,6 +65,8 @@ def create_config_dict(
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
         config.DTYPE_np = getattr(np, activation_dtype)
+
+    # TODO: clean up (c.f. #7)
     activation_names = activation_config.get("activation_names", [])
     if len(activation_names) == 0:
         activation_names = config_dict.get("train_dc", {}).get("activation_names", [])
@@ -82,6 +86,15 @@ def validate_config(
     config_args = set(f"{g}.{k}" for g, v in config_dict.items() for k in v.keys())
     for arg in required_args:
         assert arg in config_args, argparser.error(f"--{arg} should be provided")
+
+
+def add_unk_args(cmd_args: ArgDict, unk_args: List[str]):
+    """ Add arguments that are not part of the default arg structure """
+    unk_args = [x.split() for x in " ".join(unk_args).split("--") if len(x) > 0]
+    for arg in unk_args:
+        key = arg[0]
+        val = arg[1] if len(arg) == 2 else arg[1:]
+        cmd_args[key] = val
 
 
 def add_cmd_args(config_dict: ArgDict, cmd_args: ArgDict) -> ArgDict:
