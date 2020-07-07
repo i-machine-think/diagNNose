@@ -70,7 +70,7 @@ def warstadt_init(
             examples, fields, vocab_path=vocab_path, tokenize_columns=tokenize_columns
         )
 
-        batch_size = 30 if use_full_model_probs else len(corpus)
+        batch_size = 2048 if use_full_model_probs else len(corpus)
 
         iterator = create_iterator(
             corpus, batch_size=batch_size, device=device, sort=True
