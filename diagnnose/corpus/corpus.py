@@ -93,16 +93,16 @@ class Corpus(Dataset):
         labels_column: str = "labels",
         tokenize_columns: Optional[List[str]] = None,
     ) -> Dict[str, Field]:
-        tokenize_columns = tokenize_columns or []
+        tokenize_columns = tokenize_columns or [sen_column]
 
-        def preprocess_sen(s: str) -> Union[str, int]:
-            return int(s) if s.isdigit() else s
+        def preprocess_sen(s: Union[str, int]) -> Union[str, int]:
+            return int(s) if (isinstance(s, str) and s.isdigit()) else s
 
         pipeline = Pipeline(convert_token=preprocess_sen)
         fields = {}
 
         for column in header:
-            if column == sen_column or column in tokenize_columns:
+            if column in tokenize_columns:
                 fields[column] = Field(
                     batch_first=True, include_lengths=True, lower=to_lower
                 )
