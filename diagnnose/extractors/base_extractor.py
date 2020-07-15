@@ -145,7 +145,7 @@ class Extractor:
                     final_activations[name] = torch.cat(all_activations[name], dim=0)
 
             if dump_activations:
-                self.activation_writer.dump_activation_ranges(activation_ranges)
+                self.activation_writer.dump_meta_info(activation_ranges, selection_func)
                 if not dynamic_dumping:
                     self.activation_writer.dump_activations(final_activations)
 

@@ -14,6 +14,7 @@ from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationRanges,
     Range,
+    SelectionFunc,
 )
 from diagnnose.utils.pickle import load_pickle
 
@@ -55,6 +56,7 @@ class ActivationReader:
         self._tensor_dict: ActivationDict = {}
         self._data_len: int = -1
         self._activation_ranges: Optional[ActivationRanges] = None
+        self._selection_func: Optional[SelectionFunc] = None
 
         self.activation_name: Optional[ActivationName] = None
         self.store_multiple_activations = store_multiple_activations
@@ -195,9 +197,16 @@ class ActivationReader:
     @property
     def activation_ranges(self) -> ActivationRanges:
         if self._activation_ranges is None:
-            ranges_dir = os.path.join(self.activations_dir, "ranges.pickle")
-            self._activation_ranges = load_pickle(ranges_dir)
+            ranges_path = os.path.join(self.activations_dir, "ranges.pickle")
+            self._activation_ranges = load_pickle(ranges_path)
         return self._activation_ranges
+
+    @property
+    def selection_func(self) -> SelectionFunc:
+        if self._selection_func is None:
+            selection_func_path = os.path.join(self.activations_dir, "selection_func.dill")
+            self._selection_func = load_pickle(selection_func_path, use_dill=True)
+        return self._selection_func
 
     @property
     def activations(self) -> Optional[Tensor]:

@@ -1,3 +1,4 @@
+import dill
 import os
 import pickle
 import warnings
@@ -9,6 +10,7 @@ from diagnnose.typedefs.activations import (
     ActivationFiles,
     ActivationNames,
     ActivationRanges,
+    SelectionFunc,
 )
 from diagnnose.utils.pickle import dump_pickle
 
@@ -38,6 +40,7 @@ class ActivationWriter:
         self.activation_names: ActivationNames = []
         self.activation_files: ActivationFiles = {}
         self.activation_ranges_file: Optional[BinaryIO] = None
+        self.selection_func_file: Optional[BinaryIO] = None
 
     def create_output_files(
         self, stack: ExitStack, activation_names: ActivationNames
@@ -63,6 +66,9 @@ class ActivationWriter:
         self.activation_ranges_file = stack.enter_context(
             open(os.path.join(self.activations_dir, "ranges.pickle"), "wb")
         )
+        self.selection_func_file = stack.enter_context(
+            open(os.path.join(self.activations_dir, "selection_func.dill"), "wb")
+        )
 
     def dump_activations(self, activations: ActivationDict) -> None:
         """ Dumps the generated activations to a list of opened files
@@ -82,10 +88,14 @@ class ActivationWriter:
                 activations[activation_name], self.activation_files[activation_name]
             )
 
-    def dump_activation_ranges(self, activation_ranges: ActivationRanges) -> None:
+    def dump_meta_info(
+        self, activation_ranges: ActivationRanges, selection_func: SelectionFunc
+    ) -> None:
         assert self.activation_ranges_file is not None
+        assert self.selection_func_file is not None
 
         pickle.dump(activation_ranges, self.activation_ranges_file)
+        dill.dump(selection_func, self.selection_func_file, recurse=True)
 
     def concat_pickle_dumps(self, overwrite: bool = True) -> None:
         """ Concatenates a sequential pickle dump and pickles to file .

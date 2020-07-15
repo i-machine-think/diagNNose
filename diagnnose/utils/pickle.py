@@ -1,11 +1,15 @@
 import os
 import pickle
+import dill
 from typing import Any
 
 
-def load_pickle(path: str) -> Any:
+def load_pickle(path: str, use_dill: bool = False) -> Any:
     with open(path, "rb") as f:
-        out = pickle.load(f)
+        if use_dill:
+            out = dill.load(f)
+        else:
+            out = pickle.load(f)
     return out
 
 

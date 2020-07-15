@@ -28,41 +28,43 @@ class DataLoader:
     test_corpus : Corpus, optional
         Corpus containing the test labels for each sentence. Must be
         provided if `test_activations_dir` is provided.
-    selection_func : SelectFunc, optional
+    train_selection_func : SelectFunc, optional
         Selection function that determines whether a corpus item should
-        be taken into account. If such a function has been used during
-        extraction, make sure to pass it along here as well.
+        be taken into account for training. If not provided all
+        extracted activations will be used and split into a random
+        train/test split.
     test_selection_func : SelectFunc, optional
         Selection function that determines whether a corpus item should
-        be taken into account for testing. If such a function has been
-        used during extraction, make sure to pass it along here as well.
+        be taken into account for testing. If not provided all
+        extracted activations will be used and split into a random
+        train/test split.
     control_task: ControlTask, optional
         Control task function of Hewitt et al. (2019), mapping a corpus
-        item to a random label. If not provided the corpus labels will
-        be used instead.
+        item to a random label.
     """
 
+    # TODO: Move init logic to own method
     def __init__(
         self,
         activations_dir: str,
         corpus: Corpus,
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
-        selection_func: SelectionFunc = lambda sen_id, pos, example: True,
+        train_selection_func: SelectionFunc = lambda sen_id, pos, example: True,
         test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
     ) -> None:
         assert corpus is not None, "`corpus`should be provided!"
 
         self.train_labels = create_labels_from_corpus(
-            corpus, selection_func=selection_func
+            corpus, selection_func=train_selection_func
         )
         self.test_labels = None
         self.train_labels_control = None
         self.test_labels_control = None
         if control_task is not None:
             self.train_labels_control = create_labels_from_corpus(
-                corpus, selection_func=selection_func, control_task=control_task
+                corpus, selection_func=train_selection_func, control_task=control_task
             )
 
         self.label_vocab: Vocab = corpus.fields["labels"].vocab
@@ -96,11 +98,13 @@ class DataLoader:
                     control_task=control_task,
                 )
 
-        self.train_ids, self.test_ids = self.split_train_test_activations(
-            corpus, selection_func, test_selection_func
-        )
-
         self.activation_reader = ActivationReader(activations_dir)
+
+        orig_selection_func = self.activation_reader.selection_func
+
+        self.train_ids, self.test_ids = self._create_train_test_mask(
+            corpus, orig_selection_func, train_selection_func, test_selection_func
+        )
 
     def create_data_split(
         self,
@@ -182,24 +186,35 @@ class DataLoader:
         }
 
     @staticmethod
-    def split_train_test_activations(
+    def _create_train_test_mask(
         corpus: Corpus,
-        selection_func: SelectionFunc,
-        test_selection_func: Optional[SelectionFunc] = None,
+        orig_selection_func: SelectionFunc,
+        train_selection_func: SelectionFunc,
+        test_selection_func: Optional[SelectionFunc],
     ) -> Tuple[Tensor, Tensor]:
+        """ Creates a tensor mask for the train/test split.
+
+        Mask is created based on the provided selection functions.
+        Note that the train_selection_func takes precedence over the
+        test_selection_func. The mask also takes the original
+        selection_func into account, and will skip items that are
+        not part of neither the provided selection_funcs.
+        """
         train_ids = []
         test_ids = []
+
         for idx, item in enumerate(corpus.examples):
             for pos in range(len(item.sen)):
-                if selection_func(idx, pos, item) or (
-                    test_selection_func and test_selection_func(idx, pos, item)
-                ):
-                    train_ids.append(selection_func(idx, pos, item))
-                    test_ids.append(
-                        test_selection_func(idx, pos, item)
-                        if test_selection_func is not None
-                        else False
-                    )
+                if orig_selection_func(idx, pos, item):
+                    if train_selection_func(idx, pos, item):
+                        train_ids.append(True)
+                        test_ids.append(False)
+                    elif test_selection_func and test_selection_func(idx, pos, item):
+                        train_ids.append(False)
+                        test_ids.append(True)
+                    else:
+                        train_ids.append(False)
+                        test_ids.append(False)
 
         return (
             torch.tensor(train_ids).to(torch.uint8),
