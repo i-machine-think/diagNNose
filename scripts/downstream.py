@@ -23,14 +23,13 @@ if __name__ == "__main__":
             if task in config_dict["downstream"]["tasks"]
         }
 
-    suite = DownstreamSuite(
-        config_dict["downstream"]["config"],
-        vocab_path,
-        device=config_dict["model"].get("device", "cpu"),
-        print_results=True,
-    )
-
     model: LanguageModel = import_model(config_dict)
-    results = suite.run(model, ignore_unk=False, add_dec_bias=True)
+
+    suite = DownstreamSuite(
+        model,
+        config_dict["downstream"]["config"],
+        vocab_path
+    )
+    results = suite.run(use_full_model_probs=False)
 
     pprint(results)

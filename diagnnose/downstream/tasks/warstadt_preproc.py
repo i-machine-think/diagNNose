@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -5,7 +6,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 ItemCondition = Tuple[int, int, int]
 CorpusItem = Dict[ItemCondition, Dict[str, Any]]
 CorpusDict = Dict[int, CorpusItem]
-EnvIdDict = Dict[str, List[int]]
 
 ENVS = [
     "adverbs",
@@ -20,7 +20,7 @@ ENVS = [
 ]
 
 
-def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
+def preproc_warstadt(path: str) -> CorpusDict:
     """ Reads and preprocesses the NPI corpus of Warstadt et al. (2019).
 
     Paper: https://arxiv.org/pdf/1901.03438.pdf
@@ -48,11 +48,13 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
         return int(s) if s.isnumeric() else s
 
     # Separate punctuation from adjacent tokens
+    pattern = re.compile(r"[.,?]")
+
     def preproc_sen(s):
-        return s.replace(".", " .").replace(",", " ,").replace("?", " ?").split()
+        return pattern.sub(lambda m: f" {m.group(0)}", s).split()
 
     # map each line to a dictionary
-    sendict: List[Dict[str, Any]] = [
+    raw_items: List[Dict[str, Any]] = [
         {
             **{k: preproc(v) for k, v in [x.split("=") for x in line[0].split("-")]},
             "correct": bool(int(line[1])),
@@ -63,75 +65,30 @@ def preproc_warstadt(path: str) -> Tuple[CorpusDict, EnvIdDict]:
 
     extra_idx = 0
 
-    for i, x in enumerate(sendict):
-        # Add spaces to apostrophes that are attached to tokens.
-        if x["sen"][0][0] == '"':
-            x["sen"][0] = x["sen"][0][1:]
-        if x["sen"][-1][-1] == '"':
-            x["sen"][-1] = x["sen"][-1][:-1]
+    for idx, item in enumerate(raw_items):
+        # Remove apostrophes that wrap the full sentence.
+        if item["sen"][0][0] == '"':
+            item["sen"][0] = item["sen"][0][1:]
+        if item["sen"][-1][-1] == '"':
+            item["sen"][-1] = item["sen"][-1][:-1]
 
-        lowsen = list(map(lambda w: w.lower(), x["sen"]))
-        sen_id = i // 8
+        sen_id = idx // 8
         # There exist only 4 instead of 8 conditions for `simplequestions`.
-        if x["env"] == "simplequestions":
-            extra_idx += i % 8 == 4
-        x["sen_id"] = sen_id + extra_idx
+        if item["env"] == "simplequestions":
+            extra_idx += idx % 8 == 4
+        item["sen_id"] = sen_id + extra_idx
 
-        # Locate the index of the crucial licensing item
-        # The try .. except structure fixes minor errors in the original file.
-        try:
-            if (
-                x["crucial_item"] in ["none of the", "more than three"]
-                or x["crucial_item"][:4] == "most"
-            ):
-                x["crucial_idx"] = lowsen.index(x["crucial_item"][:4])
-            elif x["crucial_item"] == "a lot of":
-                x["crucial_idx"] = lowsen.index("lot") - 1
-            else:
-                x["crucial_idx"] = lowsen.index(x["crucial_item"])
-        except ValueError:
-            if x["crucial_item"] == "none of the" and "no" in lowsen:
-                x["crucial_item"] = "no"
-                x["crucial_idx"] = lowsen.index("no")
-            elif x["crucial_item"] == "no" and "none" in lowsen:
-                x["crucial_item"] = "none of the"
-                x["crucial_idx"] = lowsen.index("none")
-            elif x["crucial_item"] == "whether":
-                x["crucial_idx"] = None
-            else:
-                x["crucial_idx"] = None
-
-        # Locates the index of the npi, and its distance to the licensor.
-        if x["npi_present"] == 1:
-            # For multi-word NPIs we use the index of the final token, as the first token in itself
-            # does not yet depend on the presence of a licensor.
-            if x["npi"] in ["atall", "inyears", "at all", "in years"]:
-                if " " not in x["npi"]:
-                    x["npi"] = f"{x['npi'][:2]} {x['npi'][2:]}"
-                npi_idx = None
-                for j, (w1, w2) in enumerate(zip(lowsen[:-1], lowsen[1:])):
-                    if [w1, w2] == x["npi"].split():
-                        npi_idx = j + 1
-            else:
-                npi_idx = lowsen.index(x["npi"])
-            x["npi_idx"] = npi_idx
-
-            if x["crucial_idx"] is not None:
-                x["distance"] = npi_idx - x["crucial_idx"]
-            else:
-                x["distance"] = None
+        # Cut multi-word NPIs into pieces.
+        if item["npi_present"] == 1:
+            if item["npi"] in ["atall", "inyears"]:
+                item["npi"] = f"{item['npi'][:2]} {item['npi'][2:]}"
 
     sen_id2items = defaultdict(dict)
 
-    for x in sendict:
-        sen_id2items[x["sen_id"]][x["licensor"], x["scope"], x["npi_present"]] = x
+    for item in raw_items:
+        sen_id2items[item["sen_id"]][item["licensor"], item["scope"], item["npi_present"]] = item
 
-    env2sen_ids: EnvIdDict = {env: [] for env in ENVS}
-    for idx, items in sen_id2items.items():
-        env = items[1, 1, 1]["env"]
-        env2sen_ids[env].append(idx)
-
-    return sen_id2items, env2sen_ids
+    return sen_id2items
 
 
 def create_downstream_corpus(
@@ -174,7 +131,7 @@ def create_downstream_corpus(
         conditions = [(1, 1, 1)]
 
     if isinstance(orig_corpus, str):
-        id2items = preproc_warstadt(orig_corpus)[0]
+        id2items = preproc_warstadt(orig_corpus)
     else:
         id2items = orig_corpus
 
@@ -186,11 +143,10 @@ def create_downstream_corpus(
                 "condition",
                 "sen",
                 "counter_sen",
-                "npi",
+                "token",
                 "full_npi",
                 "env",
                 "labels",
-                "distance",
             ]
         )
     ]
@@ -237,7 +193,6 @@ def create_downstream_corpus(
                         full_npi,
                         item["env"],
                         monotonicity,
-                        str(item["distance"]),
                     )
                 )
             )

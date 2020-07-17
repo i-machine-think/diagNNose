@@ -1,27 +1,23 @@
 from typing import Any, Callable, Dict, Optional
 
-from diagnnose.downstream.lakretz import lakretz_downstream, lakretz_init
-from diagnnose.downstream.linzen import linzen_downstream, linzen_init
-from diagnnose.downstream.marvin import marvin_downstream, marvin_init
-from diagnnose.downstream.warstadt.downstream import warstadt_downstream, warstadt_init
-from diagnnose.downstream.winobias import winobias_downstream, winobias_init
+from diagnnose.downstream.tasks import (
+    LakretzDownstream,
+    LinzenDownstream,
+    MarvinDownstream,
+    WarstadtDownstream,
+    WinobiasDownstream,
+)
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.misc import suppress_print
 
-task_inits: Dict[str, Callable] = {
-    "lakretz": lakretz_init,
-    "linzen": linzen_init,
-    "marvin": marvin_init,
-    "warstadt": warstadt_init,
-    "winobias": winobias_init,
-}
+from .task import DownstreamTask, ResultsDict
 
-task_defs: Dict[str, Callable] = {
-    "lakretz": lakretz_downstream,
-    "marvin": marvin_downstream,
-    "linzen": linzen_downstream,
-    "warstadt": warstadt_downstream,
-    "winobias": winobias_downstream,
+task_constructors: Dict[str, Callable] = {
+    "lakretz": LakretzDownstream,
+    "linzen": LinzenDownstream,
+    "marvin": MarvinDownstream,
+    "warstadt": WarstadtDownstream,
+    "winobias": WinobiasDownstream,
 }
 
 
@@ -49,65 +45,41 @@ class DownstreamSuite:
     decompose_config : Dict[str, Any], optional
         Optional setup to perform contextual decomposition on the
         activations prior to executing the downstream tasks.
-    device : str, optional
-        Torch device on which forward passes will be run.
-        Defaults to cpu.
-    print_results : bool, optional
-        Toggle to print task results. Defaults to True.
     """
 
     def __init__(
         self,
+        model: LanguageModel,
         downstream_config: Dict[str, Any],
         vocab_path: str,
         decompose_config: Optional[Dict[str, Any]] = None,
-        device: str = "cpu",
-        print_results: bool = True,
     ) -> None:
         self.downstream_config = downstream_config
         self.decompose_config = decompose_config
-        self.print_results = print_results
 
-        self.init_dicts: Dict[str, Any] = {}
-        for task, config in self.downstream_config.items():
+        self.tasks: Dict[str, DownstreamTask] = {}
+
+        print("Initializing downstream tasks...")
+
+        for task_name, config in self.downstream_config.items():
             # If a single subtask is passed as cmd arg it is not converted to a list yet
             subtasks = config.pop("subtasks", None)
             if isinstance(subtasks, str):
                 subtasks = [subtasks]
 
-            self.init_dicts[task] = task_inits[task](
-                vocab_path,
-                config.pop("path"),
-                subtasks=subtasks,
-                task_activations=config.pop("task_activations", None),
-                device=device,
-                **config,
+            constructor = task_constructors[task_name]
+            self.tasks[task_name] = constructor(
+                model, vocab_path, config.pop("path"), subtasks=subtasks
             )
 
-    def run(self, model: LanguageModel, **kwargs: Any) -> Dict[str, Any]:
-        if not self.print_results:
-            return self.perform_tasks_wo_print(model, **kwargs)
-        return self.perform_tasks(model, **kwargs)
+        print("Downstream task initialization finished")
 
-    def perform_tasks(self, model: LanguageModel, **kwargs: Any) -> Dict[str, Any]:
-        results: Dict[str, Any] = {}
-        model.eval()
+    def run(self, **kwargs: Any) -> Dict[str, Any]:
+        results: Dict[str, ResultsDict] = {}
 
-        for task, config in self.downstream_config.items():
-            print(f"\n--=={task.upper()}==--")
+        for task_name, task in self.tasks.items():
+            print(f"\n--=={task_name.upper()}==--")
 
-            results[task] = task_defs[task](
-                self.init_dicts[task],
-                model,
-                decompose_config=self.decompose_config,
-                **config,
-                **kwargs,
-            )
+            results[task_name] = task.run(**kwargs)
 
         return results
-
-    @suppress_print
-    def perform_tasks_wo_print(
-        self, model: LanguageModel, **kwargs: Any
-    ) -> Dict[str, Any]:
-        return self.perform_tasks(model, **kwargs)

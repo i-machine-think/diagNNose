@@ -12,27 +12,27 @@
   "downstream": {
     "tasks": ["warstadt", "marvin"],
     "config": {
+      "warstadt": {
+        "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
+        "use_full_model_probs": false
+      },
       "marvin": {
         "path": "../lm_data/corpora/downstream/marvin",
-        "use_full_model_probs": true,
-        "subtasks": ["npi_across_anim", "npi_across_inanim"],
-        "task_activations": {
-        }
-      },
-      "warstadt": {
-        "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv"
+        "use_full_model_probs": false,
+        "subtasks": ["npi_across_anim", "npi_across_inanim"]
       },
       "linzen": {
-        "path": "../lm_data/corpora/downstream/linzen/1attr_sample.tsv"
+        "path": "../lm_data/corpora/downstream/linzen"
       },
       "lakretz": {
         "path": "../lm_data/corpora/downstream/lakretz",
         "subtasks": [
           "nounpp",
           "simple"
-        ],
-        "task_activations": {
-        }
+        ]
+      },
+      "winobias": {
+        "path": "../lm_data/corpora/downstream/winobias"
       }
     }
   }
