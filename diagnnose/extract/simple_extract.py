@@ -1,7 +1,7 @@
 import shutil
 from typing import Optional, Tuple
 
-from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.activations import ActivationReader
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
 from diagnnose.extract import BATCH_SIZE, Extractor
