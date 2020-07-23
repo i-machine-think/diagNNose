@@ -1,19 +1,17 @@
 import os
 import pickle
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Optional, Tuple
 
-import numpy as np
 import torch
 from torch import Tensor
 
 import diagnnose.typedefs.config as config
+from diagnnose.activations.activation_index import activation_index_to_iterable
 from diagnnose.typedefs.activations import (
     ActivationDict,
-    ActivationIndex,
     ActivationKey,
     ActivationName,
     ActivationRanges,
-    Range,
     SelectionFunc,
 )
 from diagnnose.utils.pickle import load_pickle
@@ -24,8 +22,8 @@ class ActivationReader:
 
     Parameters
     ----------
-    activations_dir : str
-        Directory containing the extracted activations
+    activations_dir : str, optional
+        Directory containing the extracted activations.
     store_multiple_activations : bool, optional
         Set to true to store multiple activation arrays in RAM at once.
         Defaults to False, meaning that only one activation type will be
@@ -33,200 +31,88 @@ class ActivationReader:
 
     Attributes
     ----------
-    activations_dir : str
-    activations : Optional[np.ndarray]
-        Numpy array of activations that are currently read into ram.
-    _data_len : int
-        Number of extracted activations. Accessed by the property
-        self.data_len.
-    _activation_ranges : Optional[ActivationRanges]
-        Dictionary mapping sentence keys to their respective location
-        in the .activations array.
+    TODO: update
     """
 
     def __init__(
-        self, activations_dir: str, store_multiple_activations: bool = False
+        self,
+        activations_dir: Optional[str] = None,
+        activation_dict: Optional[ActivationDict] = None,
+        activation_ranges: Optional[ActivationRanges] = None,
+        selection_func: Optional[SelectionFunc] = None,
+        store_multiple_activations: bool = False,
     ) -> None:
+        if activations_dir is not None:
+            assert os.path.exists(
+                activations_dir
+            ), f"Activations dir not found: {activations_dir}"
+        else:
+            assert activation_dict is not None
+            assert activation_ranges is not None
+            assert selection_func is not None
 
-        assert os.path.exists(
-            activations_dir
-        ), f"Activations dir not found: {activations_dir}"
         self.activations_dir = activations_dir
+        self.activation_dict: ActivationDict = activation_dict or {}
 
-        self._tensor_dict: ActivationDict = {}
-        self._data_len: int = -1
-        self._activation_ranges: Optional[ActivationRanges] = None
-        self._selection_func: Optional[SelectionFunc] = None
+        self._activation_ranges: Optional[ActivationRanges] = activation_ranges
+        self._selection_func: Optional[SelectionFunc] = selection_func
 
-        self.activation_name: Optional[ActivationName] = None
         self.store_multiple_activations = store_multiple_activations
 
-    # TODO: improve docs, clearer formatting etc.
-    def __getitem__(self, key: ActivationKey) -> Sequence[Tensor]:
-        """ Provides indexing of activations, indexed by sentence
-        position or key, or indexing the activations itself. Indexing
-        based on sentence returns all activations belonging to that
-        sentence.
-
-        Indexing by position ('pos') refers to the order of extraction,
-        selecting the first sentence ([0]) will return all activations
-        of the sentence that was extracted first.
-
-        Sentence keys refer to the keys of the labeled corpus that was
-        used in the Extractor.
-
-        Indexing can be done by key, index list/np.array, or slicing
-        (which is translated into a range of keys).
-
-        The index, indexing type and activation name can optionally
-         be provided as the second argument of a tuple as a dictionary.
-        This dict is optional, only passing the index is also allowed:
-
-        [index] |
-        [index, {
-            indextype?: 'pos' | 'key' | 'all',
-            a_name?: (layer, name),
-          }
-        ]
-
-        With
-            - `indextype` either 'pos', 'key' or 'all'. Defaults to 'pos'.
-            - `a_name` an activation name (layer, name) tuple.
-
-        If `a_name` is not provided it should have been set
-        beforehand like `reader.activations = activationname`.
-
-        Examples:
-            reader[8]: activations of the 8th extracted sentence
-            reader[8:]: activations of the 8th to final extracted sentence
-            reader[8, {'indextype': 'key'}]: activations of a sentence with key 8
-            reader[[0,4,6], {'indextype': 'key'}]: activations of sentences with key 0, 4 or 6.
-            reader[:20, {'indextype': 'all'}]: the first 20 activations
-            reader[8, {'a_name': (0, 'cx')}]: the activations of the cell state in
-                the first layer of the 8th extracted sentence.
+    def __getitem__(self, key: ActivationKey) -> Tuple[Tensor, ...]:
         """
-        index, indextype = self._parse_key(key)
-        assert self.activations is not None, "self.activations should be set first"
-
-        if indextype == "all":
-            return [self.activations[index]]
-        if indextype in ["key", "pos"]:
-            ranges: List[Range] = self._create_range_from_key(indextype, index)
+        """
+        if isinstance(key, tuple):
+            index, activation_name = key
         else:
-            raise KeyError(
-                "indextype not understood, should be one of all, key, or pos."
-            )
+            assert (
+                len(self.activation_dict) == 1
+            ), "Activation name must be provided if multiple activations have been extracted"
+            index = key
+            activation_name = next(iter(self.activation_dict))
+
+        iterable_index = activation_index_to_iterable(
+            index, len(self.activation_ranges)
+        )
+        ranges = [self.activation_ranges[idx] for idx in iterable_index]
+
+        sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
+        activations = self.activations(activation_name)[sen_indices]
 
         lengths = [x[1] - x[0] for x in ranges]
-        sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
-        activations = self.activations[sen_indices]
-        split_activations: Sequence[Tensor] = torch.split(activations, lengths)
+        split_activations: Tuple[Tensor, ...] = torch.split(activations, lengths)
 
         return split_activations
 
-    def _parse_key(self, key: ActivationKey) -> Tuple[ActivationIndex, str]:
-        # if key is a tuple it also contains a indextype and/or activation name
-        if isinstance(key, tuple):
-            index = key[0]
-            indextype = key[1].get("indextype", "pos")
-
-            if "a_name" in key[1]:
-                self.activations = key[1]["a_name"]
-        else:
-            index = key
-            indextype = "pos"
-
-        if isinstance(index, (int, np.integer)):
-            index = [index]
-
-        return index, indextype
-
-    def _create_range_from_key(
-        self, indextype: str, index: ActivationIndex
-    ) -> List[Range]:
-        range_dict = self.activation_ranges
-        range_list = list(self.activation_ranges.values())
-        if indextype == "key":
-            all_ranges: Union[ActivationRanges, List[Range]] = range_dict
-        else:
-            all_ranges = range_list
-
-        if isinstance(index, (list, np.ndarray)):
-            ranges = [all_ranges[r] for r in index]
-
-        elif isinstance(index, Tensor):
-            ranges = []
-            for i in range(index.size(0)):
-                idx = int(index[i].item())
-                ranges.append(all_ranges[idx])
-
-        elif isinstance(index, slice):
-            start = index.start if index.start else 0
-            step = index.step or 1
-
-            if indextype == "key":
-                stop = index.stop or max(range_dict.keys()) + 1
-                ranges = [
-                    r
-                    for k, r in range_dict.items()
-                    if start <= k < stop and (k + start) % step == 0
-                ]
-            else:
-                stop = index.stop or len(all_ranges)
-                ranges = [
-                    r
-                    for i, r in enumerate(range_list)
-                    if start <= i < stop and (i + start) % step == 0
-                ]
-
-        else:
-            raise KeyError("Type of index is incompatible")
-
-        return ranges
-
     def __len__(self) -> int:
-        return self.data_len
-
-    @property
-    def data_len(self) -> int:
-        """ data_len is defined based on the activation range of the last sentence """
-        if self._data_len == -1:
-            self._data_len = list(self.activation_ranges.values())[-1][1]
-        return self._data_len
+        return self.activation_ranges[-1][1]
 
     @property
     def activation_ranges(self) -> ActivationRanges:
         if self._activation_ranges is None:
-            ranges_path = os.path.join(self.activations_dir, "ranges.pickle")
+            ranges_path = os.path.join(self.activations_dir, "activation_ranges.pickle")
             self._activation_ranges = load_pickle(ranges_path)
         return self._activation_ranges
 
     @property
     def selection_func(self) -> SelectionFunc:
         if self._selection_func is None:
-            selection_func_path = os.path.join(self.activations_dir, "selection_func.dill")
+            selection_func_path = os.path.join(
+                self.activations_dir, "selection_func.dill"
+            )
             self._selection_func = load_pickle(selection_func_path, use_dill=True)
         return self._selection_func
 
-    @property
-    def activations(self) -> Optional[Tensor]:
-        if self.activation_name is None:
-            return None
-        return self._tensor_dict[self.activation_name]
+    def activations(self, activation_name: ActivationName) -> Tensor:
+        activations = self.activation_dict.get(activation_name, None)
 
-    @activations.setter
-    def activations(self, activation_name: ActivationName) -> None:
-        self.activation_name = activation_name
-        if activation_name not in self._tensor_dict:
+        if activations is None:
             activations = self.read_activations(activation_name)
-            if self.store_multiple_activations:
-                self._tensor_dict[activation_name] = activations
-            else:
-                self._tensor_dict = {activation_name: activations}
+            if not self.store_multiple_activations:
+                self.activation_dict = {}
+            self.activation_dict[activation_name] = activations
 
-    @activations.deleter
-    def activations(self) -> None:
-        del self._tensor_dict
+        return activations
 
     def read_activations(self, activation_name: ActivationName) -> Tensor:
         """ Reads the pickled activations of activation_name
@@ -244,12 +130,11 @@ class ActivationReader:
         layer, name = activation_name
         filename = os.path.join(self.activations_dir, f"{layer}-{name}.pickle")
 
-        hidden_size = None
         activations = None
 
         n = 0
 
-        # The activations can be stored as a series of pickle dumps, and
+        # The activations are stored as a series of pickle dumps, and
         # are therefore loaded until an EOFError is raised.
         with open(filename, "rb") as f:
             while True:
@@ -258,10 +143,10 @@ class ActivationReader:
 
                     # To make hidden size dependent of data only, the activations array
                     # is created only after observing the first batch of activations.
-                    if hidden_size is None:
+                    if activations is None:
                         hidden_size = sen_activations.shape[1]
                         activations = torch.empty(
-                            (self.data_len, hidden_size), dtype=config.DTYPE
+                            (len(self), hidden_size), dtype=config.DTYPE
                         )
 
                     i = len(sen_activations)
