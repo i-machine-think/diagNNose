@@ -5,9 +5,9 @@ import torch
 from torchtext.data import Batch
 from tqdm import tqdm
 
-from diagnnose.activations.activation_reader import ActivationReader
-from diagnnose.activations.activation_writer import ActivationWriter
+from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
+from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -15,7 +15,6 @@ from diagnnose.typedefs.activations import (
     ActivationRanges,
     SelectionFunc,
 )
-from diagnnose.corpus import Corpus
 
 BATCH_SIZE = 1024
 

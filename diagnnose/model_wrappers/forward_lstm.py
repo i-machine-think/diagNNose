@@ -4,7 +4,7 @@ from typing import Dict
 
 import torch
 from torch import Tensor
-from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
+from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 import diagnnose.typedefs.config as config
 from diagnnose.models.recurrent_lm import RecurrentLM
