@@ -70,36 +70,34 @@ class LakretzDownstream(DownstreamTask):
             items_per_condition = self.descriptions[subtask]["items_per_condition"]
 
             for i, condition in enumerate(self.descriptions[subtask]["conditions"]):
-                corpus = Corpus.create(
-                    os.path.join(corpus_path, f"{subtask}.txt"),
-                    header=["sen", "type", "correct", "idx"],
-                    vocab_path=self.vocab_path,
-                )
+                start_idx = i * items_per_condition
+                stop_idx = (i + 1) * items_per_condition
+                condition_slice = slice(start_idx, stop_idx)
 
-                condition_slice = slice(
-                    i * items_per_condition, (i + 1) * items_per_condition
+                corpus = self.create_corpus(
+                    os.path.join(corpus_path, f"{subtask}.txt"), condition_slice
                 )
-                self.postprocess_corpus(corpus, condition_slice)
 
                 corpora.setdefault(subtask, {})[condition] = corpus
 
         return corpora
 
-    @staticmethod
-    def postprocess_corpus(corpus: Corpus, condition_slice: slice) -> None:
-        """ Set the correct and incorrect verb for each sentence. """
-        corpus.fields["token"] = RawField()
-        corpus.fields["wrong_token"] = RawField()
+    def create_corpus(self, path: str, condition_slice: slice) -> Corpus:
+        """ Attach the correct and incorrect verb form to each sentence
+        in the corpus.
+        """
+        raw_corpus = Corpus.create_raw_corpus(path)
 
-        corpus.fields["token"].is_target = False
-        corpus.fields["wrong_token"].is_target = False
+        for idx in range(0, len(raw_corpus), 2):
+            token = raw_corpus[idx][0].split()[-1]
+            counter_token = raw_corpus[idx + 1][0].split()[-1]
+            sen = " ".join(raw_corpus[idx][0].split()[:-1])
+            raw_corpus[idx] = [sen, token, counter_token]
 
-        for idx in range(0, len(corpus), 2):
-            setattr(corpus[idx], "token", [corpus[idx].sen[-1]])
-            setattr(corpus[idx], "wrong_token", [corpus[idx + 1].sen[-1]])
-            corpus[idx].sen = corpus[idx].sen[:-1]
+        raw_corpus = raw_corpus[::2][condition_slice]
 
-        corpus.examples = corpus.examples[::2]
+        fields = Corpus.create_fields(["sen", "token", "counter_token"])
 
-        # Slice up the corpus into the partition of the current condition
-        corpus.examples = corpus.examples[condition_slice]
+        examples = Corpus.create_examples(raw_corpus, fields)
+
+        return Corpus(examples, fields, vocab_path=self.vocab_path)
