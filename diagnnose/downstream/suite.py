@@ -1,16 +1,15 @@
 from typing import Any, Callable, Dict, Optional
 
 from diagnnose.downstream.tasks import (
+    DownstreamTask,
     LakretzDownstream,
     LinzenDownstream,
     MarvinDownstream,
+    ResultsDict,
     WarstadtDownstream,
     WinobiasDownstream,
 )
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.utils.misc import suppress_print
-
-from .task import DownstreamTask, ResultsDict
 
 task_constructors: Dict[str, Callable] = {
     "lakretz": LakretzDownstream,

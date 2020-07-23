@@ -1,15 +1,15 @@
 import os
 import warnings
 from typing import Dict, List, NamedTuple, Optional, Tuple
-from unidecode import unidecode
 
 import inflect
 from torchtext.data import Example, Field
+from unidecode import unidecode
 
 from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 
-from ..task import DownstreamTask, DownstreamCorpora
+from .task import DownstreamCorpora, DownstreamTask
 
 
 class RawItem(NamedTuple):

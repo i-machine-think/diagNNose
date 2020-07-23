@@ -8,7 +8,7 @@ from torchtext.data import Example
 
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
-from diagnnose.extractors.simple_extract import simple_extract
+from diagnnose.extract import simple_extract
 from diagnnose.typedefs.activations import SelectionFunc
 from diagnnose.typedefs.models import LanguageModel
 
@@ -91,7 +91,7 @@ class DownstreamTask:
 
         if self.calc_counter_sen(subtask):
 
-            def selection_func(_sen_id: int, w_idx: int, item: Example) -> bool:
+            def selection_func(w_idx: int, item: Example) -> bool:
                 return len(item.counter_sen) == (w_idx + 1)
 
             counter_activations = self.calc_final_hidden(
@@ -111,12 +111,12 @@ class DownstreamTask:
     def calc_final_hidden(
         self,
         corpus: Corpus,
-        selection_func: SelectionFunc = final_token,
         sen_column: str = "sen",
+        selection_func: SelectionFunc = final_token,
     ) -> Tensor:
         activation_name = (self.model.top_layer, "hx")
 
-        activations, _ = simple_extract(
+        activation_reader, _ = simple_extract(
             self.model,
             corpus,
             [activation_name],
@@ -125,10 +125,12 @@ class DownstreamTask:
             sen_column=sen_column,
         )
 
-        return activations[activation_name]
+        activations = torch.cat(activation_reader[:, activation_name], dim=0)
+
+        return activations
 
     @staticmethod
-    def calc_counter_sen(_subtask: str) -> bool:
+    def calc_counter_sen(*args, **kwargs) -> bool:
         """ Specify conditions when the activations of a second
         sentence should be computed, for a P(w|h1) > P(w|h2) test.
         Defaults to False, and should be overridden if necessary.
@@ -147,12 +149,12 @@ class DownstreamTask:
 
         activations = activations[mask]
 
-        token_ids = torch.tensor([corpus.vocab.stoi[ex.token[0]] for ex in corpus])
+        token_ids = torch.tensor([corpus.vocab.stoi[ex.token] for ex in corpus])
         token_ids = token_ids[mask]
 
         if counter_activations is None:
             counter_token_ids = torch.tensor(
-                [corpus.vocab.stoi[ex.counter_token[0]] for ex in corpus]
+                [corpus.vocab.stoi[ex.counter_token] for ex in corpus]
             )
             counter_token_ids = counter_token_ids[mask]
 
@@ -160,16 +162,9 @@ class DownstreamTask:
                 activations, token_ids, counter_token_ids
             )
         else:
-            try:
-                accuracy = self.dual_context_accuracy(
-                    activations,
-                    counter_activations[mask],
-                    token_ids,
-                    use_full_model_probs,
-                )
-            except IndexError:
-                x = "KAK"
-                raise
+            accuracy = self.dual_context_accuracy(
+                activations, counter_activations[mask], token_ids, use_full_model_probs
+            )
 
         return accuracy
 

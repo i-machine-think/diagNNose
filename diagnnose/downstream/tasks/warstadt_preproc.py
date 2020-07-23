@@ -86,7 +86,9 @@ def preproc_warstadt(path: str) -> CorpusDict:
     sen_id2items = defaultdict(dict)
 
     for item in raw_items:
-        sen_id2items[item["sen_id"]][item["licensor"], item["scope"], item["npi_present"]] = item
+        sen_id2items[item["sen_id"]][
+            item["licensor"], item["scope"], item["npi_present"]
+        ] = item
 
     return sen_id2items
 

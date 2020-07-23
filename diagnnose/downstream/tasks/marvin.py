@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from torchtext.data import Example, Field
 
@@ -8,7 +8,7 @@ from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
-from ..task import DownstreamTask, DownstreamCorpora
+from .task import DownstreamCorpora, DownstreamTask
 
 
 class MarvinDownstream(DownstreamTask):
@@ -68,7 +68,9 @@ class MarvinDownstream(DownstreamTask):
 
         for subtask in subtasks:
             subtask_path = subtask_to_path[subtask]
-            subtask_corpora: Dict[str, Corpus] = self.initialize_subtask(subtask, subtask_path)
+            subtask_corpora: Dict[str, Corpus] = self.initialize_subtask(
+                subtask, subtask_path
+            )
 
             corpora[subtask] = subtask_corpora
 

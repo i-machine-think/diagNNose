@@ -4,10 +4,10 @@ from torchtext.data import Example
 
 from diagnnose.corpus import Corpus
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.vocab import create_vocab, W2I
+from diagnnose.vocab import W2I, create_vocab
 
-from .warstadt_preproc import create_downstream_corpus, preproc_warstadt, ENVS
-from ..task import DownstreamTask, DownstreamCorpora
+from .task import DownstreamCorpora, DownstreamTask
+from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
 
 
 class WarstadtDownstream(DownstreamTask):
