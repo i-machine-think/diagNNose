@@ -63,20 +63,22 @@ class GoogleLM(RecurrentLM):
         vocab: C2I = create_char_vocab(corpus_vocab_path or full_vocab_path)
 
         self.device = device
+        self.decoder_w = None
+        self.decoder_b = None
 
-        self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab, device)
-        self.lstm = LSTM(
-            ckpt_dir, self.num_layers, self.split_order, self.forget_offset, device
-        )
-        if create_decoder:
-            self.decoder = SoftMax(
-                vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"], device
+        try:
+            self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab, device)
+            self.lstm = LSTM(
+                ckpt_dir, self.num_layers, self.split_order, self.forget_offset, device
             )
-            self.decoder_w = self.decoder.decoder_w
-            self.decoder_b = self.decoder.decoder_b
-        else:
-            self.decoder_w = None
-            self.decoder_b = None
+            if create_decoder:
+                self.decoder = SoftMax(
+                    vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"], device
+                )
+                self.decoder_w = self.decoder.decoder_w
+                self.decoder_b = self.decoder.decoder_b
+        except ImportError:
+            raise ImportError("tensorflow and protobuf are needed for GoogleLM")
 
         print("Model initialisation finished.")
 
