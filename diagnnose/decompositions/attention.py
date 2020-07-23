@@ -11,11 +11,11 @@ from diagnnose.activations.activation_index import (
     activation_index_len,
     activation_index_to_iterable,
 )
+from diagnnose.corpus import Corpus
 from diagnnose.decompositions import DecomposerFactory
 from diagnnose.decompositions.base_decomposer import BaseDecomposer
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import ActivationIndex
-from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.midpoint import MidPointNorm
 
 plt.rcParams["figure.figsize"] = 15, 10
@@ -50,6 +50,7 @@ class CDAttention:
         Dictionary containing the configuration for the plot that is
         created.
     """
+
     def __init__(
         self,
         model: LanguageModel,

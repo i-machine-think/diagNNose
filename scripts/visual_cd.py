@@ -1,10 +1,10 @@
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import create_config_dict
+from diagnnose.corpus import Corpus
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.attention import CDAttention
+from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from torchtext.data import Example, Field
 
 from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
 from .task import DownstreamCorpora, DownstreamTask

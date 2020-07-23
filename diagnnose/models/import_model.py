@@ -2,10 +2,9 @@ from typing import Type
 
 import transformers
 
-import diagnnose.model_wrappers as wrappers
-from diagnnose.typedefs.classifiers import LinearDecoder
+import diagnnose.models.wrappers as wrappers
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.config import ConfigDict
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_path_from_config
 
 
@@ -46,32 +45,3 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
     config_dict["model"]["type"] = model_type
 
     return model
-
-
-def import_decoder_from_model(
-    model: LanguageModel, decoder_w: str = "decoder_w", decoder_b: str = "decoder_b"
-) -> LinearDecoder:
-    """ Returns the decoding layer of a language model.
-
-    Assumed to be a linear layer, that can be accessed by the decoder_w
-    and decoder_b attributes of the model.
-
-    Parameters
-    ----------
-    model : LanguageModel
-        LanguageModel that contains a linear decoding layer.
-    decoder_w : str
-        Attribute name of the decoder coefficients in the LM.
-    decoder_b : str
-        Attribute name of the decoder bias in the LM.
-
-    Returns
-    -------
-    decoder : LinearDecoder
-        A linear decoder is represented as a tuple of tensors, of the
-        form (w, b).
-    """
-    w = getattr(model, decoder_w)
-    b = getattr(model, decoder_b)
-
-    return w, b

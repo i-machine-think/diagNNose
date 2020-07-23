@@ -8,13 +8,13 @@ from torch import Tensor
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus, import_corpus
 from diagnnose.extract import Extractor
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationName,
     ActivationNames,
 )
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle

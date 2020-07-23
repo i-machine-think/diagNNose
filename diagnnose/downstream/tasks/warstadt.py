@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from torchtext.data import Example
 
 from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 from diagnnose.vocab import W2I, create_vocab
 
 from .task import DownstreamCorpora, DownstreamTask

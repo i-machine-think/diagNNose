@@ -5,7 +5,6 @@ from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
 
 import torch
-from overrides import overrides
 from torch import Tensor
 from torchtext.data import Example
 
@@ -13,8 +12,8 @@ import diagnnose.typedefs.config as config
 from diagnnose.corpus import import_corpus
 from diagnnose.corpus.create_iterator import create_iterator
 from diagnnose.corpus.create_labels import create_labels_from_corpus
-from diagnnose.extractors.base_extractor import Extractor
-from diagnnose.models.recurrent_lm import RecurrentLM
+from diagnnose.extract import Extractor
+from diagnnose.models.rnn import RecurrentLM
 from diagnnose.typedefs.activations import ActivationDict, SelectionFunc
 from diagnnose.utils.misc import suppress_print
 

@@ -3,9 +3,9 @@ from typing import Optional
 import torch
 from torch import Tensor
 
+from diagnnose.corpus import Corpus
 from diagnnose.typedefs.activations import SelectionFunc
 from diagnnose.typedefs.classifiers import ControlTask
-from diagnnose.corpus import Corpus
 
 
 def create_labels_from_corpus(

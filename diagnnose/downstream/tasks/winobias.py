@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from torchtext.data import RawField
 
 from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 
 from .task import DownstreamCorpora, DownstreamTask
 

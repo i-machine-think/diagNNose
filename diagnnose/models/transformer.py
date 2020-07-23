@@ -1,6 +1,6 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 
 
 class TransformerLM(LanguageModel, PreTrainedModel):

@@ -10,15 +10,15 @@ from skorch import NeuralNetClassifier
 from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
+from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationNames,
     SelectionFunc,
 )
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
-from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.utils.pickle import dump_pickle
 
 from .logreg import LogRegModule

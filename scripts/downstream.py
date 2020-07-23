@@ -3,8 +3,8 @@ from pprint import pprint
 from diagnnose.config.arg_parser import create_arg_parser
 from diagnnose.config.setup import create_config_dict
 from diagnnose.downstream.suite import DownstreamSuite
+from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_model
-from diagnnose.typedefs.models import LanguageModel
 from diagnnose.vocab import get_vocab_path_from_config
 
 if __name__ == "__main__":

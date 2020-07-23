@@ -7,14 +7,16 @@ from sklearn.externals import joblib
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 
+from diagnnose.activations import ActivationReader
 from diagnnose.activations.activation_index import activation_index_to_iterable
-from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.corpus import Corpus
 from diagnnose.decompositions import (
     CellDecomposer,
     ContextualDecomposer,
     ShapleyDecomposer,
 )
-from diagnnose.extractors.simple_extract import simple_extract
+from diagnnose.extract import simple_extract
+from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_decoder_from_model
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -24,8 +26,6 @@ from diagnnose.typedefs.activations import (
     RemoveCallback,
 )
 from diagnnose.typedefs.classifiers import LinearDecoder
-from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
 
 from .base_decomposer import BaseDecomposer
 

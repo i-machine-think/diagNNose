@@ -7,7 +7,7 @@ from torchtext.data import Example, Field
 from unidecode import unidecode
 
 from diagnnose.corpus import Corpus
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 
 from .task import DownstreamCorpora, DownstreamTask
 

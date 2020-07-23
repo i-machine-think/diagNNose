@@ -9,7 +9,7 @@ from diagnnose.downstream.tasks import (
     WarstadtDownstream,
     WinobiasDownstream,
 )
-from diagnnose.typedefs.models import LanguageModel
+from diagnnose.models import LanguageModel
 
 task_constructors: Dict[str, Callable] = {
     "lakretz": LakretzDownstream,

@@ -9,8 +9,8 @@ from torchtext.data import Example
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
-from diagnnose.typedefs.models import LanguageModel
 
 # subtask -> Corpus | (condition -> Corpus)
 DownstreamCorpora = Dict[str, Union[Corpus, Dict[str, Corpus]]]
