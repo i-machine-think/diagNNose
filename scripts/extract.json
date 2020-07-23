@@ -18,7 +18,6 @@
     "activations_dir": "../lm_data/activations/extracted/warstadt_all_items"
   },
   "extract": {
-    "dynamic_dumping": true,
     "batch_size": 1024
   }
 }

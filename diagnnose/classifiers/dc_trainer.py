@@ -10,7 +10,7 @@ from skorch import NeuralNetClassifier
 from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
-from diagnnose.extractors.simple_extract import simple_extract
+from diagnnose.extract import simple_extract
 from diagnnose.typedefs.activations import (
     ActivationName,
     ActivationNames,
@@ -36,7 +36,7 @@ class DCTrainer:
         Directory to which trained models will be saved, if provided.
     corpus : Corpus
         Corpus containing the token labels for each sentence.
-    activation_names : List[ActivationName]
+    activation_names : ActivationNames
         List of activation names on which classifiers will be trained.
     activations_dir : str, optional
         Path to folder containing the activations to train on. If not

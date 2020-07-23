@@ -1,13 +1,18 @@
 import os
-from typing import Dict, Optional, Tuple
+from itertools import product
+from typing import Dict
 
 import torch
-from overrides import overrides
 from torch import Tensor
+from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 
 import diagnnose.typedefs.config as config
 from diagnnose.models.recurrent_lm import RecurrentLM
-from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationNames,
+    LayeredTensors,
+)
 
 
 class ForwardLSTM(RecurrentLM):
@@ -79,7 +84,13 @@ class ForwardLSTM(RecurrentLM):
                     params[param_names["bias_hh"]] + params[param_names["bias_ih"]]
                 ).to(config.DTYPE)
 
-            self.sizes[layer] = {"x": w_i.size(1), "h": w_h.size(1), "c": w_h.size(1)}
+            self.sizes.update(
+                {
+                    (layer, "emb"): w_i.size(1),
+                    (layer, "hx"): w_h.size(1),
+                    (layer, "cx"): w_h.size(1),
+                }
+            )
             layer += 1
 
             if no_suffix:
@@ -88,14 +99,113 @@ class ForwardLSTM(RecurrentLM):
         # Encoder and decoder weights
         self.encoder = params[f"{encoder_name}.weight"].to(config.DTYPE)
         self.decoder_w = params[f"{decoder_name}.weight"].to(config.DTYPE)
-        self.decoder_b: Optional[Tensor] = None
-        if f"{decoder_name}.bias" in params:
-            self.decoder_b = params[f"{decoder_name}.bias"].to(config.DTYPE)
+        self.decoder_b = params[f"{decoder_name}.bias"].to(config.DTYPE)
+
+        self.sizes[self.top_layer, "out"] = self.decoder_b.size(0)
 
         print("Model initialisation finished.")
 
+    def forward(
+        self, batch: Tensor, batch_lengths: Tensor, compute_out: bool = False
+    ) -> ActivationDict:
+        """ Performs a single forward pass across all LM layers.
+
+        Parameters
+        ----------
+        batch : Tensor
+            Tensor of a batch of (padded) sentences.
+            Size: batch_size x max_sen_len
+        batch_lengths : Tensor
+            Tensor of the sentence lengths of each batch item.
+            Size: batch_size
+        compute_out : bool, optional
+            Toggles the computation of the final decoder projection.
+            If set to False this projection is not calculated.
+            Defaults to True.
+
+        Returns
+        -------
+        activations : ActivationDict
+            Dictionary mapping an activation name to a (padded) tensor.
+            Size: a_name -> batch_size x max_sen_len x nhid
+        """
+        packed_batch: PackedSequence = pack_padded_sequence(
+            batch, lengths=batch_lengths, batch_first=True, enforce_sorted=False
+        )
+
+        # a_name -> batch_size x max_sen_len x nhid
+        all_activations: ActivationDict = {
+            a_name: torch.zeros(*batch.shape, self.nhid(a_name)).to(config.DTYPE)
+            for a_name in self.activation_names(compute_out)
+        }
+        cur_activations = self.init_hidden(batch.size(0))
+
+        iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
+
+        for w_idx, input_ in enumerate(iterator):
+            num_input = packed_batch.batch_sizes[w_idx]
+            for a_name in cur_activations:
+                cur_activations[a_name] = cur_activations[a_name][:num_input]
+
+            cur_activations = self.forward_step(
+                input_, cur_activations, compute_out=compute_out
+            )
+
+            for a_name in all_activations:
+                all_activations[a_name][:num_input, w_idx] = cur_activations[a_name]
+
+        for a_name, activations in all_activations.items():
+            all_activations[a_name] = activations[packed_batch.unsorted_indices]
+
+        return all_activations
+
     def forward_step(
-        self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
+        self,
+        input_: Tensor,
+        prev_activations: ActivationDict,
+        compute_out: bool = False,
+    ) -> ActivationDict:
+        """Performs a (batched) forward pass for a multi-layer RNN.
+
+        Parameters
+        ----------
+        input_ : Tensor
+            Tensor containing a batch of token id's at the current
+            sentence position.
+        prev_activations : ActivationDict
+            Dict mapping the activation names of the previous hidden
+            and cell states to their corresponding Tensors.
+        compute_out : bool, optional
+            Toggles the computation of the final decoder projection.
+            If set to False this projection is not calculated.
+            Defaults to True.
+
+        Returns
+        -------
+        cur_activations : ActivationDict
+            Dictionary mapping an activation name to its current
+            activation.
+        """
+        # Look up the embeddings of the input tokens
+        input_ = self.encoder[input_]
+
+        # Iteratively compute and store intermediate rnn activations
+        cur_activations: ActivationDict = {}
+        for layer in range(self.num_layers):
+            prev_hx = prev_activations[layer, "hx"]
+            prev_cx = prev_activations[layer, "cx"]
+            cur_activations.update(self.forward_cell(layer, input_, prev_hx, prev_cx))
+            input_ = cur_activations[layer, "hx"]
+
+        if compute_out:
+            out = input_ @ self.decoder_w.t()
+            out += self.decoder_b
+            cur_activations[self.top_layer, "out"] = out
+
+        return cur_activations
+
+    def forward_cell(
+        self, layer: int, input_: Tensor, prev_hx: Tensor, prev_cx: Tensor
     ) -> ActivationDict:
         """ Performs the forward step of 1 RNN layer.
 
@@ -103,7 +213,7 @@ class ForwardLSTM(RecurrentLM):
         ----------
         layer : int
             Current RNN layer.
-        emb : Tensor
+        input_ : Tensor
             Current input embedding. In higher layers this is h^l-1_t.
             Size: bsz x emb_size
         prev_hx : Tensor
@@ -117,14 +227,14 @@ class ForwardLSTM(RecurrentLM):
             Dictionary mapping (layer, name) tuples to tensors.
         """
         # Shape: (bsz, nhid_h+emb_size)
-        ih_concat = torch.cat((prev_hx, emb), dim=1)
+        ih_concat = torch.cat((prev_hx, input_), dim=1)
         # Shape: (bsz, 4*nhid_c)
         proj = ih_concat @ self.weight[layer]
         if layer in self.bias:
             proj += self.bias[layer]
 
         split_proj: Dict[str, Tensor] = dict(
-            zip(self.split_order, torch.split(proj, self.sizes[layer]["c"], dim=1))
+            zip(self.split_order, torch.split(proj, self.sizes[layer, "cx"], dim=1))
         )
 
         # Shapes: (bsz, nhid_c)
@@ -137,7 +247,7 @@ class ForwardLSTM(RecurrentLM):
         hx = o_g * torch.tanh(cx)
 
         return {
-            (layer, "emb"): emb,
+            (layer, "emb"): input_,
             (layer, "hx"): hx,
             (layer, "cx"): cx,
             (layer, "f_g"): f_g,
@@ -145,53 +255,6 @@ class ForwardLSTM(RecurrentLM):
             (layer, "o_g"): o_g,
             (layer, "c_tilde_g"): c_tilde_g,
         }
-
-    @overrides
-    def forward(
-        self,
-        input_: Tensor,
-        prev_activations: Optional[ActivationDict] = None,
-        compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], ActivationDict]:
-        """Performs 1 (batched) forward step for a multi-layer RNN.
-
-        Parameters
-        ----------
-        input_ : Tensor
-            Tensor containing a batch of token id's at the current
-            sentence position.
-        prev_activations : TensorDict, optional
-            Dict mapping the activation names of the previous hidden
-            and cell states to their corresponding Tensors. Defaults to
-            None, indicating the initial states will be used.
-        compute_out : bool, optional
-            Toggles the computation of the final decoder projection.
-            If set to False this projection is not calculated.
-            Defaults to True.
-        """
-
-        # Look up the embeddings of the input words
-        embs = self.encoder[input_]
-
-        if prev_activations is None:
-            bsz = embs.size(0)
-            prev_activations = self.init_hidden(bsz)
-
-        # Iteratively compute and store intermediate rnn activations
-        activations: ActivationDict = {}
-        for l in range(self.num_layers):
-            prev_hx = prev_activations[l, "hx"]
-            prev_cx = prev_activations[l, "cx"]
-            activations.update(self.forward_step(l, embs, prev_hx, prev_cx))
-            embs = activations[l, "hx"]
-
-        out: Optional[Tensor] = None
-        if compute_out:
-            out = self.decoder_w @ input_
-            if self.decoder_b is not None:
-                out += self.decoder_b
-
-        return out, activations
 
     @staticmethod
     def param_names(
@@ -229,3 +292,13 @@ class ForwardLSTM(RecurrentLM):
             "bias_hh": f"{rnn_name}.bias_hh_l{layer}",
             "bias_ih": f"{rnn_name}.bias_ih_l{layer}",
         }
+
+    def activation_names(self, compute_out: bool = False) -> ActivationNames:
+        lstm_names = ["emb", "hx", "cx", "f_g", "i_g", "o_g", "c_tilde_g"]
+
+        activation_names = list(product(range(self.num_layers), lstm_names))
+
+        if compute_out:
+            activation_names.append((self.top_layer, "out"))
+
+        return activation_names

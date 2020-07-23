@@ -146,11 +146,6 @@ def create_arg_descriptions() -> ArgDescriptions:
             "Higher batch size increases extraction speed, but should "
             "be done accordingly to the amount of available RAM. Defaults to 1.",
         },
-        "dynamic_dumping": {
-            "type": bool,
-            "help": "(optional) Set to true to directly dump activations to file. "
-            "This way no activations are stored in RAM. Defaults to true.",
-        },
         "create_avg_eos": {
             "type": bool,
             "help": "(optional) Set to true to directly store the average end of sentence "
