@@ -18,8 +18,8 @@ NamedTensors = Dict[str, Tensor]
 ActivationDict = Dict[ActivationName, Tensor]
 
 # EXTRACTION
-# sen_id, w position, batch item -> bool
-SelectionFunc = Callable[[int, int, Example], bool]
+# token index, corpus item -> bool
+SelectionFunc = Callable[[int, Example], bool]
 
 # [(start, stop)]
 ActivationRanges = List[Tuple[int, int]]

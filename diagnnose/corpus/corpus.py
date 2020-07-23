@@ -20,6 +20,10 @@ class Corpus(Dataset):
         super().__init__(examples, fields)
 
         self.vocab: Vocab = Vocab({}, specials=[])
+        self.sen_column = sen_column
+        self.labels_column = labels_column
+
+        self.attach_sen_ids()
 
         if vocab_path is not None:
             tokenize_columns = tokenize_columns or ["sen"]
@@ -147,9 +151,62 @@ class Corpus(Dataset):
 
         return header
 
-    def attach_vocab(
-        self, vocab_path: str, sen_column: str = "sen", notify_unk: bool = False
-    ) -> None:
+    @staticmethod
+    def create_fields(
+        header: List[str],
+        to_lower: bool = False,
+        sen_column: str = "sen",
+        labels_column: str = "labels",
+        tokenize_columns: Optional[List[str]] = None,
+        convert_numerical: bool = False,
+    ) -> List[Tuple[str, Field]]:
+        tokenize_columns = tokenize_columns or [sen_column]
+
+        pipeline = None
+        if convert_numerical:
+
+            def preprocess_sen(s: Union[str, int]) -> Union[str, int]:
+                return int(s) if (isinstance(s, str) and s.isdigit()) else s
+
+            pipeline = Pipeline(convert_token=preprocess_sen)
+
+        fields = []
+
+        for column in header:
+            if column in tokenize_columns:
+                field = Field(batch_first=True, include_lengths=True, lower=to_lower)
+            # TODO: fix when refactoring classifier module
+            # elif column == labels_column:
+            #     field = Field(
+            #         pad_token=None,
+            #         unk_token=None,
+            #         is_target=True,
+            #         preprocessing=pipeline,
+            #     )
+            else:
+                field = RawField(preprocessing=pipeline)
+                field.is_target = False
+
+            fields.append((column, field))
+
+        return fields
+
+    @staticmethod
+    def create_examples(
+        raw_corpus: List[List[str]], fields: List[Tuple[str, Field]], sep: str = "\t"
+    ) -> List[Example]:
+        examples = [Example.fromlist(line, fields) for line in raw_corpus]
+
+        return examples
+
+    def attach_sen_ids(self):
+        self.fields["sen_idx"] = RawField()
+        self.fields["sen_idx"].is_target = False
+
+        for sen_idx, item in enumerate(self.examples):
+            setattr(item, "sen_idx", sen_idx)
+
+    def attach_vocab(self, vocab: W2I, tokenize_columns: List[str]) -> None:
         """ Creates a Vocab instance that is attached to the Corpus.
 
         Parameters

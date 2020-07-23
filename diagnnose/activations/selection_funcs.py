@@ -5,7 +5,12 @@ from torchtext.data import Example
 from diagnnose.typedefs.activations import SelectionFunc
 
 
-def final_token(_sen_id: int, w_idx: int, item: Example) -> bool:
+def return_all(_w_idx: int, _item: Example) -> bool:
+    """ Always returns True for every token. """
+    return True
+
+
+def final_token(w_idx: int, item: Example) -> bool:
     """ Only returns the final token of a sentence. """
     return len(item.sen) == (w_idx + 1)
 
@@ -15,8 +20,8 @@ def first_n(n: int) -> SelectionFunc:
     the first `n` items of a corpus.
     """
 
-    def selection_func(sen_id: int, _w_idx: int, _item: Example) -> bool:
-        return sen_id < n
+    def selection_func(_w_idx: int, item: Example) -> bool:
+        return item.sen_idx < n
 
     return selection_func
 
@@ -26,7 +31,7 @@ def nth_token(n: int) -> SelectionFunc:
     the `n^{th}` token of a sentence.
     """
 
-    def selection_func(_sen_id: int, w_idx: int, _item: Example) -> bool:
+    def selection_func(w_idx: int, _item: Example) -> bool:
         return w_idx == n
 
     return selection_func
@@ -37,7 +42,7 @@ def in_sen_ids(sen_ids: List[int]) -> SelectionFunc:
     a `sen_id` if it is part of the provided list of `sen_ids`.
     """
 
-    def selection_func(sen_id: int, _w_idx: int, _item: Example) -> bool:
-        return sen_id in sen_ids
+    def selection_func(_w_idx: int, item: Example) -> bool:
+        return item.sen_idx in sen_ids
 
     return selection_func
