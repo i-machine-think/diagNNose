@@ -1,6 +1,6 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from torchtext.data import Dataset, Example, Field, Pipeline, RawField, TabularDataset
+from torchtext.data import Dataset, Example, Field, Pipeline, RawField
 from torchtext.vocab import Vocab
 
 from diagnnose.vocab import W2I, create_vocab
@@ -10,7 +10,7 @@ class Corpus(Dataset):
     def __init__(
         self,
         examples: List[Example],
-        fields: Dict[str, Field],
+        fields: List[Tuple[str, Field]],
         vocab_path: Optional[str] = None,
         notify_unk: bool = False,
         tokenize_columns: Optional[List[str]] = None,
@@ -31,8 +31,9 @@ class Corpus(Dataset):
             tokenize_columns = tokenize_columns or [sen_column]
             self.attach_vocab(vocab, tokenize_columns)
 
-        if labels_column in self.fields:
-            self.fields[labels_column].build_vocab(self)
+        # TODO: Fix when refactoring classifier module
+        # if any(field_name == labels_column for field_name, _ in self.fields):
+        #     self.fields[labels_column].build_vocab(self)
 
         if create_pos_tags:
             self.create_pos_tags()
@@ -50,14 +51,12 @@ class Corpus(Dataset):
         vocab_path: Optional[str] = None,
         notify_unk: bool = False,
         tokenize_columns: Optional[List[str]] = None,
+        convert_numerical: bool = False,
         create_pos_tags: bool = False,
     ) -> "Corpus":
-        assert sep in "\t,", "separator not recognized, should be either `\t` or `,`"
-
-        with open(path, encoding="utf8") as f:
-            if header_from_first_line:
-                next(f)
-            raw_corpus = [line.strip() for line in f]
+        raw_corpus = cls.create_raw_corpus(
+            path, header_from_first_line=header_from_first_line, sep=sep
+        )
 
         header = cls.create_header(
             header=header,
@@ -74,11 +73,10 @@ class Corpus(Dataset):
             sen_column=sen_column,
             labels_column=labels_column,
             tokenize_columns=tokenize_columns,
+            convert_numerical=convert_numerical,
         )
 
-        examples = [
-            Example.fromlist(line.split(sep), fields.items()) for line in raw_corpus
-        ]
+        examples = cls.create_examples(raw_corpus, fields)
 
         return cls(
             examples,
@@ -87,42 +85,20 @@ class Corpus(Dataset):
             notify_unk=notify_unk,
             tokenize_columns=tokenize_columns,
             create_pos_tags=create_pos_tags,
+            sen_column=sen_column,
             labels_column=labels_column,
         )
 
     @staticmethod
-    def create_fields(
-        header: List[str],
-        to_lower: bool = False,
-        sen_column: str = "sen",
-        labels_column: str = "labels",
-        tokenize_columns: Optional[List[str]] = None,
-    ) -> Dict[str, Field]:
-        tokenize_columns = tokenize_columns or [sen_column]
+    def create_raw_corpus(
+        path: str, header_from_first_line: bool = False, sep: str = "\t"
+    ) -> List[List[str]]:
+        with open(path, encoding="utf8") as f:
+            if header_from_first_line:
+                next(f)
+            raw_corpus = [line.strip().split(sep) for line in f]
 
-        def preprocess_sen(s: Union[str, int]) -> Union[str, int]:
-            return int(s) if (isinstance(s, str) and s.isdigit()) else s
-
-        pipeline = Pipeline(convert_token=preprocess_sen)
-        fields = {}
-
-        for column in header:
-            if column in tokenize_columns:
-                fields[column] = Field(
-                    batch_first=True, include_lengths=True, lower=to_lower
-                )
-            elif column == labels_column:
-                fields[column] = Field(
-                    pad_token=None,
-                    unk_token=None,
-                    is_target=True,
-                    preprocessing=pipeline,
-                )
-            else:
-                fields[column] = RawField(preprocessing=pipeline)
-                fields[column].is_target = False
-
-        return fields
+        return raw_corpus
 
     @staticmethod
     def create_header(
