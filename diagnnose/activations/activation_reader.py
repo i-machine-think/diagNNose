@@ -241,8 +241,8 @@ class ActivationReader:
         activations : Tensor
             Torch tensor of activation values
         """
-        l, name = activation_name
-        filename = os.path.join(self.activations_dir, f"{name}_l{l}.pickle")
+        layer, name = activation_name
+        filename = os.path.join(self.activations_dir, f"{layer}-{name}.pickle")
 
         hidden_size = None
         activations = None
@@ -270,8 +270,9 @@ class ActivationReader:
                 except EOFError:
                     break
 
-        assert (
-            activations is not None
-        ), f"Reading activations {name}_l{l} returned None, check if file exists and is non-empty."
+        assert activations is not None, (
+            f"Reading activations [{layer}, {name}] returned None, "
+            f"check if file exists and is non-empty."
+        )
 
         return activations

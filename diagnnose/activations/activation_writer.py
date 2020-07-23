@@ -56,9 +56,7 @@ class ActivationWriter:
 
         self.activation_files = {
             (layer, name): stack.enter_context(
-                open(
-                    os.path.join(self.activations_dir, f"{name}_l{layer}.pickle"), "wb"
-                )
+                open(os.path.join(self.activations_dir, f"{layer}-{name}.pickle"), "wb")
             )
             for (layer, name) in self.activation_names
         }

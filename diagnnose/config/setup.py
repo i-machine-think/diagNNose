@@ -66,12 +66,8 @@ def create_config_dict(
         config.DTYPE = getattr(torch, activation_dtype)
         config.DTYPE_np = getattr(np, activation_dtype)
 
-    # TODO: clean up (c.f. #7)
-    activation_names = activation_config.get("activation_names", [])
-    if len(activation_names) == 0:
-        activation_names = config_dict.get("train_dc", {}).get("activation_names", [])
-    if len(activation_names) > 0:
-        cast_activation_names(activation_names)
+    raw_activation_names = activation_config.get("activation_names", [])
+    activation_config["activation_names"] = list(map(tuple, raw_activation_names))
 
     print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     pprint(config_dict)
@@ -109,9 +105,3 @@ def add_cmd_args(config_dict: ArgDict, cmd_args: ArgDict) -> ArgDict:
             cdm_arg_dicts.append(cmd_arg_dict)
 
     return reduce(merge_dicts, (config_dict, *cdm_arg_dicts))
-
-
-def cast_activation_names(activation_names: ActivationNames) -> None:
-    """ Cast activation names to (layer, name) format. """
-    for i, name in enumerate(activation_names):
-        activation_names[i] = (int(name[-1]), name[0:-1])
