@@ -6,7 +6,7 @@ import torch
 from torch import Tensor
 
 from diagnnose.activations.selection_funcs import final_token
-from diagnnose.corpus import import_corpus
+from diagnnose.corpus import Corpus, import_corpus
 from diagnnose.extract import Extractor
 from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import (
@@ -15,7 +15,6 @@ from diagnnose.typedefs.activations import (
     ActivationNames,
 )
 from diagnnose.typedefs.models import LanguageModel
-from diagnnose.corpus import Corpus
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
@@ -192,9 +191,7 @@ class RecurrentLM(LanguageModel):
         tensor : Tensor
             Zero-valued tensor of the correct size.
         """
-        return torch.zeros(
-            (batch_size, self.nhid(activation_name)), dtype=config.DTYPE
-        )
+        return torch.zeros((batch_size, self.nhid(activation_name)), dtype=config.DTYPE)
 
     @suppress_print
     def _create_init_states_from_corpus(
