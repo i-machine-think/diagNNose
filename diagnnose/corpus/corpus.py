@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 from torchtext.data import Dataset, Example, Field, Pipeline, RawField, TabularDataset
 from torchtext.vocab import Vocab
 
-from diagnnose.vocab.create import create_vocab
+from diagnnose.vocab import W2I, create_vocab
 
 
 class Corpus(Dataset):
@@ -15,6 +15,7 @@ class Corpus(Dataset):
         notify_unk: bool = False,
         tokenize_columns: Optional[List[str]] = None,
         create_pos_tags: bool = False,
+        sen_column: str = "sen",
         labels_column: str = "labels",
     ) -> None:
         super().__init__(examples, fields)
@@ -26,9 +27,9 @@ class Corpus(Dataset):
         self.attach_sen_ids()
 
         if vocab_path is not None:
-            tokenize_columns = tokenize_columns or ["sen"]
-            for column in tokenize_columns:
-                self.attach_vocab(vocab_path, column, notify_unk)
+            vocab = create_vocab(vocab_path, notify_unk=notify_unk)
+            tokenize_columns = tokenize_columns or [sen_column]
+            self.attach_vocab(vocab, tokenize_columns)
 
         if labels_column in self.fields:
             self.fields[labels_column].build_vocab(self)
@@ -211,22 +212,17 @@ class Corpus(Dataset):
 
         Parameters
         ----------
-        vocab_path : str
-            Path to model vocabulary file, expected to contain
-            one entry per line.
-        sen_column : str, optional
-            Column name of the corpus sentences. Defaults to `sen`.
-        notify_unk : bool, optional
-            Toggle to issue a user warning if a requested token is not
-            present in the model vocabulary. Defaults to False.
+        vocab : W2I
+            W2I object that represents the actual vocabulary.
+        tokenize_columns : List[str], optional
+            List of column names to which the Vocab will be attached.
         """
-        vocab = create_vocab(vocab_path, notify_unk=notify_unk)
+        for column in tokenize_columns:
+            self.fields[column].vocab = Vocab({}, specials=[])
+            self.fields[column].vocab.stoi = vocab
+            self.fields[column].vocab.itos = list(vocab.keys())
 
-        self.fields[sen_column].vocab = Vocab({}, specials=[])
-        self.fields[sen_column].vocab.stoi = vocab
-        self.fields[sen_column].vocab.itos = list(vocab.keys())
-
-        self.vocab = self.fields[sen_column].vocab
+        self.vocab = self.fields[self.sen_column].vocab
 
     def create_pos_tags(self):
         import nltk
@@ -237,5 +233,5 @@ class Corpus(Dataset):
         self.fields["pos_tags"].is_target = False
 
         print("Tagging corpus...")
-        for item in self:
-            item.pos_tags = [t[1] for t in nltk.pos_tag(item.sen)]
+        for item in self.examples:
+            setattr(item, "pos_tags", [t[1] for t in nltk.pos_tag(item.sen)])
