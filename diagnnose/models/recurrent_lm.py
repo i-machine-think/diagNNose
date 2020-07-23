@@ -1,26 +1,30 @@
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from itertools import product
+from typing import Any, Dict, List, Optional
 
 import torch
-from overrides import overrides
-from torch import Tensor, nn
+from torch import Tensor
 
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import import_corpus
-from diagnnose.extractors.base_extractor import Extractor
+from diagnnose.extract import Extractor
 from diagnnose.typedefs import config as config
-from diagnnose.typedefs.activations import ActivationDict, ActivationNames
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationName,
+    ActivationNames,
+)
+from diagnnose.typedefs.models import LanguageModel
 from diagnnose.corpus import Corpus
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
 
-# layer -> name (hx/cx) -> size
-SizeDict = Dict[int, Dict[str, int]]
+# (layer, name) -> size
+SizeDict = Dict[ActivationName, int]
 
 
-class RecurrentLM(ABC, nn.Module):
+class RecurrentLM(LanguageModel):
     """ Abstract class for LM with intermediate activations """
 
     device: str = "cpu"
@@ -36,7 +40,7 @@ class RecurrentLM(ABC, nn.Module):
 
     @property
     def num_layers(self) -> int:
-        return len(self.sizes)
+        return max(layer for layer, _name in self.sizes) + 1
 
     @property
     def top_layer(self) -> int:
@@ -44,38 +48,7 @@ class RecurrentLM(ABC, nn.Module):
 
     @property
     def output_size(self) -> int:
-        return self.sizes[self.top_layer]["h"]
-
-    @overrides
-    @abstractmethod
-    def forward(
-        self, input_: Tensor, prev_activations: ActivationDict, compute_out: bool = True
-    ) -> Tuple[Optional[Tensor], ActivationDict]:
-        """ Performs a single forward pass across all rnn layers.
-
-        Parameters
-        ----------
-        input_ : Tensor
-            Tensor containing a batch of token id's at the current
-            sentence position.
-        prev_activations : TensorDict, optional
-            Dict mapping the activation names of the previous hidden
-            and cell states to their corresponding Tensors. Defaults to
-            None, indicating the initial states will be used.
-        compute_out : bool, optional
-            Toggles the computation of the final decoder projection.
-            If set to False this projection is not calculated.
-            Defaults to True.
-
-        Returns
-        -------
-        out : torch.Tensor, optional
-            Torch Tensor of output distribution of vocabulary. If
-            `compute_out` is set to True, `out` returns None.
-        activations : TensorDict
-            Dictionary mapping each layer to each activation name to a
-            tensor.
-        """
+        return self.sizes[self.top_layer, "hx"]
 
     def init_hidden(self, batch_size: int) -> ActivationDict:
         """Creates a batch of initial states.
@@ -112,6 +85,15 @@ class RecurrentLM(ABC, nn.Module):
         """
         return hidden[self.top_layer, "hx"].squeeze()
 
+    def nhid(self, activation_name: ActivationName) -> int:
+        """ Returns number of hidden units for a (layer, name) tuple.
+
+        If `name` != emb/hx/cx returns the size of (layer, `cx`).
+        """
+        layer, name = activation_name
+
+        return self.sizes.get((layer, name), self.sizes[layer, "cx"])
+
     def set_init_states(
         self,
         pickle_path: Optional[str] = None,
@@ -137,6 +119,8 @@ class RecurrentLM(ABC, nn.Module):
         corpus_path : str, optional
             Path to corpus of which the final hidden state will be used
             as initial states.
+        use_default : bool
+            Toggle to use the default initial sentence `. <eos>`.
         save_init_states_to : str, optional
             Path to which the newly computed init_states will be saved.
             If not provided these states won't be dumped.
@@ -184,25 +168,24 @@ class RecurrentLM(ABC, nn.Module):
         init_states : ActivationTensors
             Dictionary mapping (layer, name) tuple to zero-tensor.
         """
-        init_states: ActivationDict = {}
-
-        for layer in range(self.num_layers):
-            init_states[layer, "cx"] = self.create_zero_state(batch_size, layer, "c")
-            init_states[layer, "hx"] = self.create_zero_state(batch_size, layer, "h")
+        init_states: ActivationDict = {
+            a_name: self.create_zero_state(batch_size, a_name)
+            for a_name in product(range(self.num_layers), ["cx", "hx"])
+        }
 
         return init_states
 
-    def create_zero_state(self, batch_size: int, layer: int, cell_type: str) -> Tensor:
+    def create_zero_state(
+        self, batch_size: int, activation_name: ActivationName
+    ) -> Tensor:
         """ Create single zero tensor for given layer/cell_type.
 
         Parameters
         ----------
         batch_size : int
             Batch size for model task.
-        layer : int
-            Model layer.
-        cell_type : str
-            Either `h` or `c`.
+        activation_name : ActivationName
+            (layer, name) tuple.
 
         Returns
         -------
@@ -210,7 +193,7 @@ class RecurrentLM(ABC, nn.Module):
             Zero-valued tensor of the correct size.
         """
         return torch.zeros(
-            (batch_size, self.sizes[layer][cell_type]), dtype=config.DTYPE
+            (batch_size, self.nhid(activation_name)), dtype=config.DTYPE
         )
 
     @suppress_print
@@ -228,11 +211,13 @@ class RecurrentLM(ABC, nn.Module):
 
         self.init_states = self.create_zero_states()
         extractor = Extractor(
-            self, corpus, activation_names, activations_dir=save_init_states_to
+            self,
+            corpus,
+            activation_names,
+            activations_dir=save_init_states_to,
+            selection_func=final_token,
         )
-        init_states = extractor.extract(
-            dynamic_dumping=False, selection_func=final_token
-        )
+        init_states = extractor.extract().activation_dict
 
         return init_states
 
@@ -245,25 +230,24 @@ class RecurrentLM(ABC, nn.Module):
             New initial states that should have a structure that
             complies with the dimensions of the language model.
         """
-        # Multiplied by 2 because there are hx & cx for each layer
+        num_init_layers = max(layer for layer, _name in init_states)
         assert (
-            len(init_states) == self.num_layers * 2
+            num_init_layers == self.num_layers
         ), "Number of initial layers not correct"
 
-        for layer, layer_size in self.sizes.items():
-            for hc in ["h", "c"]:
+        for (layer, name), size in self.sizes.items():
+            if name in ["hx", "cx"]:
                 assert (
                     layer,
-                    f"{hc}x",
+                    name,
                 ) in init_states.keys(), (
-                    f"Activation {layer},{hc}x is not found in init states"
+                    f"Activation {layer},{name} is not found in init states"
                 )
 
-                init_size = init_states[layer, f"{hc}x"].size(1)
-                model_size = self.sizes[layer][hc]
-                assert init_size == model_size, (
-                    f"Initial activation size for {hc}x is incorrect: "
-                    f"{hc}x: {init_size}, should be {model_size}"
+                init_size = init_states[layer, name].size(1)
+                assert init_size == size, (
+                    f"Initial activation size for {name} is incorrect: "
+                    f"{name}: {init_size}, should be {size}"
                 )
 
     def _expand_batch_size(
