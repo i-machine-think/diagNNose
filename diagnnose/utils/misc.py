@@ -7,12 +7,15 @@ from typing import Any, Callable, Dict
 
 def suppress_print(func: Callable) -> Callable:
     """
-    Function decorator to suppress output via print for testing purposed. Thanks to
-    https://codingdose.info/2018/03/22/supress-print-output-in-python/ for text "entrapment".
+    Function decorator to suppress print output for testing purposes.
+    Thanks to codingdose.info/2018/03/22/supress-print-output-in-python
+    for text "entrapment".
     """
 
     @wraps(func)
     def wrapped(*args: Any, **kwargs: Any) -> Any:
+        if not kwargs.pop("suppress_print", True):
+            return func(*args, **kwargs)
 
         trap = io.StringIO()
 
