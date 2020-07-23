@@ -1,9 +1,10 @@
-import dill
 import os
 import pickle
 import warnings
 from contextlib import ExitStack
 from typing import BinaryIO, Optional
+
+import dill
 
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -62,7 +63,7 @@ class ActivationWriter:
         }
 
         self.activation_ranges_file = stack.enter_context(
-            open(os.path.join(self.activations_dir, "ranges.pickle"), "wb")
+            open(os.path.join(self.activations_dir, "activation_ranges.pickle"), "wb")
         )
         self.selection_func_file = stack.enter_context(
             open(os.path.join(self.activations_dir, "selection_func.dill"), "wb")

@@ -1,12 +1,17 @@
-from typing import Iterable, Sized
+from typing import Iterable, Optional, Sized
 
-from torch import Tensor
+from torch import Tensor, long
 
 from diagnnose.typedefs.activations import ActivationIndex
 
 
-def activation_index_to_iterable(activation_index: ActivationIndex) -> Iterable:
+def activation_index_to_iterable(
+    activation_index: ActivationIndex, stop_index: Optional[int] = None
+) -> Iterable:
     """ Transforms an activation index into an iterable object. """
+    if isinstance(activation_index, Tensor):
+        activation_index = activation_index.to(long)
+
     if isinstance(activation_index, Iterable):
         return activation_index
 
@@ -14,17 +19,11 @@ def activation_index_to_iterable(activation_index: ActivationIndex) -> Iterable:
         return [activation_index]
 
     if isinstance(activation_index, slice):
-        assert (
-            activation_index.stop is not None
-        ), "Stop index of slice should be provided"
+        stop_index = activation_index.stop or stop_index
+        assert stop_index is not None, "Stop index of slice should be provided"
         return range(
-            activation_index.start or 0,
-            activation_index.stop,
-            activation_index.step or 1,
+            activation_index.start or 0, stop_index, activation_index.step or 1
         )
-
-    if isinstance(activation_index, Tensor):
-        return [int(activation_index[idx]) for idx in range(activation_index.size(0))]
 
     raise ValueError(
         f"Activation index of incorrect type: {type(activation_index)}, "

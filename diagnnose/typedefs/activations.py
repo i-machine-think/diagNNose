@@ -21,8 +21,8 @@ ActivationDict = Dict[ActivationName, Tensor]
 # sen_id, w position, batch item -> bool
 SelectionFunc = Callable[[int, int, Example], bool]
 
-Range = Tuple[int, int]
-ActivationRanges = Dict[int, Range]
+# [(start, stop)]
+ActivationRanges = List[Tuple[int, int]]
 
 RemoveCallback = Callable[[], None]
 
