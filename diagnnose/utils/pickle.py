@@ -1,7 +1,8 @@
 import os
 import pickle
-import dill
 from typing import Any
+
+import dill
 
 
 def load_pickle(path: str, use_dill: bool = False) -> Any:
