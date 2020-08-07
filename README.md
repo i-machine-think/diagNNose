@@ -1,5 +1,9 @@
 # diagnnose &middot; [![Build Status](https://travis-ci.com/i-machine-think/diagnnose.svg?branch=master)](https://travis-ci.com/i-machine-think/diagnnose) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
 
+:construction: **Currently undergoing construction, with a planned release in early September.** :construction:
+
+---
+
 This library contains a set of modules that can be used to analyse recurrent neural networks.
 In particular, it contains functionality for :
 - **Extracting** activations from different types of (language) models and providing quick access to these stored activations.
