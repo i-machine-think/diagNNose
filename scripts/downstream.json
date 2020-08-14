@@ -1,16 +1,12 @@
 {
   "model": {
-    "type": "ForwardLSTM",
-    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+    "model_type": "ForwardLSTM",
+    "state_dict": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulorgood/3.pt",
+    "use_default_init_states": true
   },
-  "init_states": {
-    "corpus_path": "../diagnnose/utils/init_sentence.txt"
-  },
-  "vocab": {
-    "path": "../lm_data/models/gulordava/vocab.txt"
-  },
+  "tokenizer": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulorgood/vocab.txt",
   "downstream": {
-    "tasks": ["warstadt", "marvin"],
+    "tasks": ["marvin"],
     "config": {
       "warstadt": {
         "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
@@ -18,7 +14,7 @@
       },
       "marvin": {
         "path": "../lm_data/corpora/downstream/marvin",
-        "use_full_model_probs": false,
+        "use_full_model_probs": true,
         "subtasks": ["npi_across_anim", "npi_across_inanim"]
       },
       "linzen": {
