@@ -1,6 +1,6 @@
 import os
 from itertools import product
-from typing import Dict
+from typing import Dict, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -97,27 +97,39 @@ class ForwardLSTM(RecurrentLM):
                 break
 
         # Encoder and decoder weights
-        self.encoder = params[f"{encoder_name}.weight"].to(config.DTYPE)
-        self.decoder_w = params[f"{decoder_name}.weight"].to(config.DTYPE)
-        self.decoder_b = params[f"{decoder_name}.bias"].to(config.DTYPE)
+        self.word_embeddings: Tensor = params[f"{encoder_name}.weight"].to(config.DTYPE)
+        self.decoder_w: Tensor = params[f"{decoder_name}.weight"].to(config.DTYPE)
+        self.decoder_b: Tensor = params[f"{decoder_name}.bias"].to(config.DTYPE)
 
         self.sizes[self.top_layer, "out"] = self.decoder_b.size(0)
 
         print("Model initialisation finished.")
 
     def forward(
-        self, batch: Tensor, batch_lengths: Tensor, compute_out: bool = False
+        self,
+        input_ids: Optional[Tensor] = None,
+        inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
+        input_lengths: Optional[Tensor] = None,
+        compute_out: bool = False,
     ) -> ActivationDict:
         """ Performs a single forward pass across all LM layers.
 
         Parameters
         ----------
-        batch : Tensor
-            Tensor of a batch of (padded) sentences.
+        input_ids : Tensor, optional
+            Indices of input sequence tokens in the vocabulary.
             Size: batch_size x max_sen_len
-        batch_lengths : Tensor
+        inputs_embeds : Tensor | ShapleTensor, optional
+            This is useful if you want more control over how to convert
+            `input_ids` indices into associated vectors than the model's
+            internal embedding lookup matrix. Also allows a
+            ShapleyTensor to be provided, allowing feature contributions
+            to be track during a forward pass.
+            Size: batch_size x max_sen_len x nhid
+        input_lengths : Tensor, optional
             Tensor of the sentence lengths of each batch item.
-            Size: batch_size
+            If not provided, all items are assumed the same length.
+            Size: batch_size,
         compute_out : bool, optional
             Toggles the computation of the final decoder projection.
             If set to False this projection is not calculated.
@@ -125,25 +137,28 @@ class ForwardLSTM(RecurrentLM):
 
         Returns
         -------
-        activations : ActivationDict
-            Dictionary mapping an activation name to a (padded) tensor.
-            Size: a_name -> batch_size x max_sen_len x nhid
+        all_activations : ActivationDict
+            Dictionary mapping activation names to tensors of shape:
+            batch_size x max_sen_len x nhid.
         """
-        packed_batch: PackedSequence = pack_padded_sequence(
-            batch, lengths=batch_lengths, batch_first=True, enforce_sorted=False
-        )
+        if input_ids is not None and inputs_embeds is not None:
+            raise ValueError(
+                "You cannot specify both input_ids and inputs_embeds at the same time"
+            )
+        if inputs_embeds is None and input_ids is None:
+            raise ValueError("inputs_embeds or input_ids must be provided")
+        if inputs_embeds is None:
+            inputs_embeds = self.create_inputs_embeds(input_ids)
+        if len(inputs_embeds.shape) == 2:
+            inputs_embeds = inputs_embeds.unsqueeze(0)
 
-        # a_name -> batch_size x max_sen_len x nhid
-        all_activations: ActivationDict = {
-            a_name: torch.zeros(*batch.shape, self.nhid(a_name)).to(config.DTYPE)
-            for a_name in self.activation_names(compute_out)
-        }
-        cur_activations = self.init_hidden(batch.size(0))
+        iterator, unsorted_indices = self._create_iterator(inputs_embeds, input_lengths)
 
-        iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
+        all_activations = self._init_activations(inputs_embeds, compute_out)
+        cur_activations = self.init_hidden(inputs_embeds.size(0))
 
         for w_idx, input_ in enumerate(iterator):
-            num_input = packed_batch.batch_sizes[w_idx]
+            num_input = input_.size(0)
             for a_name in cur_activations:
                 cur_activations[a_name] = cur_activations[a_name][:num_input]
 
@@ -154,6 +169,7 @@ class ForwardLSTM(RecurrentLM):
             for a_name in all_activations:
                 all_activations[a_name][:num_input, w_idx] = cur_activations[a_name]
 
+        # Batch had been sorted and needs to be unsorted to retain the original order
         for a_name, activations in all_activations.items():
             all_activations[a_name] = activations[packed_batch.unsorted_indices]
 

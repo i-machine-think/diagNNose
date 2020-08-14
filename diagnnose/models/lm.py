@@ -1,26 +1,50 @@
 from abc import ABC, abstractmethod
+from typing import Optional, Union
 
 import torch.nn as nn
 from torch import Tensor
 
-from diagnnose.typedefs.activations import ActivationDict, ActivationNames
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationName,
+    ActivationNames,
+    SizeDict,
+)
 
 
 class LanguageModel(ABC, nn.Module):
+    device: str = "cpu"
+    sizes: SizeDict = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     @abstractmethod
     def forward(
-        self, batch: Tensor, batch_lengths: Tensor, compute_out: bool = True
+        self,
+        input_ids: Optional[Tensor] = None,
+        inputs_embeds: Optional[Union[Tensor, "ShapleyTensor"]] = None,
+        input_lengths: Optional[Tensor] = None,
+        compute_out: bool = False,
     ) -> ActivationDict:
         """ Performs a single forward pass across all LM layers.
 
         Parameters
         ----------
-        batch : Tensor
-            Tensor of a batch of (padded) sentences.
+        input_ids : Tensor, optional
+            Indices of input sequence tokens in the vocabulary.
             Size: batch_size x max_sen_len
-        batch_lengths : Tensor
+        inputs_embeds : Tensor | ShapleTensor, optional
+            This is useful if you want more control over how to convert
+            `input_ids` indices into associated vectors than the model's
+            internal embedding lookup matrix. Also allows a
+            ShapleyTensor to be provided, allowing feature contributions
+            to be track during a forward pass.
+            Size: batch_size x max_sen_len x nhid
+        input_lengths : Tensor, optional
             Tensor of the sentence lengths of each batch item.
-            Size: batch_size
+            If not provided, all items are assumed the same length.
+            Size: batch_size,
         compute_out : bool, optional
             Toggles the computation of the final decoder projection.
             If set to False this projection is not calculated.
@@ -35,15 +59,45 @@ class LanguageModel(ABC, nn.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def activation_names(self) -> ActivationNames:
-        """ Returns a list of all the model's activation names.
+    def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
+        """ Transforms a sequence of input tokens to their embedding.
 
         Parameters
         ----------
+        input_ids : Tensor
+            Tensor of shape batch_size x max_sen_len.
+
+        Returns
+        -------
+        inputs_embeds : Tensor
+            Embedded tokens of shape batch_size x max_sen_len x nhid.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def activation_names(self) -> ActivationNames:
+        """ Returns a list of all the model's activation names.
 
         Returns
         -------
         activation_names : ActivationNames
             List of (layer, name) tuples.
         """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def num_layers(self) -> int:
+        """ Returns the number of layers in the LM. """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def top_layer(self) -> int:
+        """ Returns the index of the LM's top layer. """
+        raise NotImplementedError
+
+    @abstractmethod
+    def nhid(self, activation_name: ActivationName) -> int:
+        """ Returns number of hidden units for a (layer, name) tuple. """
         raise NotImplementedError

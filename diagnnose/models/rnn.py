@@ -1,12 +1,12 @@
 import os
 from itertools import product
-from typing import Any, Dict, List, Optional
+from typing import List, Optional, Type
 
 import torch
 from torch import Tensor
 
 from diagnnose.activations.selection_funcs import final_token
-from diagnnose.corpus import Corpus, import_corpus
+from diagnnose.corpus import Corpus
 from diagnnose.extract import Extractor
 from diagnnose.models import LanguageModel
 from diagnnose.tokenizer import Tokenizer
@@ -20,23 +20,36 @@ from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle
 
-# (layer, name) -> size
-SizeDict = Dict[ActivationName, int]
-
 
 class RecurrentLM(LanguageModel):
-    """ Abstract class for LM with intermediate activations """
+    """ Abstract class for RNN LM with intermediate activations """
 
-    device: str = "cpu"
     forget_offset: int = 0
     ih_concat_order: List[str] = ["h", "i"]
-    sizes: SizeDict = {}
     split_order: List[str]
     use_char_embs: bool = False
+    init_states: ActivationDict = {}
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__()
-        self.init_states: ActivationDict = {}
+    @staticmethod
+    def create_from_type(model_type: str, *args, **kwargs) -> "RecurrentLM":
+        """ Initializes a RNN LM based on a model type.
+
+        Parameters
+        ----------
+        model_type : str
+            String name of one of the classes in
+            `diagnnose.models.wrappers`.
+
+        Returns
+        -------
+        model : RecurrentLM
+            A fully initialized RecurrentLM.
+        """
+        import diagnnose.models.wrappers as wrappers
+
+        model_constructor: Type[RecurrentLM] = getattr(wrappers, model_type)
+
+        return model_constructor(*args, **kwargs)
 
     @property
     def num_layers(self) -> int:

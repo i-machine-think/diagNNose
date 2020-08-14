@@ -1,11 +1,11 @@
-from typing import Type
-
-import transformers
-
+# TODO: Removing this v somehow breaks RecurrentLM import in ForwardLSTM?
 import diagnnose.models.wrappers as wrappers
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import create_tokenizer
 from diagnnose.typedefs.config import ConfigDict
-from diagnnose.vocab import get_vocab_path_from_config
+
+from .rnn import RecurrentLM
+from .transformer import TransformerLM
 
 
 def import_model(config_dict: ConfigDict) -> LanguageModel:
@@ -22,26 +22,22 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
     model : LanguageModel
         A LanguageModel instance, based on the provided config_dict.
     """
-    model_type = config_dict["model"].pop("type")
 
-    if "transformers." in model_type:
-        state_dict = config_dict["model"]["state_dict"]
-        model_type = model_type.split(".")[1]
-
-        model_constructor = getattr(transformers, model_type)
-        model = model_constructor.from_pretrained(state_dict)
-
-        tokenizer_constructor = getattr(transformers, config_dict["model"]["tokenizer"])
-        model.tokenizer = tokenizer_constructor.from_pretrained(state_dict)
+    if "model_name" in config_dict["model"]:
+        model = TransformerLM(**config_dict["model"])
     else:
-        model_constructor: Type[LanguageModel] = getattr(wrappers, model_type)
-        model: LanguageModel = model_constructor(**config_dict["model"])
+        use_default_init_states = config_dict["model"].pop(
+            "use_default_init_states", False
+        )
+        tokenizer = create_tokenizer(config_dict["tokenizer"])
 
-        vocab_path = get_vocab_path_from_config(config_dict)
+        model = RecurrentLM.create_from_type(**config_dict["model"])
         model.set_init_states(
-            vocab_path=vocab_path, **config_dict.get("init_states", {})
+            use_default=use_default_init_states,
+            tokenizer=tokenizer,
+            **config_dict.get("init_states", {})
         )
 
-    config_dict["model"]["type"] = model_type
+    model.eval()
 
     return model
