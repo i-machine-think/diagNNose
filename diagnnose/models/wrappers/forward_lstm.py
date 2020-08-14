@@ -7,6 +7,7 @@ from torch import Tensor
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 import diagnnose.typedefs.config as config
+from diagnnose.attribute import ShapleyTensor
 from diagnnose.models.rnn import RecurrentLM
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -171,23 +172,81 @@ class ForwardLSTM(RecurrentLM):
 
         # Batch had been sorted and needs to be unsorted to retain the original order
         for a_name, activations in all_activations.items():
-            all_activations[a_name] = activations[packed_batch.unsorted_indices]
+            all_activations[a_name] = activations[unsorted_indices]
+
+        return all_activations
+
+    def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
+        return self.word_embeddings[input_ids]
+
+    @staticmethod
+    def _create_iterator(
+        input_ids: Tensor, input_lengths: Optional[Tensor]
+    ) -> Tuple[Tuple[Tensor, ...], Tensor]:
+        """ Creates a PackedSequence that handles batching for the RNN.
+
+        Batch items are sorted based on sentence length, allowing
+        <pad> tokens to be skipped efficiently during the forward pass.
+
+        Returns
+        -------
+        iterator : Tuple[Tensor, ...]
+            Tuple of input tensors for each step in the sequence.
+        unsorted_indices : Tensor
+            Original order of the corpus prior to sorting.
+        """
+        if input_lengths is None:
+            batch_size = input_ids.size(0)
+            input_lengths = torch.tensor(batch_size * [input_ids.size(1)])
+
+        packed_batch: PackedSequence = pack_padded_sequence(
+            input_ids, lengths=input_lengths, batch_first=True, enforce_sorted=False
+        )
+
+        iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
+
+        return iterator, packed_batch.unsorted_indices
+
+    def _init_activations(
+        self, inputs_embeds: Tensor, compute_out: bool
+    ) -> ActivationDict:
+        """ Returns a dictionary mapping activation names to tensors.
+
+        If the input is a ShapleyTensor this dict will store the
+        ShapleyTensors as well.
+
+        Returns
+        -------
+        all_activations : ActivationDict
+            Dictionary mapping activation names to tensors of shape:
+            batch_size x max_sen_len x nhid.
+        """
+        batch_size, max_sen_len = inputs_embeds.shape[:2]
+        all_activations: ActivationDict = {
+            a_name: torch.zeros(batch_size, max_sen_len, self.nhid(a_name)).to(
+                config.DTYPE
+            )
+            for a_name in self.activation_names(compute_out)
+        }
+
+        if isinstance(inputs_embeds, ShapleyTensor):
+            for a_name, activations in all_activations.items():
+                all_activations[a_name] = ShapleyTensor(activations)
 
         return all_activations
 
     def forward_step(
         self,
-        input_: Tensor,
+        token_embeds: Tensor,
         prev_activations: ActivationDict,
         compute_out: bool = False,
     ) -> ActivationDict:
-        """Performs a (batched) forward pass for a multi-layer RNN.
+        """Performs a forward pass of one step across all layers.
 
         Parameters
         ----------
-        input_ : Tensor
-            Tensor containing a batch of token id's at the current
-            sentence position.
+        token_embeds : Tensor
+            Tensor of word embeddings at the current sentence position.
         prev_activations : ActivationDict
             Dict mapping the activation names of the previous hidden
             and cell states to their corresponding Tensors.
@@ -198,19 +257,20 @@ class ForwardLSTM(RecurrentLM):
 
         Returns
         -------
-        cur_activations : ActivationDict
-            Dictionary mapping an activation name to its current
-            activation.
+        all_activations : ActivationDict
+            Dictionary mapping activation names to tensors of shape:
+            batch_size x max_sen_len x nhid.
         """
-        # Look up the embeddings of the input tokens
-        input_ = self.encoder[input_]
-
-        # Iteratively compute and store intermediate rnn activations
         cur_activations: ActivationDict = {}
+        input_ = token_embeds
+
         for layer in range(self.num_layers):
             prev_hx = prev_activations[layer, "hx"]
             prev_cx = prev_activations[layer, "cx"]
-            cur_activations.update(self.forward_cell(layer, input_, prev_hx, prev_cx))
+
+            layer_activations = self.forward_cell(layer, input_, prev_hx, prev_cx)
+            cur_activations.update(layer_activations)
+
             input_ = cur_activations[layer, "hx"]
 
         if compute_out:
@@ -223,7 +283,7 @@ class ForwardLSTM(RecurrentLM):
     def forward_cell(
         self, layer: int, input_: Tensor, prev_hx: Tensor, prev_cx: Tensor
     ) -> ActivationDict:
-        """ Performs the forward step of 1 RNN layer.
+        """ Performs the forward step of 1 LSTM cell.
 
         Parameters
         ----------
@@ -231,19 +291,24 @@ class ForwardLSTM(RecurrentLM):
             Current RNN layer.
         input_ : Tensor
             Current input embedding. In higher layers this is h^l-1_t.
-            Size: bsz x emb_size
+            Size: batch_size x nhid
         prev_hx : Tensor
-            Previous hidden state. Size: bsz x nhid_h
+            Previous hidden state. Size: batch_size x nhid
         prev_cx : Tensor
-            Previous cell state. Size: bsz x nhid_c
+            Previous cell state. Size: batch_size x nhid
 
         Returns
         -------
-        activations: TensorDict
-            Dictionary mapping (layer, name) tuples to tensors.
+        all_activations : ActivationDict
+            Dictionary mapping activation names to tensors of shape:
+            batch_size x max_sen_len x nhid.
         """
         # Shape: (bsz, nhid_h+emb_size)
-        ih_concat = torch.cat((prev_hx, input_), dim=1)
+        if self.ih_concat_order == ["h", "i"]:
+            ih_concat = torch.cat((prev_hx, input_), dim=1)
+        else:
+            ih_concat = torch.cat((input_, prev_hx), dim=1)
+
         # Shape: (bsz, 4*nhid_c)
         proj = ih_concat @ self.weight[layer]
         if layer in self.bias:
@@ -262,8 +327,7 @@ class ForwardLSTM(RecurrentLM):
         cx = f_g * prev_cx + i_g * c_tilde_g
         hx = o_g * torch.tanh(cx)
 
-        return {
-            (layer, "emb"): input_,
+        activation_dict = {
             (layer, "hx"): hx,
             (layer, "cx"): cx,
             (layer, "f_g"): f_g,
@@ -271,6 +335,11 @@ class ForwardLSTM(RecurrentLM):
             (layer, "o_g"): o_g,
             (layer, "c_tilde_g"): c_tilde_g,
         }
+
+        if layer == 0:
+            activation_dict[0, "emb"] = input_
+
+        return activation_dict
 
     @staticmethod
     def param_names(
@@ -310,9 +379,24 @@ class ForwardLSTM(RecurrentLM):
         }
 
     def activation_names(self, compute_out: bool = False) -> ActivationNames:
-        lstm_names = ["emb", "hx", "cx", "f_g", "i_g", "o_g", "c_tilde_g"]
+        """ Returns a list of all the model's activation names.
+
+        Parameters
+        ----------
+        compute_out : bool, optional
+            Toggles the computation of the final decoder projection.
+            If set to False this projection is not calculated.
+            Defaults to True.
+
+        Returns
+        -------
+        activation_names : ActivationNames
+            List of (layer, name) tuples.
+        """
+        lstm_names = ["hx", "cx", "f_g", "i_g", "o_g", "c_tilde_g"]
 
         activation_names = list(product(range(self.num_layers), lstm_names))
+        activation_names.append((0, "emb"))
 
         if compute_out:
             activation_names.append((self.top_layer, "out"))
