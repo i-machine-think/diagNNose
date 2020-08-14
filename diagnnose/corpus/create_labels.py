@@ -27,7 +27,7 @@ def create_labels_from_corpus(
         item to a random label.
     """
     labels = []
-    label_vocab = corpus.fields["labels"].vocab.stoi
+    label_vocab = corpus.fields["labels"].tokenizer.stoi
     for idx, item in enumerate(corpus.examples):
         label_idx = 0
         each_token_labeled = len(item.sen) == len(item.labels)

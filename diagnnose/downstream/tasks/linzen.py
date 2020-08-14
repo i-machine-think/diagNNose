@@ -8,6 +8,7 @@ from unidecode import unidecode
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 
@@ -45,11 +46,11 @@ class LinzenDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
     ):
-        super().__init__(model, vocab_path, corpus_path, subtasks=subtasks)
+        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
 
     def initialize(
         self,
@@ -144,7 +145,9 @@ class LinzenDownstream(DownstreamTask):
         items_per_subtask: Optional[int],
     ) -> Corpus:
         header = ["sen", "token", "wrong_token"]
-        fields = Corpus.create_fields(header, tokenize_columns=header)
+        fields = Corpus.create_fields(
+            header, tokenize_columns=header, tokenizer=self.tokenizer
+        )
 
         examples: List[Optional[Example]] = [
             self.item_to_example(item, fields, verb_inflections) for item in items
@@ -155,9 +158,7 @@ class LinzenDownstream(DownstreamTask):
         if items_per_subtask is not None:
             examples = examples[:items_per_subtask]
 
-        corpus = Corpus(
-            examples, fields, vocab_path=self.vocab_path, tokenize_columns=header
-        )
+        corpus = Corpus(examples, fields)
 
         return corpus
 
@@ -193,9 +194,6 @@ class LinzenDownstream(DownstreamTask):
         """
         infl_eng = inflect.engine()
 
-        with open(self.vocab_path) as f:
-            model_vocab = set(line.strip() for line in f)
-
         pos_to_token = {"VBP": [], "VBZ": []}
 
         try:
@@ -203,7 +201,7 @@ class LinzenDownstream(DownstreamTask):
                 next(file)
                 for line in file:
                     word, pos, _ = line.strip().split()
-                    if word in model_vocab and pos in pos_to_token:
+                    if word in self.tokenizer and pos in pos_to_token:
                         pos_to_token[pos].append(word)
         except FileNotFoundError:
             warnings.warn(

@@ -2,8 +2,10 @@ from typing import List, Optional, Tuple, Union
 
 from torchtext.data import Dataset, Example, Field, Pipeline, RawField
 from torchtext.vocab import Vocab
+from transformers import PreTrainedTokenizer
 
-from diagnnose.vocab import W2I, create_vocab
+from diagnnose.tokenizer import Tokenizer
+from diagnnose.tokenizer.w2i import W2I
 
 
 class Corpus(Dataset):
@@ -11,25 +13,18 @@ class Corpus(Dataset):
         self,
         examples: List[Example],
         fields: List[Tuple[str, Field]],
-        vocab_path: Optional[str] = None,
-        notify_unk: bool = False,
-        tokenize_columns: Optional[List[str]] = None,
         create_pos_tags: bool = False,
         sen_column: str = "sen",
         labels_column: str = "labels",
     ) -> None:
         super().__init__(examples, fields)
 
-        self.vocab: Vocab = Vocab({}, specials=[])
         self.sen_column = sen_column
         self.labels_column = labels_column
 
-        self.attach_sen_ids()
+        self.tokenizer = self.fields[self.sen_column].vocab
 
-        if vocab_path is not None:
-            vocab = create_vocab(vocab_path, notify_unk=notify_unk)
-            tokenize_columns = tokenize_columns or [sen_column]
-            self.attach_vocab(vocab, tokenize_columns)
+        self.attach_sen_ids()
 
         # TODO: Fix when refactoring classifier module
         # if any(field_name == labels_column for field_name, _ in self.fields):
@@ -48,11 +43,10 @@ class Corpus(Dataset):
         sen_column: str = "sen",
         labels_column: str = "labels",
         sep: str = "\t",
-        vocab_path: Optional[str] = None,
-        notify_unk: bool = False,
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
         create_pos_tags: bool = False,
+        tokenizer: Optional[Tokenizer] = None,
     ) -> "Corpus":
         raw_corpus = cls.create_raw_corpus(
             path, header_from_first_line=header_from_first_line, sep=sep
@@ -74,6 +68,7 @@ class Corpus(Dataset):
             labels_column=labels_column,
             tokenize_columns=tokenize_columns,
             convert_numerical=convert_numerical,
+            tokenizer=tokenizer,
         )
 
         examples = cls.create_examples(raw_corpus, fields)
@@ -81,9 +76,6 @@ class Corpus(Dataset):
         return cls(
             examples,
             fields,
-            vocab_path=vocab_path,
-            notify_unk=notify_unk,
-            tokenize_columns=tokenize_columns,
             create_pos_tags=create_pos_tags,
             sen_column=sen_column,
             labels_column=labels_column,
@@ -136,6 +128,7 @@ class Corpus(Dataset):
         labels_column: str = "labels",
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
+        tokenizer: Optional[Tokenizer] = None,
     ) -> List[Tuple[str, Field]]:
         tokenize_columns = tokenize_columns or [sen_column]
 
@@ -152,6 +145,8 @@ class Corpus(Dataset):
         for column in header:
             if column in tokenize_columns:
                 field = Field(batch_first=True, include_lengths=True, lower=to_lower)
+                if tokenizer:
+                    attach_tokenizer(field, tokenizer)
             # TODO: fix when refactoring classifier module
             # elif column == labels_column:
             #     field = Field(
@@ -170,7 +165,7 @@ class Corpus(Dataset):
 
     @staticmethod
     def create_examples(
-        raw_corpus: List[List[str]], fields: List[Tuple[str, Field]], sep: str = "\t"
+        raw_corpus: List[List[str]], fields: List[Tuple[str, Field]]
     ) -> List[Example]:
         examples = [Example.fromlist(line, fields) for line in raw_corpus]
 
@@ -183,23 +178,6 @@ class Corpus(Dataset):
         for sen_idx, item in enumerate(self.examples):
             setattr(item, "sen_idx", sen_idx)
 
-    def attach_vocab(self, vocab: W2I, tokenize_columns: List[str]) -> None:
-        """ Creates a Vocab instance that is attached to the Corpus.
-
-        Parameters
-        ----------
-        vocab : W2I
-            W2I object that represents the actual vocabulary.
-        tokenize_columns : List[str], optional
-            List of column names to which the Vocab will be attached.
-        """
-        for column in tokenize_columns:
-            self.fields[column].vocab = Vocab({}, specials=[])
-            self.fields[column].vocab.stoi = vocab
-            self.fields[column].vocab.itos = list(vocab.keys())
-
-        self.vocab = self.fields[self.sen_column].vocab
-
     def create_pos_tags(self):
         import nltk
 
@@ -211,3 +189,30 @@ class Corpus(Dataset):
         print("Tagging corpus...")
         for item in self.examples:
             setattr(item, "pos_tags", [t[1] for t in nltk.pos_tag(item.sen)])
+
+
+def attach_tokenizer(field: Field, tokenizer: Tokenizer) -> None:
+    """ Creates a tokenizer that is attached to a Corpus Field.
+
+    Parameters
+    ----------
+    field : Field
+        Field to which the vocabulary will be attached
+    tokenizer : Tokenizer
+        Tokenizer that will convert tokens to their index.
+    """
+    if isinstance(tokenizer, W2I):
+        field.vocab = Vocab({}, specials=[])
+        field.vocab.stoi = tokenizer
+        field.vocab.itos = list(tokenizer.keys())
+    elif isinstance(tokenizer, PreTrainedTokenizer):
+
+        def tokenize(sen: str) -> List[int]:
+            """ Splits up sentence into words before tokenization. """
+            return [idx for w in sen.split() for idx in tokenizer.encode(w)]
+
+        pad_index = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        field.use_vocab = False
+        field.tokenize = tokenize
+        field.pad_token = pad_index or 0
+        field.vocab = tokenizer

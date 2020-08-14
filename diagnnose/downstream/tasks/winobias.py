@@ -5,6 +5,7 @@ from torchtext.data import RawField
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 
@@ -13,11 +14,11 @@ class WinobiasDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
     ):
-        super().__init__(model, vocab_path, corpus_path, subtasks=subtasks)
+        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
@@ -47,7 +48,7 @@ class WinobiasDownstream(DownstreamTask):
                 corpus = Corpus.create(
                     os.path.join(corpus_path, f"{subtask}_{condition}.tsv"),
                     header_from_first_line=True,
-                    vocab_path=self.vocab_path,
+                    tokenizer=self.tokenizer,
                 )
 
                 self.add_output_classes(corpus)

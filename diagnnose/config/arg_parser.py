@@ -113,6 +113,7 @@ def create_arg_descriptions() -> ArgDescriptions:
         },
     }
 
+    # TODO: Update with new tokenizer setup
     arg_descriptions["vocab"] = {
         "path": {
             "help": "Path to the model vocabulary, which should a file containing a vocab "

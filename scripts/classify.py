@@ -9,7 +9,7 @@ from diagnnose.corpus import Corpus
 from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_model
-from diagnnose.vocab import get_vocab_path_from_config
+from diagnnose.tokenizer import get_vocab_path_from_config
 
 if __name__ == "__main__":
     arg_groups = {
@@ -38,8 +38,8 @@ if __name__ == "__main__":
             config_dict["init_dc"].pop("test_corpus"), vocab_path=vocab_path
         )
 
-    label_vocab = corpus.fields["labels"].vocab.itos
-    corpus_vocab = corpus.fields["sen"].vocab.stoi
+    label_vocab = corpus.fields["labels"].tokenizer.itos
+    corpus_vocab = corpus.fields["sen"].tokenizer.stoi
 
     # Example selection_func/test_selection_func setup:
     # Evaluate on second hidden state, train on the rest

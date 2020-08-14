@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 ArgDict = Dict[str, Any]
-ConfigDict = Dict[str, ArgDict]
+ConfigDict = Dict[str, Union[ArgDict, str]]
 
 RequiredArgs = Set[str]
 

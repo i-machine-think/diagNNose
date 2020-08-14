@@ -10,6 +10,7 @@ from diagnnose.downstream.tasks import (
     WinobiasDownstream,
 )
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer.tokenizer import Tokenizer
 
 task_constructors: Dict[str, Callable] = {
     "lakretz": LakretzDownstream,
@@ -38,9 +39,8 @@ class DownstreamSuite:
         task, `tasks` is an optional list of subtasks, and
         `task_activations` an optional path to the folder containing
         the model activations.
-    vocab_path : str
-        Path to the vocabulary of the LM. Needs to be provided in order
-        to check if a token in a task is part of the model vocabulary.
+    tokenizer : Tokenizer
+        Tokenizer that converts tokens to their index within the LM.
     decompose_config : Dict[str, Any], optional
         Optional setup to perform contextual decomposition on the
         activations prior to executing the downstream tasks.
@@ -50,7 +50,7 @@ class DownstreamSuite:
         self,
         model: LanguageModel,
         downstream_config: Dict[str, Any],
-        vocab_path: str,
+        tokenizer: Tokenizer,
         decompose_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.downstream_config = downstream_config
@@ -68,7 +68,7 @@ class DownstreamSuite:
 
             constructor = task_constructors[task_name]
             self.tasks[task_name] = constructor(
-                model, vocab_path, config.pop("path"), subtasks=subtasks
+                model, tokenizer, config.pop("path"), subtasks=subtasks
             )
 
         print("Downstream task initialization finished")

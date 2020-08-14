@@ -9,6 +9,7 @@ from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus, import_corpus
 from diagnnose.extract import Extractor
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -99,7 +100,7 @@ class RecurrentLM(LanguageModel):
         corpus_path: Optional[str] = None,
         use_default: bool = False,
         save_init_states_to: Optional[str] = None,
-        vocab_path: Optional[str] = None,
+        tokenizer: Optional[Tokenizer] = None,
     ) -> None:
         """ Set up the initial LM states.
 
@@ -123,10 +124,9 @@ class RecurrentLM(LanguageModel):
         save_init_states_to : str, optional
             Path to which the newly computed init_states will be saved.
             If not provided these states won't be dumped.
-        vocab_path : str, optional
-            Path to the model vocabulary, which should a file containing
-            a vocab entry at each line. Must be provided when creating
-            the init states from a corpus.
+        tokenizer : Tokenizer, optional
+            Tokenizer that must be provided when creating the init
+            states from a corpus.
 
         Returns
         -------
@@ -143,11 +143,11 @@ class RecurrentLM(LanguageModel):
             self._validate(init_states)
         elif corpus_path is not None:
             assert (
-                vocab_path is not None
-            ), "Vocab path must be provided when creating init states from corpus"
+                tokenizer is not None
+            ), "Tokenizer must be provided when creating init states from corpus"
             print("Creating init states from provided corpus")
             init_states = self._create_init_states_from_corpus(
-                corpus_path, vocab_path, save_init_states_to
+                corpus_path, tokenizer, save_init_states_to
             )
         else:
             init_states = self.create_zero_states()
@@ -197,10 +197,10 @@ class RecurrentLM(LanguageModel):
     def _create_init_states_from_corpus(
         self,
         init_states_corpus: str,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         save_init_states_to: Optional[str],
     ) -> ActivationDict:
-        corpus: Corpus = import_corpus(init_states_corpus, vocab_path=vocab_path)
+        corpus: Corpus = Corpus.create(init_states_corpus, tokenizer=tokenizer)
 
         activation_names: ActivationNames = [
             (layer, name) for layer in range(self.num_layers) for name in ["hx", "cx"]

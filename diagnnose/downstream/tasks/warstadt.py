@@ -4,7 +4,7 @@ from torchtext.data import Example
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.vocab import W2I, create_vocab
+from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
@@ -24,14 +24,14 @@ class WarstadtDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
         use_full_model_probs: bool = True,
     ):
         self.use_full_model_probs = use_full_model_probs
 
-        super().__init__(model, vocab_path, corpus_path, subtasks=subtasks)
+        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
@@ -63,19 +63,18 @@ class WarstadtDownstream(DownstreamTask):
 
         orig_corpus = preproc_warstadt(corpus_path)
 
-        vocab = create_vocab(self.vocab_path)
-
         for env in subtasks:
             raw_corpus = create_downstream_corpus(orig_corpus, envs=[env])
 
             header = raw_corpus[0].split("\t")
             tokenize_columns = ["sen", "counter_sen"]
-            fields = Corpus.create_fields(header, tokenize_columns=tokenize_columns)
+            fields = Corpus.create_fields(
+                header, tokenize_columns=tokenize_columns, tokenizer=self.tokenizer
+            )
             examples = [
                 Example.fromlist(line.split("\t"), fields) for line in raw_corpus[1:]
             ]
-            corpus = Corpus(examples, fields, tokenize_columns=tokenize_columns)
-            corpus.attach_vocab(vocab, tokenize_columns)
+            corpus = Corpus(examples, fields)
 
             corpora[env] = corpus
 

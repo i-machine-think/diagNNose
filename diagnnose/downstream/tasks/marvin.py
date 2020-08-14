@@ -6,6 +6,7 @@ from torchtext.data import Example, Field
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 from diagnnose.utils.pickle import load_pickle
 
 from .task import DownstreamCorpora, DownstreamTask
@@ -25,14 +26,14 @@ class MarvinDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
         use_full_model_probs: bool = True,
     ):
         self.use_full_model_probs = use_full_model_probs
 
-        super().__init__(model, vocab_path, corpus_path, subtasks=subtasks)
+        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
@@ -84,19 +85,21 @@ class MarvinDownstream(DownstreamTask):
         corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(corpus_path)
 
         if "npi" in subtask:
-            header = ["sen", "wrong_sen", "token"]
+            header = ["sen", "counter_sen", "token"]
+            tokenize_columns = ["sen", "counter_sen"]
         else:
-            header = ["sen", "token", "wrong_token"]
+            header = ["sen", "token", "counter_token"]
+            tokenize_columns = ["sen"]
 
-        fields = Corpus.create_fields(header, tokenize_columns=header)
+        fields = Corpus.create_fields(
+            header, tokenize_columns=tokenize_columns, tokenizer=self.tokenizer
+        )
         subtask_corpora: Dict[str, Corpus] = {}
 
         for condition, sens in corpus_dict.items():
             examples = self.create_examples(subtask, sens, fields)
 
-            corpus = Corpus(
-                examples, fields, vocab_path=self.vocab_path, tokenize_columns=header
-            )
+            corpus = Corpus(examples, fields)
 
             subtask_corpora[condition] = corpus
 

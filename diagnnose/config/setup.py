@@ -69,6 +69,10 @@ def create_config_dict(
     raw_activation_names = activation_config.get("activation_names", [])
     activation_config["activation_names"] = list(map(tuple, raw_activation_names))
 
+    # Set tokenizer name manually for Huggingface models
+    if "model" in config_dict and "model_type" not in config_dict["model"]:
+        config_dict["tokenizer"] = config_dict["model"]["model_name"]
+
     print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     pprint(config_dict)
 
@@ -79,7 +83,12 @@ def validate_config(
     required_args: Set[str], argparser: ArgumentParser, config_dict: ArgDict
 ) -> None:
     """ Check if all required args are provided """
-    config_args = set(f"{g}.{k}" for g, v in config_dict.items() for k in v.keys())
+    config_args = set(
+        f"{g}.{k}"
+        for g, v in config_dict.items()
+        if isinstance(v, dict)
+        for k in v.keys()
+    )
     for arg in required_args:
         assert arg in config_args, argparser.error(f"--{arg} should be provided")
 

@@ -68,7 +68,7 @@ class DataLoader:
                 corpus, selection_func=train_selection_func, control_task=control_task
             )
 
-        self.label_vocab: Vocab = corpus.fields["labels"].vocab
+        self.label_vocab: Vocab = corpus.fields["labels"].tokenizer
 
         if test_activations_dir is not None:
             self.test_activation_reader = ActivationReader(test_activations_dir)

@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 
@@ -30,11 +31,11 @@ class LakretzDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        vocab_path: str,
+        tokenizer: Tokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
     ):
-        super().__init__(model, vocab_path, corpus_path, subtasks=subtasks)
+        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
@@ -94,8 +95,10 @@ class LakretzDownstream(DownstreamTask):
 
         raw_corpus = raw_corpus[::2][condition_slice]
 
-        fields = Corpus.create_fields(["sen", "token", "counter_token"])
+        fields = Corpus.create_fields(
+            ["sen", "token", "counter_token"], tokenizer=self.tokenizer
+        )
 
         examples = Corpus.create_examples(raw_corpus, fields)
 
-        return Corpus(examples, fields, vocab_path=self.vocab_path)
+        return Corpus(examples, fields)

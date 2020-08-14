@@ -3,13 +3,13 @@ from typing import Dict, Optional, Union
 
 import torch
 from torch import Tensor
-from torch.nn.functional import log_softmax
 from torchtext.data import Example
 
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
+from diagnnose.tokenizer import Tokenizer
 from diagnnose.typedefs.activations import SelectionFunc
 
 # subtask -> Corpus | (condition -> Corpus)
@@ -27,16 +27,16 @@ class DownstreamTask:
     ----------
     model : LanguageModel
         Language model for which the accuracy is calculated.
-    vocab_path : str
-        Path to vocabulary file of the Language Model.
+    tokenizer : Tokenizer
+        The model tokenizer that converts tokens into indices.
     device : str, optional
         Torch device name on which model will be run. Defaults to cpu.
     """
 
-    def __init__(self, model: LanguageModel, vocab_path: str, *args, **kwargs):
+    def __init__(self, model: LanguageModel, tokenizer: Tokenizer, *args, **kwargs):
         model.eval()
         self.model = model
-        self.vocab_path = vocab_path
+        self.tokenizer = tokenizer
 
         self.corpora: DownstreamCorpora = self.initialize(*args, **kwargs)
 
@@ -52,7 +52,7 @@ class DownstreamTask:
         ----------
         ignore_unk : bool, optional
             Ignore cases for which at least one of the cases of the verb
-            is not part of the model vocabulary. Defaults to False.
+            is not part of the model's tokenizer. Defaults to False.
         use_full_model_probs : bool, optional
             Toggle to calculate the full model probs for the NPI sentences.
             If set to False only the NPI logits will be compared, instead
@@ -149,12 +149,12 @@ class DownstreamTask:
 
         activations = activations[mask]
 
-        token_ids = torch.tensor([corpus.vocab.stoi[ex.token] for ex in corpus])
+        token_ids = torch.tensor([corpus.tokenizer.stoi[ex.token] for ex in corpus])
         token_ids = token_ids[mask]
 
         if counter_activations is None:
             counter_token_ids = torch.tensor(
-                [corpus.vocab.stoi[ex.counter_token] for ex in corpus]
+                [corpus.tokenizer.stoi[ex.counter_token] for ex in corpus]
             )
             counter_token_ids = counter_token_ids[mask]
 
@@ -172,17 +172,17 @@ class DownstreamTask:
     def create_unk_sen_mask(corpus: Corpus, ignore_unk: bool) -> Tensor:
         """
         Creates a tensor mask for sentences that contain at least one
-        token that is not part of the model vocabulary.
+        token that is not part of the model's tokenizer.
         """
-        mask = torch.ones(len(corpus), dtype=torch.uint8)
+        mask = torch.ones(len(corpus), dtype=torch.bool)
         if not ignore_unk:
             return mask
 
         for idx, ex in enumerate(corpus):
             for w in ex.sen:
-                if w not in corpus.vocab.stoi:
+                if w not in corpus.tokenizer.stoi:
                     mask[idx] = False
-                    warnings.warn(f"'{w}' is not part of model vocab!")
+                    warnings.warn(f"'{w}' is not part of model's tokenizer!")
 
         return mask
 
@@ -220,18 +220,13 @@ class DownstreamTask:
             logits = activations @ decoder_w.t() + decoder_b
             counter_logits = counter_activations @ decoder_w.t() + decoder_b
 
-            probs: Tensor = log_softmax(logits, dim=1)
-            counter_probs: Tensor = log_softmax(counter_logits, dim=1)
-
             batch_size = logits.shape[0]
-            probs = probs[range(batch_size), token_ids]
-            counter_probs = counter_probs[range(batch_size), token_ids]
+            logits = logits[range(batch_size), token_ids]
+            counter_logits = counter_logits[range(batch_size), token_ids]
+        else:
+            decoder_w = decoder_w[token_ids].unsqueeze(1)
 
-            return torch.mean((probs >= counter_probs).to(torch.float)).item()
-
-        decoder_w = decoder_w[token_ids].unsqueeze(1)
-
-        logits = torch.bmm(decoder_w, activations.unsqueeze(2))
-        counter_logits = torch.bmm(decoder_w, counter_activations.unsqueeze(2))
+            logits = torch.bmm(decoder_w, activations.unsqueeze(2))
+            counter_logits = torch.bmm(decoder_w, counter_activations.unsqueeze(2))
 
         return torch.mean((logits >= counter_logits).to(torch.float)).item()
