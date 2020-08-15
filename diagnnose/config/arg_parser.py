@@ -6,18 +6,14 @@ from diagnnose.typedefs.config import ArgDescriptions
 
 # TODO: consider adding default values here explicitly
 def create_arg_descriptions() -> ArgDescriptions:
-    arg_descriptions: ArgDescriptions = {
-        "model": {
-            "type": {
-                "required": True,
-                "help": "(required) Language model type, as of now either ForwardLSTM or GoogleLM.",
-            }
-        }
-    }
+    arg_descriptions: ArgDescriptions = {"model": {}}
 
     # Gulordava ForwardLSTM
     arg_descriptions["model"].update(
         {
+            "model_type": {
+                "help": "RNN model type, as of now either ForwardLSTM or GoogleLM."
+            },
             "state_dict": {
                 "help": "Path to model parameters (pickled torch state_dict)"
             },
@@ -33,17 +29,17 @@ def create_arg_descriptions() -> ArgDescriptions:
             "decoder_name": {
                 "help": "(optional) Attribute name of model decoder, defaults to `decoder`."
             },
+            "use_default_init_states": {
+                "type": bool,
+                "help": "(optional) Toggle to use the default initial sentence `. <eos>`. "
+                "Defaults to False",
+            },
         }
     )
 
     # Huggingface Transformer models
     arg_descriptions["model"].update(
-        {
-            "tokenizer": {
-                "help": "Huggingface tokenizer that will be used for tokenization. Expected to be "
-                "of the form `transformers.{tokenizer}`."
-            }
-        }
+        {"model_name": {"help": "Huggingface model name of pretrained LM."}}
     )
 
     # GoogleLM
@@ -84,11 +80,6 @@ def create_arg_descriptions() -> ArgDescriptions:
         "save_init_states_to": {
             "help": "(optional) Path to which the newly computed init_states will be saved. "
             "If not provided these states won't be dumped."
-        },
-        "use_default": {
-            "type": bool,
-            "help": "(optional) Toggle to use the default initial sentence `. <eos>`. "
-            "Defaults to False",
         },
     }
 
@@ -202,6 +193,10 @@ def create_arg_descriptions() -> ArgDescriptions:
             "type": int,
             "help": "Matrix rank of the linear classifier. Defaults to the full rank if not "
             "provided.",
+        },
+        "max_epochs": {
+            "type": int,
+            "help": "Maximum number of training epochs used by skorch. Defaults to 10.",
         },
     }
 

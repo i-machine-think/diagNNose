@@ -9,7 +9,6 @@ import numpy as np
 import torch
 
 import diagnnose.typedefs.config as config
-from diagnnose.typedefs.activations import ActivationNames
 from diagnnose.typedefs.config import ArgDict, ConfigDict, RequiredArgs
 from diagnnose.utils.misc import merge_dicts
 
@@ -60,12 +59,14 @@ def create_config_dict(
     if validate:
         validate_config(required_args, argparser, config_dict)
 
+    # Set activation dtypes
     activation_config = config_dict.get("activations", {})
     activation_dtype = activation_config.get("dtype", None)
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
         config.DTYPE_np = getattr(np, activation_dtype)
 
+    # Translate activation names to tuple format that is used in the library
     raw_activation_names = activation_config.get("activation_names", [])
     activation_config["activation_names"] = list(map(tuple, raw_activation_names))
 
