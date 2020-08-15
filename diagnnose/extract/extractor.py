@@ -1,10 +1,11 @@
 from contextlib import ExitStack
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import torch
 from torchtext.data import Batch
 from tqdm import tqdm
 
+import diagnnose.activations.selection_funcs as selection_funcs
 from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
@@ -50,15 +51,18 @@ class Extractor:
         self,
         model: "LanguageModel",
         corpus: Corpus,
-        activation_names: ActivationNames,
+        activation_names: Optional[ActivationNames] = None,
         activations_dir: Optional[str] = None,
-        selection_func: SelectionFunc = return_all,
+        selection_func: Union[SelectionFunc, str] = return_all,
         batch_size: int = BATCH_SIZE,
     ) -> None:
         self.model = model
         self.corpus = corpus
-        self.activation_names = activation_names
-        self.selection_func = selection_func
+        self.activation_names = activation_names or model.activation_names()
+        if isinstance(selection_func, str):
+            self.selection_func = getattr(selection_funcs, selection_func)
+        else:
+            self.selection_func = selection_func
         self.batch_size = batch_size
 
         self.activation_ranges = self.create_activation_ranges()
@@ -105,7 +109,8 @@ class Extractor:
                 selection_func=self.selection_func,
             )
 
-        print("Extraction finished.")
+        n_extracted = self.activation_ranges[-1][-1]
+        print(f"Extraction finished, {n_extracted} activations have been extracted.")
 
         return activation_reader
 
@@ -144,9 +149,10 @@ class Extractor:
 
         # a_name -> batch_size x max_sen_len x nhid
         compute_out = (self.model.top_layer, "out") in self.activation_names
-        all_activations: ActivationDict = self.model(
-            sens, sen_lens, compute_out=compute_out
-        )
+        with torch.no_grad():
+            all_activations: ActivationDict = self.model(
+                input_ids=sens, input_lengths=sen_lens, compute_out=compute_out
+            )
 
         # a_name -> n_items_in_batch x nhid
         batch_activations: ActivationDict = self.init_activation_dict(n_items_in_batch)
@@ -165,7 +171,8 @@ class Extractor:
         a_idx = 0
 
         for b_idx, sen_idx in enumerate(batch.sen_idx):
-            for w_idx in range(sen_lens[b_idx].item()):
+            sen_len = sen_lens[b_idx].item()
+            for w_idx in range(sen_len):
                 if self.selection_func(w_idx, self.corpus[sen_idx]):
                     for a_name in batch_activations:
                         selected_activation = all_activations[a_name][b_idx][w_idx]
