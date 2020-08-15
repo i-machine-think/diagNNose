@@ -1,10 +1,13 @@
-from .decomposer import Decomposer, ContextualDecomposer
-from transformers import PreTrainedTokenizer
-from diagnnose.models import LanguageModel
 from typing import List, Tuple, Union
+
 import torch
-from diagnnose.attribute import ShapleyTensor
 from torch import Tensor
+from transformers import PreTrainedTokenizer
+
+from diagnnose.attribute import ShapleyTensor
+from diagnnose.models import LanguageModel
+
+from .decomposer import ContextualDecomposer, Decomposer
 
 decomposers = {"decomposer": Decomposer, "contextual_decomposer": ContextualDecomposer}
 

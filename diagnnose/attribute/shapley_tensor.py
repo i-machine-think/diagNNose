@@ -1,51 +1,40 @@
-from functools import wraps
-from itertools import combinations
-from math import factorial
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Callable, List
 from warnings import warn
-import torch
+
 from torch import Tensor
-from torch._overrides import handle_torch_function, has_torch_function
 
-
-def unwrap(arg, attr="_data", coalition=None):
-    if isinstance(arg, (torch.Tensor, str)):
-        return arg
-    if isinstance(arg, Iterable):
-        iterable_type = type(arg)
-        return iterable_type(map(unwrap, arg))
-    if hasattr(arg, attr):
-        if coalition is not None:
-            contributions = getattr(arg, attr)
-            contributions_sum = sum([contributions[idx] for idx in coalition])
-            if isinstance(contributions_sum, int):
-                contributions_sum = torch.zeros_like(contributions[0])
-            return contributions_sum
-        return getattr(arg, attr)
-    return arg
-
-
-def calc_shapley_factors(n: int) -> List[Tuple[List[int], int]]:
-    shapley_factors = []
-
-    for i in range(n + 1):
-        factor = factorial(i) * factorial(n - i)
-        for pi in combinations(range(n), i):
-            shapley_factors.append((list(pi), factor))
-
-    return shapley_factors
+from .monkey_patch import MONKEY_PATCH_PERFORMED, monkey_patch
+from .utils import *
 
 
 class ShapleyTensor:
-    """
+    """ A ShapleyTensor wraps a torch Tensor. It allows the tensor to
+    be decomposed into a sum of tensors, that each define the
+    contribution of a feature to the tensor.
+
+    ShapleyTensors can be passed to any type of torch model. For each
+    operation in the model the intermediate Shapley values are
+    calculated for the list of contributions. This is done using
+    `__torch_function__`, that allows to override tensor operations.
 
     Parameters
     ----------
     data : Tensor
-        Input tensor that is decomposed into `n` contributions.
+        Input tensor that is decomposed into a sum of contributions.
     contributions : List[Tensor]
         List of contributions that should sum up to `data`.
+    shapley_factors : List[Tuple[List[int], int]], optional
+        Shapley factors that are calculated with `calc_shapley_factors`.
+        To prevent unnecessary compute these factors are passed on to
+        subsequent ShapleyTensors.
+    validate : bool, optional
+        Toggle to validate at each step whether `contributions` still
+        sums up to `data`. Defaults to False.
     """
+
+    if not MONKEY_PATCH_PERFORMED:
+        monkey_patch()
+        MONKEY_PATCH_PERFORMED = True
 
     def __init__(
         self,
@@ -54,7 +43,7 @@ class ShapleyTensor:
         shapley_factors: Optional[List[Tuple[List[int], int]]] = None,
         validate: bool = False,
     ):
-        self._data = data
+        self.data = data
         self.contributions = contributions or []
         self.shapley_factors = shapley_factors
         self.validate = validate
@@ -68,42 +57,29 @@ class ShapleyTensor:
             if shapley_factors is None:
                 self.shapley_factors = calc_shapley_factors(len(contributions) - 1)
 
+    @property
+    def num_features(self) -> int:
+        return len(self.contributions)
+
     def __torch_function__(self, fn, _types, args=(), kwargs=None):
         self.current_fn = fn.__name__
 
         kwargs = kwargs or {}
 
-        output = fn(*map(unwrap, args), **kwargs)
+        data = fn(*map(unwrap, args), **kwargs)
         if len(self.contributions) == 0:
             contributions = []
         else:
             contributions = self.calc_contributions(fn, *args, **kwargs)
 
-        output = self.transform_output(output, contributions)
+        output = self.transform_output(data, contributions)
 
         return output
-
-    def validate_contributions(self) -> None:
-        """ Asserts whether the contributions sum up to the full tensor. """
-        diff = (self._data - sum(self.contributions)).float()
-        mean_diff = torch.mean(diff)
-        max_diff = torch.max(torch.abs(diff))
-        if not torch.allclose(
-            self._data, sum(self.contributions), rtol=1e-3, atol=1e-3
-        ):
-            warn(
-                f"Contributions don't sum up to the provided tensor, with a mean difference of "
-                f"{mean_diff:.3E} and a max difference of {max_diff:.3E}."
-            )
-
-    @property
-    def num_partitions(self):
-        return len(self.contributions)
 
     def calc_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         if hasattr(self, f"{fn.__name__}_contributions"):
             fn = getattr(self, f"{fn.__name__}_contributions")
-            contributions = fn(*args, **kwargs)
+            return fn(*args, **kwargs)
         elif fn.__name__ in [
             "squeeze",
             "unsqueeze",
@@ -111,21 +87,19 @@ class ShapleyTensor:
             "_pack_padded_sequence",
         ]:
             old_contributions = args[0].contributions
-            contributions = [fn(c, *args[1:], **kwargs) for c in old_contributions]
-        else:
-            contributions = self.calc_shapley_contributions(fn, *args, **kwargs)
+            return [fn(c, *args[1:], **kwargs) for c in old_contributions]
 
-        return contributions
+        return self.calc_shapley_contributions(fn, *args, **kwargs)
 
     def calc_shapley_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         contributions = []
 
-        for f_idx in range(self.num_partitions):
+        for f_idx in range(self.num_features):
             other_ids = torch.tensor(
-                [i for i in range(self.num_partitions) if i != f_idx]
+                [i for i in range(self.num_features) if i != f_idx]
             )
 
-            contribution = 0
+            contribution = 0.0
 
             for coalition_ids, factor in self.shapley_factors:
                 coalition = list(other_ids[coalition_ids])
@@ -140,14 +114,14 @@ class ShapleyTensor:
                     for arg in args
                 ]
 
-                contribution += (
+                contribution += factor * (
                     fn(*args_with, **kwargs) - fn(*args_wo, **kwargs)
-                ) * factor
+                )
 
-            contribution /= factorial(self.num_partitions)
+            contribution /= factorial(self.num_features)
             contributions.append(contribution)
 
-        # Add baseline to default partition ([0]).
+        # Add baseline to default feature ([0]).
         zero_input_args = [
             unwrap(arg, attr="contributions", coalition=[]) for arg in args
         ]
@@ -155,9 +129,11 @@ class ShapleyTensor:
 
         return contributions
 
-    def transform_output(self, output: Any, contributions: List[Tensor]) -> Any:
+    def transform_output(
+        self, output: Any, contributions: Optional[List[Tensor]] = None
+    ) -> Any:
         if isinstance(output, torch.Tensor):
-            output = ShapleyTensor(
+            return ShapleyTensor(
                 output,
                 contributions=contributions,
                 shapley_factors=self.shapley_factors,
@@ -165,24 +141,43 @@ class ShapleyTensor:
             )
         elif self.current_fn == "_pack_padded_sequence":
             contributions = [c[0] for c in contributions]
-            output = self.transform_output(output[0], contributions), output[1]
-        elif isinstance(output, Iterable) and not isinstance(output, str):
+            return self.transform_output(output[0], contributions), output[1]
+        elif isinstance(output, (list, tuple)):
             iterable_type = type(output)
 
-            if len(contributions) > 0:
-                output = iterable_type(
-                    self.transform_output(item, contributions[idx])
-                    for idx, item in enumerate(output)
-                )
-            else:
-                output = iterable_type(
-                    self.transform_output(item, []) for item in output
-                )
+            if len(contributions) == 0:
+                return iterable_type(self.transform_output(item) for item in output)
+
+            return iterable_type(
+                self.transform_output(item, contributions[idx])
+                for idx, item in enumerate(output)
+            )
 
         return output
 
+    def validate_contributions(self) -> None:
+        """ Asserts whether the contributions sum up to the full tensor. """
+        diff = (self.data - sum(self.contributions)).float()
+        mean_diff = torch.mean(diff)
+        max_diff = torch.max(torch.abs(diff))
+        if not torch.allclose(self.data, sum(self.contributions), rtol=1e-3, atol=1e-3):
+            warn(
+                f"Contributions don't sum up to the provided tensor, with a mean difference of "
+                f"{mean_diff:.3E} and a max difference of {max_diff:.3E}."
+            )
+
+    def __len__(self):
+        return len(self.data)
+
+    def size(self, *args, **kwargs):
+        return self.data.size(*args, **kwargs)
+
+    def __iter__(self):
+        """ Allows a ShapleyTensor to be unpacked directly. """
+        yield from [self.data, self.contributions]
+
     def __getattr__(self, item: str) -> Any:
-        attr = getattr(self._data, item)
+        attr = getattr(self.data, item)
 
         if isinstance(attr, Callable):
 
@@ -209,16 +204,13 @@ class ShapleyTensor:
         else:
             return attr
 
-    def __len__(self):
-        return len(self._data)
-
     def __getitem__(self, index):
         if isinstance(index, ShapleyTensor):
-            data = self._data[index._data]
-            contributions = [self._data[c] for c in index.contributions]
+            data = self.data[index.data]
+            contributions = [self.data[c] for c in index.contributions]
             self.validate = self.validate or index.validate
         else:
-            data = self._data[index]
+            data = self.data[index]
             contributions = [contribution[index] for contribution in self.contributions]
 
         return ShapleyTensor(
@@ -229,27 +221,23 @@ class ShapleyTensor:
         )
 
     def __setitem__(self, index, value):
-        self._data[index] = value._data
+        self.data[index] = value.data
 
-        # TODO: Clean up?
+        # We pad the current contributions if the value that is set contains more contributions
+        # than the current ShapleyTensor.
         if len(self.contributions) < len(value.contributions):
             extra_contributions = len(value.contributions) - len(self.contributions)
-            self.contributions.append(
-                extra_contributions * torch.zeros_like(self._data)
-            )
+            self.contributions.append(extra_contributions * torch.zeros_like(self.data))
 
         for c_idx, contribution in enumerate(self.contributions):
             contribution[index] = value.contributions[c_idx]
 
-    def size(self, *args, **kwargs):
-        return self._data.size(*args, **kwargs)
-
     def cat_contributions(self, *args, **kwargs):
-        # A non-ShapleyTensor only contributes to the default partition, and is padded with 0s.
+        # A non-ShapleyTensor only contributes to the default feature, and is padded with 0s.
         all_contributions = [
             arg.contributions
             if hasattr(arg, "contributions")
-            else [arg] + (self.num_partitions - 1) * [torch.zeros_like(arg)]
+            else [arg] + (self.num_features - 1) * [torch.zeros_like(arg)]
             for arg in args[0]
         ]
 
@@ -257,7 +245,7 @@ class ShapleyTensor:
             torch.cat(
                 [contribution[idx] for contribution in all_contributions], **kwargs
             )
-            for idx in range(self.num_partitions)
+            for idx in range(self.num_features)
         ]
 
         return contributions
@@ -399,34 +387,3 @@ class ShapleyTensor:
 
     def __xor__(self, other):
         return torch.logical_xor(self, other)
-
-
-# Not all torch functions correctly implement __torch_function__ yet:
-# https://github.com/pytorch/pytorch/issues/34294
-def monkey_patch(original_fn):
-    @wraps(original_fn)
-    def fn(tensors, dim=0, out=None) -> Tensor:
-        if not torch.jit.is_scripting():
-            if any(type(t) is not Tensor for t in tensors) and has_torch_function(
-                tensors
-            ):
-                return handle_torch_function(fn, tensors, tensors, dim=dim, out=out)
-        return original_fn(tensors, dim=dim, out=out)
-
-    return fn
-
-
-def monkey_patch_tensor(original_fn):
-    @wraps(original_fn)
-    def fn(self: Tensor, other: Union[Tensor, ShapleyTensor]):
-        if isinstance(other, ShapleyTensor):
-            return original_fn(self, other._data)
-        return original_fn(self, other)
-
-    return fn
-
-
-torch.cat = monkey_patch(torch.cat)
-torch.stack = monkey_patch(torch.stack)
-Tensor.expand_as = monkey_patch_tensor(Tensor.expand_as)
-Tensor.type_as = monkey_patch_tensor(Tensor.type_as)
