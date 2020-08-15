@@ -4,20 +4,24 @@ from numpy import ndarray
 from torch import Tensor
 from torchtext.data import Example
 
-# TENSOR DICTS
+# ACTIVATION DICTS
 ActivationName = Tuple[int, str]  # (layer, name)
 ActivationNames = List[ActivationName]
 
-ActivationFiles = Dict[ActivationName, BinaryIO]
+ActivationDict = Dict[ActivationName, Tensor]
+
+# LM's layer sizes: (layer, name) -> size
+SizeDict = Dict[ActivationName, int]
 
 # Maps a layer index to a tensor
 LayeredTensors = Dict[int, Tensor]
 # Maps an arbitrary string to a tensor
 NamedTensors = Dict[str, Tensor]
 
-ActivationDict = Dict[ActivationName, Tensor]
 
 # EXTRACTION
+ActivationFiles = Dict[ActivationName, BinaryIO]
+
 # token index, corpus item -> bool
 SelectionFunc = Callable[[int, Example], bool]
 
