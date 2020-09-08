@@ -10,6 +10,7 @@ from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_iterator import create_iterator
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationNames,
@@ -49,7 +50,7 @@ class Extractor:
 
     def __init__(
         self,
-        model: "LanguageModel",
+        model: LanguageModel,
         corpus: Corpus,
         activation_names: Optional[ActivationNames] = None,
         activations_dir: Optional[str] = None,

@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 import diagnnose.typedefs.config as config
 from diagnnose.attribute import ShapleyTensor
-from diagnnose.models.rnn import RecurrentLM
+from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationNames,
