@@ -3,8 +3,7 @@ from warnings import warn
 
 from torch import Tensor
 
-from .monkey_patch import MONKEY_PATCH_PERFORMED, monkey_patch
-from .utils import *
+from . import utils
 
 
 class ShapleyTensor:
@@ -32,9 +31,9 @@ class ShapleyTensor:
         sums up to `data`. Defaults to False.
     """
 
-    if not MONKEY_PATCH_PERFORMED:
-        monkey_patch()
-        MONKEY_PATCH_PERFORMED = True
+    if not utils.MONKEY_PATCH_PERFORMED:
+        utils.monkey_patch()
+        utils.MONKEY_PATCH_PERFORMED = True
 
     def __init__(
         self,
@@ -55,18 +54,16 @@ class ShapleyTensor:
                 self.validate_contributions()
 
             if shapley_factors is None:
-                self.shapley_factors = calc_shapley_factors(len(contributions) - 1)
-
-    @property
-    def num_features(self) -> int:
-        return len(self.contributions)
+                self.shapley_factors = utils.calc_shapley_factors(
+                    len(contributions) - 1
+                )
 
     def __torch_function__(self, fn, _types, args=(), kwargs=None):
         self.current_fn = fn.__name__
 
         kwargs = kwargs or {}
 
-        data = fn(*map(unwrap, args), **kwargs)
+        data = fn(*map(utils.unwrap, args), **kwargs)
         if len(self.contributions) == 0:
             contributions = []
         else:
