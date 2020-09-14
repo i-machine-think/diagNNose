@@ -4,12 +4,12 @@ from typing import Dict, Optional, Union
 import torch
 from torch import Tensor
 from torchtext.data import Example
+from transformers import PreTrainedTokenizer
 
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer import Tokenizer
 from diagnnose.typedefs.activations import SelectionFunc
 
 # subtask -> Corpus | (condition -> Corpus)
@@ -27,13 +27,15 @@ class DownstreamTask:
     ----------
     model : LanguageModel
         Language model for which the accuracy is calculated.
-    tokenizer : Tokenizer
+    tokenizer : PreTrainedTokenizer
         The model tokenizer that converts tokens into indices.
     device : str, optional
         Torch device name on which model will be run. Defaults to cpu.
     """
 
-    def __init__(self, model: LanguageModel, tokenizer: Tokenizer, *args, **kwargs):
+    def __init__(
+        self, model: LanguageModel, tokenizer: PreTrainedTokenizer, *args, **kwargs
+    ):
         model.eval()
         self.model = model
         self.tokenizer = tokenizer
@@ -149,12 +151,17 @@ class DownstreamTask:
 
         activations = activations[mask]
 
-        token_ids = torch.tensor([corpus.tokenizer.stoi[ex.token] for ex in corpus])
+        token_ids = torch.tensor(
+            [self.tokenizer.convert_tokens_to_ids(ex.token) for ex in corpus]
+        )
         token_ids = token_ids[mask]
 
         if counter_activations is None:
             counter_token_ids = torch.tensor(
-                [corpus.tokenizer.stoi[ex.counter_token] for ex in corpus]
+                [
+                    self.tokenizer.convert_tokens_to_ids(ex.counter_token)
+                    for ex in corpus
+                ]
             )
             counter_token_ids = counter_token_ids[mask]
 
@@ -168,8 +175,7 @@ class DownstreamTask:
 
         return accuracy
 
-    @staticmethod
-    def create_unk_sen_mask(corpus: Corpus, ignore_unk: bool) -> Tensor:
+    def create_unk_sen_mask(self, corpus: Corpus, ignore_unk: bool) -> Tensor:
         """
         Creates a tensor mask for sentences that contain at least one
         token that is not part of the model's tokenizer.
@@ -180,7 +186,7 @@ class DownstreamTask:
 
         for idx, ex in enumerate(corpus):
             for w in ex.sen:
-                if w not in corpus.tokenizer.stoi:
+                if w not in self.tokenizer.vocab:
                     mask[idx] = False
                     warnings.warn(f"'{w}' is not part of model's tokenizer!")
 

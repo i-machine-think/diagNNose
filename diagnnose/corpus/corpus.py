@@ -1,11 +1,7 @@
 from typing import List, Optional, Tuple, Union
 
 from torchtext.data import Dataset, Example, Field, Pipeline, RawField
-from torchtext.vocab import Vocab
 from transformers import PreTrainedTokenizer
-
-from diagnnose.tokenizer import Tokenizer
-from diagnnose.tokenizer.w2i import W2I
 
 
 class Corpus(Dataset):
@@ -22,7 +18,9 @@ class Corpus(Dataset):
         self.sen_column = sen_column
         self.labels_column = labels_column
 
-        self.tokenizer = self.fields[self.sen_column].vocab
+        self.tokenizer: Optional[PreTrainedTokenizer] = None
+        if hasattr(self.fields[sen_column], "vocab"):
+            self.tokenizer = self.fields[sen_column].vocab
 
         self.attach_sen_ids()
 
@@ -46,7 +44,7 @@ class Corpus(Dataset):
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
         create_pos_tags: bool = False,
-        tokenizer: Optional[Tokenizer] = None,
+        tokenizer: Optional[PreTrainedTokenizer] = None,
     ) -> "Corpus":
         raw_corpus = cls.create_raw_corpus(
             path, header_from_first_line=header_from_first_line, sep=sep
@@ -128,24 +126,24 @@ class Corpus(Dataset):
         labels_column: str = "labels",
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
-        tokenizer: Optional[Tokenizer] = None,
+        tokenizer: Optional[PreTrainedTokenizer] = None,
     ) -> List[Tuple[str, Field]]:
         tokenize_columns = tokenize_columns or [sen_column]
 
         pipeline = None
         if convert_numerical:
 
-            def preprocess_sen(s: Union[str, int]) -> Union[str, int]:
+            def preprocess_field(s: Union[str, int]) -> Union[str, int]:
                 return int(s) if (isinstance(s, str) and s.isdigit()) else s
 
-            pipeline = Pipeline(convert_token=preprocess_sen)
+            pipeline = Pipeline(convert_token=preprocess_field)
 
         fields = []
 
         for column in header:
             if column in tokenize_columns:
                 field = Field(batch_first=True, include_lengths=True, lower=to_lower)
-                if tokenizer:
+                if tokenizer is not None:
                     attach_tokenizer(field, tokenizer)
             # TODO: fix when refactoring classifier module
             # elif column == labels_column:
@@ -191,28 +189,30 @@ class Corpus(Dataset):
             setattr(item, "pos_tags", [t[1] for t in nltk.pos_tag(item.sen)])
 
 
-def attach_tokenizer(field: Field, tokenizer: Tokenizer) -> None:
-    """ Creates a tokenizer that is attached to a Corpus Field.
+def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:
+    """Creates a tokenizer that is attached to a Corpus Field.
 
     Parameters
     ----------
     field : Field
         Field to which the vocabulary will be attached
-    tokenizer : Tokenizer
+    tokenizer : PreTrainedTokenizer
         Tokenizer that will convert tokens to their index.
     """
-    if isinstance(tokenizer, W2I):
-        field.vocab = Vocab({}, specials=[])
-        field.vocab.stoi = tokenizer
-        field.vocab.itos = list(tokenizer.keys())
-    elif isinstance(tokenizer, PreTrainedTokenizer):
 
-        def tokenize(sen: str) -> List[int]:
-            """ Splits up sentence into words before tokenization. """
-            return [idx for w in sen.split() for idx in tokenizer.encode(w)]
+    def preprocess(value: Union[str, List[str]]) -> List[str]:
+        """We only perform the splitting as a preprocessing step.
 
-        pad_index = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
-        field.use_vocab = False
-        field.tokenize = tokenize
-        field.pad_token = pad_index or 0
-        field.vocab = tokenizer
+        This allows us to still have access to the original tokens,
+        including those that will be mapped to <unk> later.
+        """
+        if isinstance(value, list):
+            value = " ".join(value)
+
+        return tokenizer._tokenize(value)
+
+    pad_index = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+    field.preprocessing = preprocess
+    field.pad_token = pad_index or 0
+    field.vocab = tokenizer
+    field.vocab.stoi = tokenizer.vocab

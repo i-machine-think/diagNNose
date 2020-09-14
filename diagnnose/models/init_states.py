@@ -3,6 +3,7 @@ from itertools import product
 from typing import Optional
 
 import torch
+from transformers import PreTrainedTokenizer
 
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
@@ -43,12 +44,12 @@ def set_init_states(
         as initial states.
     use_default : bool
         Toggle to use the default initial sentence `. <eos>`.
+    tokenizer : PreTrainedTokenizer, optional
+        Tokenizer that must be provided when creating the init
+        states from a corpus.
     save_init_states_to : str, optional
         Path to which the newly computed init_states will be saved.
         If not provided these states won't be dumped.
-    tokenizer : Tokenizer, optional
-        Tokenizer that must be provided when creating the init
-        states from a corpus.
 
     Returns
     -------
@@ -91,7 +92,7 @@ def create_zero_states(model: RecurrentLM) -> ActivationDict:
 def create_init_states_from_corpus(
     model: RecurrentLM,
     init_states_corpus: str,
-    tokenizer: str,
+    tokenizer: PreTrainedTokenizer,
     save_init_states_to: Optional[str] = None,
 ) -> ActivationDict:
     assert (

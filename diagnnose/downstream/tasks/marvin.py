@@ -3,10 +3,10 @@ import os
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from torchtext.data import Example, Field
+from transformers import PreTrainedTokenizer
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer import Tokenizer
 from diagnnose.utils.pickle import load_pickle
 
 from .task import DownstreamCorpora, DownstreamTask
@@ -26,7 +26,7 @@ class MarvinDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        tokenizer: Tokenizer,
+        tokenizer: PreTrainedTokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
         use_full_model_probs: bool = True,

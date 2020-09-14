@@ -1,5 +1,6 @@
 from typing import Type
 
+from diagnnose.tokenizer.create import create_tokenizer
 from diagnnose.typedefs.config import ConfigDict
 
 from .init_states import set_init_states
@@ -40,7 +41,10 @@ def import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
     """ Imports a recurrent LM and sets the initial states. """
     use_default = config_dict["model"].pop("use_default_init_states", False)
     model_type = config_dict["model"].pop("model_type")
-    tokenizer = config_dict["model"].pop("tokenizer")
+
+    tokenizer = None
+    if "tokenizer" in config_dict:
+        tokenizer = create_tokenizer(**config_dict["tokenizer"])
 
     import diagnnose.models.wrappers as wrappers
 

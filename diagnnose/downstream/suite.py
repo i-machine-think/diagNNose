@@ -1,4 +1,6 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, List, Optional, Type
+
+from transformers import PreTrainedTokenizer
 
 from diagnnose.downstream.tasks import (
     DownstreamTask,
@@ -10,7 +12,6 @@ from diagnnose.downstream.tasks import (
     WinobiasDownstream,
 )
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer.tokenizer import Tokenizer
 
 task_constructors: Dict[str, Callable] = {
     "lakretz": LakretzDownstream,

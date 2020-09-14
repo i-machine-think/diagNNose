@@ -4,11 +4,11 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import inflect
 from torchtext.data import Example, Field
+from transformers import PreTrainedTokenizer
 from unidecode import unidecode
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 
@@ -46,7 +46,7 @@ class LinzenDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        tokenizer: Tokenizer,
+        tokenizer: PreTrainedTokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
     ):

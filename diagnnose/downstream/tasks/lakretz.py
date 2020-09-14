@@ -1,9 +1,10 @@
 import os
 from typing import Dict, List, Optional
 
+from transformers import PreTrainedTokenizer
+
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 
@@ -31,7 +32,7 @@ class LakretzDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        tokenizer: Tokenizer,
+        tokenizer: PreTrainedTokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
     ):

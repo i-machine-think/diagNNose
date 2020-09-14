@@ -1,10 +1,10 @@
 from typing import Dict, List, Optional
 
 from torchtext.data import Example
+from transformers import PreTrainedTokenizer
 
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.tokenizer import Tokenizer
 
 from .task import DownstreamCorpora, DownstreamTask
 from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
@@ -24,7 +24,7 @@ class WarstadtDownstream(DownstreamTask):
     def __init__(
         self,
         model: LanguageModel,
-        tokenizer: Tokenizer,
+        tokenizer: PreTrainedTokenizer,
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
         use_full_model_probs: bool = True,
