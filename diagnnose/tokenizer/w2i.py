@@ -29,6 +29,7 @@ class W2I(dict):
         w2i: Dict[str, int],
         unk_token: str = "<unk>",
         eos_token: str = "<eos>",
+        pad_token: str = "<pad>",
         notify_unk: bool = False,
     ) -> None:
         super().__init__(w2i)
@@ -38,6 +39,7 @@ class W2I(dict):
 
         self.unk_token = unk_token
         self.eos_token = eos_token
+        self.pad_token = pad_token
 
         self.unk_idx = w2i[unk_token]
 

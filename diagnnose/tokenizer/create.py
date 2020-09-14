@@ -47,7 +47,7 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
         tokenizer.vocab = tokenizer.added_tokens_encoder
         tokenizer.ids_to_tokens = tokenizer.added_tokens_decoder
 
-        tokenizer.unk_token = vocab.pad_token
+        tokenizer.unk_token = vocab.unk_token
         tokenizer.eos_token = vocab.eos_token
         tokenizer.pad_token = vocab.pad_token
 
