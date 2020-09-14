@@ -1,13 +1,13 @@
-from typing import Any, Dict, Set, Union
+from typing import Any, Dict
 
 import numpy as np
 import torch
 
-ArgDict = Dict[str, Any]
-ConfigDict = Dict[str, Union[ArgDict, str]]
+# group -> arg_name -> value
+ConfigDict = Dict[str, Dict[str, Any]]
 
-RequiredArgs = Set[str]
-
+# group -> arg_name -> arg_attr -> value
+# Where arg_attr one of 'help', 'nargs', or 'type'.
 ArgDescriptions = Dict[str, Dict[str, Dict[str, Any]]]
 
 # Tensor dtype that will be used in the library. Can be set here to change.
