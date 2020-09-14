@@ -58,12 +58,12 @@ class LinzenDownstream(DownstreamTask):
         subtasks: Optional[List[str]] = None,
         items_per_subtask: Optional[int] = 1000,
     ) -> DownstreamCorpora:
-        """ Performs the initialization for the tasks of
-        Marvin & Linzen (2018)
+        """Performs the initialization for the tasks of
+        Linzen et al. (2016)
 
-        Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
+        Arxiv link: https://arxiv.org/abs/1611.01368
 
-        Repo: https://github.com/BeckyMarvin/LM_syneval
+        Repo: https://github.com/TalLinzen/rnn_agreement
 
         Parameters
         ----------
@@ -123,7 +123,7 @@ class LinzenDownstream(DownstreamTask):
 
     @staticmethod
     def item_to_sva_condition(item: RawItem) -> str:
-        """ Maps an item to an SVA condition, based on the POS tags of
+        """Maps an item to an SVA condition, based on the POS tags of
         the sentence between the subject and the main verb.
 
         For example:
@@ -144,10 +144,8 @@ class LinzenDownstream(DownstreamTask):
         verb_inflections: Dict[str, str],
         items_per_subtask: Optional[int],
     ) -> Corpus:
-        header = ["sen", "token", "wrong_token"]
-        fields = Corpus.create_fields(
-            header, tokenize_columns=header, tokenizer=self.tokenizer
-        )
+        header = ["sen", "token", "counter_token"]
+        fields = Corpus.create_fields(header, tokenizer=self.tokenizer)
 
         examples: List[Optional[Example]] = [
             self.item_to_example(item, fields, verb_inflections) for item in items
@@ -166,7 +164,7 @@ class LinzenDownstream(DownstreamTask):
     def item_to_example(
         item: RawItem, fields: List[Tuple[str, Field]], verb_inflections: Dict[str, str]
     ) -> Optional[Example]:
-        """ Creates an Example containing the subsentence and both
+        """Creates an Example containing the subsentence and both
         forms of the verb. If a verb form is not present in the model
         vocab, None is returned.
         """
@@ -184,7 +182,7 @@ class LinzenDownstream(DownstreamTask):
         return Example.fromlist([subsen, item.verb, opposite_verb], fields)
 
     def create_verb_inflections(self, corpus_path: str) -> Dict[str, str]:
-        """ Create sing<>plur mappings for all verbs in the model vocab.
+        """Create sing<>plur mappings for all verbs in the model vocab.
 
         Mappings are based on the pos-tagged wiki.vocab file of Linzen
         et al., and the `inflect` library.
@@ -201,7 +199,7 @@ class LinzenDownstream(DownstreamTask):
                 next(file)
                 for line in file:
                     word, pos, _ = line.strip().split()
-                    if word in self.tokenizer and pos in pos_to_token:
+                    if word in self.tokenizer.vocab and pos in pos_to_token:
                         pos_to_token[pos].append(word)
         except FileNotFoundError:
             warnings.warn(

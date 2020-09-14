@@ -36,7 +36,7 @@ class WarstadtDownstream(DownstreamTask):
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
     ) -> DownstreamCorpora:
-        """ Performs the initialization for the tasks of
+        """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
         Arxiv link: https://arxiv.org/pdf/1808.09031.pdf

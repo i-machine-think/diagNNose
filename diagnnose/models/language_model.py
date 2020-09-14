@@ -26,8 +26,9 @@ class LanguageModel(ABC, nn.Module):
         inputs_embeds: Optional[Union[Tensor, "ShapleyTensor"]] = None,
         input_lengths: Optional[Tensor] = None,
         compute_out: bool = False,
-    ) -> ActivationDict:
-        """ Performs a single forward pass across all LM layers.
+        only_return_top_embs: bool = False,
+    ) -> Union[ActivationDict, Tensor]:
+        """Performs a single forward pass across all LM layers.
 
         Parameters
         ----------
@@ -60,7 +61,7 @@ class LanguageModel(ABC, nn.Module):
 
     @abstractmethod
     def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
-        """ Transforms a sequence of input tokens to their embedding.
+        """Transforms a sequence of input tokens to their embedding.
 
         Parameters
         ----------
@@ -76,7 +77,7 @@ class LanguageModel(ABC, nn.Module):
 
     @abstractmethod
     def activation_names(self) -> ActivationNames:
-        """ Returns a list of all the model's activation names.
+        """Returns a list of all the model's activation names.
 
         Returns
         -------

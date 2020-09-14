@@ -18,7 +18,7 @@ from diagnnose.utils.pickle import load_pickle
 
 
 class ActivationReader:
-    """ Reads in pickled activations that have been extracted.
+    """Reads in pickled activations that have been extracted.
 
     Parameters
     ----------
@@ -60,8 +60,7 @@ class ActivationReader:
         self.store_multiple_activations = store_multiple_activations
 
     def __getitem__(self, key: ActivationKey) -> Tuple[Tensor, ...]:
-        """
-        """
+        """"""
         if isinstance(key, tuple):
             index, activation_name = key
         else:
@@ -115,7 +114,7 @@ class ActivationReader:
         return activations
 
     def read_activations(self, activation_name: ActivationName) -> Tensor:
-        """ Reads the pickled activations of activation_name
+        """Reads the pickled activations of activation_name
 
         Parameters
         ----------

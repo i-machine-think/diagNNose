@@ -23,7 +23,7 @@ task_constructors: Dict[str, Callable] = {
 
 
 class DownstreamSuite:
-    """ Suite that runs multiple downstream tasks on a LM.
+    """Suite that runs multiple downstream tasks on a LM.
 
     Tasks can be run on already extracted activations, or on a new LM
     for which new activations will be extracted.

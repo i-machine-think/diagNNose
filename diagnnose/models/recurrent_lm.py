@@ -54,7 +54,7 @@ class RecurrentLM(LanguageModel):
         return batch_init_states
 
     def final_hidden(self, hidden: ActivationDict) -> Tensor:
-        """ Returns the final hidden state.
+        """Returns the final hidden state.
 
         Parameters
         ----------
@@ -69,7 +69,7 @@ class RecurrentLM(LanguageModel):
         return hidden[self.top_layer, "hx"].squeeze()
 
     def nhid(self, activation_name: ActivationName) -> int:
-        """ Returns number of hidden units for a (layer, name) tuple.
+        """Returns number of hidden units for a (layer, name) tuple.
 
         If `name` != emb/hx/cx returns the size of (layer, `cx`).
         """

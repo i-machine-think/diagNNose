@@ -25,7 +25,7 @@ def set_init_states(
     tokenizer: Optional[str] = None,
     save_init_states_to: Optional[str] = None,
 ) -> None:
-    """ Set up the initial LM states.
+    """Set up the initial LM states.
 
     If no path is provided 0-valued embeddings will be used.
     Note that the loaded init should provide tensors for `hx`

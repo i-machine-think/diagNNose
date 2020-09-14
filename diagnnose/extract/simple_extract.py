@@ -23,7 +23,7 @@ def simple_extract(
     selection_func: SelectionFunc = return_all,
     sen_column: str = "sen",
 ) -> Tuple[ActivationReader, RemoveCallback]:
-    """ Basic extraction method.
+    """Basic extraction method.
 
     Returns
     -------

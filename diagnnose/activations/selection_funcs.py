@@ -16,7 +16,7 @@ def final_token(w_idx: int, item: Example) -> bool:
 
 
 def first_n(n: int) -> SelectionFunc:
-    """ Wrapper that creates a selection_func that only returns True for
+    """Wrapper that creates a selection_func that only returns True for
     the first `n` items of a corpus.
     """
 
@@ -27,7 +27,7 @@ def first_n(n: int) -> SelectionFunc:
 
 
 def nth_token(n: int) -> SelectionFunc:
-    """ Wrapper that creates a selection_func that only returns True for
+    """Wrapper that creates a selection_func that only returns True for
     the `n^{th}` token of a sentence.
     """
 
@@ -38,7 +38,7 @@ def nth_token(n: int) -> SelectionFunc:
 
 
 def in_sen_ids(sen_ids: List[int]) -> SelectionFunc:
-    """ Wrapper that creates a selection_func that only returns True for
+    """Wrapper that creates a selection_func that only returns True for
     a `sen_id` if it is part of the provided list of `sen_ids`.
     """
 

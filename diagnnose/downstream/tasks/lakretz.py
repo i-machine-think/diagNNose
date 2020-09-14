@@ -41,7 +41,7 @@ class LakretzDownstream(DownstreamTask):
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
     ) -> DownstreamCorpora:
-        """ Performs the initialization for the tasks of
+        """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
         Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
@@ -83,7 +83,7 @@ class LakretzDownstream(DownstreamTask):
         return corpora
 
     def create_corpus(self, path: str, condition_slice: slice) -> Corpus:
-        """ Attach the correct and incorrect verb form to each sentence
+        """Attach the correct and incorrect verb form to each sentence
         in the corpus.
         """
         raw_corpus = Corpus.create_raw_corpus(path)

@@ -19,7 +19,7 @@ from .activation_reader import ActivationReader
 
 
 class ActivationWriter:
-    """ Writes activations to file, using an ExitStack.
+    """Writes activations to file, using an ExitStack.
 
     Parameters
     ----------
@@ -70,7 +70,7 @@ class ActivationWriter:
         )
 
     def dump_activations(self, activations: ActivationDict) -> None:
-        """ Dumps the generated activations to a list of opened files
+        """Dumps the generated activations to a list of opened files
 
         Parameters
         ----------
@@ -97,7 +97,7 @@ class ActivationWriter:
         dill.dump(selection_func, self.selection_func_file, recurse=True)
 
     def concat_pickle_dumps(self, overwrite: bool = True) -> None:
-        """ Concatenates a sequential pickle dump and pickles to file .
+        """Concatenates a sequential pickle dump and pickles to file .
 
         Note that this overwrites the sequential pickle dump by default.
 

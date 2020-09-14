@@ -83,8 +83,8 @@ class TransformerLM(LanguageModel):
         return output
 
     @staticmethod
-    def create_attention_mask(batch_lengths: Tensor) -> Tensor:
-        """ Creates an attention mask as described in:
+    def create_attention_mask(input_lengths: List[int]) -> Tensor:
+        """Creates an attention mask as described in:
         https://huggingface.co/transformers/glossary.html#attention-mask
 
         Parameters

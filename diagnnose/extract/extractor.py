@@ -22,7 +22,7 @@ BATCH_SIZE = 1024
 
 
 class Extractor:
-    """ Extracts all intermediate activations of a LM from a corpus.
+    """Extracts all intermediate activations of a LM from a corpus.
 
     Only activations that are provided in activation_names will be
     stored in a pickle file. Each activation is written to its own file.
@@ -74,7 +74,7 @@ class Extractor:
             self.activation_writer = ActivationWriter(activations_dir)
 
     def extract(self) -> ActivationReader:
-        """ Extracts embeddings from a corpus.
+        """Extracts embeddings from a corpus.
 
         Uses contextlib.ExitStack to write to multiple files at once.
 
@@ -196,7 +196,7 @@ class Extractor:
         return activation_ranges
 
     def init_activation_dict(self, n_items: int, dump: bool = False) -> ActivationDict:
-        """ If activations are dumped we don't keep track of the full
+        """If activations are dumped we don't keep track of the full
         activation dictionary.
         """
         if dump:

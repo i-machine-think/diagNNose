@@ -3,7 +3,7 @@ from warnings import warn
 
 
 class W2I(dict):
-    """ Provides vocab functionality mapping words to indices.
+    """Provides vocab functionality mapping words to indices.
 
     Non-existing tokens are mapped to the id of an unk token that should
     be present in the vocab file.

@@ -38,7 +38,7 @@ class MarvinDownstream(DownstreamTask):
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
     ) -> DownstreamCorpora:
-        """ Performs the initialization for the tasks of
+        """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
         Arxiv link: https://arxiv.org/pdf/1808.09031.pdf
@@ -142,20 +142,16 @@ class MarvinDownstream(DownstreamTask):
         sens: List[Sequence[str]], fields: List[Tuple[str, Field]]
     ) -> List[Example]:
         examples = []
-        subsens_seen = set()
 
         for s1, s2, _ in sens:
             s1, s2 = s1.split(), s2.split()
 
             npi = "ever"
             ever_idx = s1.index(npi)
-            subsen = " ".join(s1[:ever_idx])
+            sen = " ".join(s1[:ever_idx])
+            counter_sen = " ".join(s2[:ever_idx])
 
-            if subsen in subsens_seen:
-                continue
-
-            ex = Example.fromlist([s1[:ever_idx], s2[:ever_idx], npi], fields)
+            ex = Example.fromlist([sen, counter_sen, npi], fields)
             examples.append(ex)
-            subsens_seen.add(subsen)
 
         return examples

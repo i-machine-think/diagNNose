@@ -48,7 +48,7 @@ class DownstreamTask:
     def run(
         self, ignore_unk: bool = False, use_full_model_probs: bool = True
     ) -> ResultsDict:
-        """ Performs the downstream task that has been initialised.
+        """Performs the downstream task that has been initialised.
 
         Parameters
         ----------
@@ -133,7 +133,7 @@ class DownstreamTask:
 
     @staticmethod
     def calc_counter_sen(*args, **kwargs) -> bool:
-        """ Specify conditions when the activations of a second
+        """Specify conditions when the activations of a second
         sentence should be computed, for a P(w|h1) > P(w|h2) test.
         Defaults to False, and should be overridden if necessary.
         """
@@ -196,16 +196,20 @@ class DownstreamTask:
         self, activations: Tensor, token_ids: Tensor, counter_token_ids: Tensor
     ) -> float:
         """ Computes activations for comparing P(w1|h) > P(w2|h). """
+        # (batch_size, nhid, 1)
         activations = activations.unsqueeze(2)
 
+        # (batch_size, 1, nhid)
         decoder_w = self.model.decoder_w[token_ids].unsqueeze(1)
         decoder_b = self.model.decoder_b[token_ids]
         counter_decoder_w = self.model.decoder_w[counter_token_ids].unsqueeze(1)
         counter_decoder_b = self.model.decoder_b[counter_token_ids]
 
+        # (batch_size,)
         logits = torch.bmm(decoder_w, activations).squeeze()
         logits += decoder_b
 
+        # (batch_size,)
         counter_logits = torch.bmm(counter_decoder_w, activations).squeeze()
         counter_logits += counter_decoder_b
 

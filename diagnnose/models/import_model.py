@@ -10,8 +10,8 @@ from .transformer_lm import TransformerLM
 
 
 def import_model(config_dict: ConfigDict) -> LanguageModel:
-    """
-    Import a model from a json file.
+    """Import a model from a json file.
+
     Parameters
     ----------
     config_dict : ConfigDict

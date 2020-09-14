@@ -13,7 +13,7 @@ def create_labels_from_corpus(
     selection_func: SelectionFunc = lambda sen_id, pos, example: True,
     control_task: Optional[ControlTask] = None,
 ) -> Tensor:
-    """ Creates labels based on the selection_func that was used during
+    """Creates labels based on the selection_func that was used during
     extraction.
 
     Parameters

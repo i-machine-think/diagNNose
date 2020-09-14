@@ -21,7 +21,7 @@ ENVS = [
 
 
 def preproc_warstadt(path: str) -> CorpusDict:
-    """ Reads and preprocesses the NPI corpus of Warstadt et al. (2019).
+    """Reads and preprocesses the NPI corpus of Warstadt et al. (2019).
 
     Paper: https://arxiv.org/pdf/1901.03438.pdf
 
@@ -100,7 +100,7 @@ def create_downstream_corpus(
     envs: Optional[List[str]] = None,
     skip_duplicate_items: bool = False,
 ) -> List[str]:
-    """ Create a new corpus from the original one that contains the
+    """Create a new corpus from the original one that contains the
     subsentences up to the position of the NPI.
 
     Parameters

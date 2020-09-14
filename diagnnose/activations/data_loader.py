@@ -14,7 +14,7 @@ from .activation_reader import ActivationReader
 
 
 class DataLoader:
-    """ Reads in pickled activations that have been extracted.
+    """Reads in pickled activations that have been extracted.
 
     Parameters
     ----------
@@ -113,7 +113,7 @@ class DataLoader:
         data_subset_size: int = -1,
         train_test_split: float = 0.9,
     ) -> DataDict:
-        """ Creates train/test data split of activations
+        """Creates train/test data split of activations
 
         Parameters
         ----------
@@ -193,7 +193,7 @@ class DataLoader:
         train_selection_func: SelectionFunc,
         test_selection_func: Optional[SelectionFunc],
     ) -> Tuple[Tensor, Tensor]:
-        """ Creates a tensor mask for the train/test split.
+        """Creates a tensor mask for the train/test split.
 
         Mask is created based on the provided selection functions.
         Note that the train_selection_func takes precedence over the
