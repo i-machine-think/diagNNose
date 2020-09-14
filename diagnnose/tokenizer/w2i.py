@@ -31,16 +31,16 @@ class W2I(dict):
         eos_token: str = "<eos>",
         notify_unk: bool = False,
     ) -> None:
-        if unk_token not in w2i:
-            w2i[unk_token] = len(w2i)
-        if eos_token not in w2i:
-            w2i[eos_token] = len(w2i)
-
         super().__init__(w2i)
 
-        self.unk_idx = w2i[unk_token]
+        if unk_token not in w2i:
+            warn(f"Unk token {unk_token} not found in provided vocab.")
+
         self.unk_token = unk_token
         self.eos_token = eos_token
+
+        self.unk_idx = w2i[unk_token]
+
         self.notify_unk = notify_unk
 
         self.i2w = list(w2i.keys())
