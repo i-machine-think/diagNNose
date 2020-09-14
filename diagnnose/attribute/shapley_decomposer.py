@@ -1,30 +1,33 @@
-from typing import List, Optional
+from typing import List
 
 import torch
 from torch import Tensor
+from transformers import BatchEncoding
 
+from diagnnose.attribute.shapley_tensor import ShapleyTensor
 from diagnnose.models import LanguageModel
 
-from .shapley_tensor import ShapleyTensor
 
-
-class Decomposer:
+class ShapleyDecomposer:
     def __init__(self, model: LanguageModel):
         self.model = model
 
-    def decompose(
-        self, input_ids: Tensor, attention_mask: Optional[Tensor]
-    ) -> ShapleyTensor:
-        shapley_in = self.wrap_inputs_embeds(input_ids)
+    def decompose(self, batch_encoding: BatchEncoding) -> ShapleyTensor:
+        input_ids = torch.tensor(batch_encoding["input_ids"])
+        inputs_embeds = self.wrap_inputs_embeds(input_ids)
 
         with torch.no_grad():
             shapley_out = self.model(
-                inputs_embeds=shapley_in, attention_mask=attention_mask
+                inputs_embeds=inputs_embeds,
+                input_lengths=batch_encoding.data.get("length", None),
+                compute_out=True,
+                only_return_top_embs=True,
             )
 
         return shapley_out
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> ShapleyTensor:
+        # Shape: batch_size x max_sen_len x nhid
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
         # First contribution corresponds to contributions stemming from bias terms within the
@@ -45,10 +48,9 @@ class Decomposer:
         return shapley_in
 
 
-class ContextualDecomposer(Decomposer):
-    def decompose(
-        self, input_ids: Tensor, attention_mask: Optional[Tensor]
-    ) -> ShapleyTensor:
+class ContextualDecomposer(ShapleyDecomposer):
+    def decompose(self, batch_encoding: BatchEncoding) -> ShapleyTensor:
+        input_ids = torch.tensor(batch_encoding["input_ids"])
         shapley_tensors = self.wrap_inputs_embeds(input_ids)
 
         contributions = []
@@ -56,7 +58,10 @@ class ContextualDecomposer(Decomposer):
         for w_idx, inputs_embeds in enumerate(shapley_tensors):
             with torch.no_grad():
                 out, c = self.model(
-                    inputs_embeds=inputs_embeds, attention_mask=attention_mask
+                    inputs_embeds=inputs_embeds,
+                    input_lengths=batch_encoding.data.get("length", None),
+                    compute_out=True,
+                    only_return_top_embs=True,
                 )
             beta = c[0] if w_idx == 0 else c[1]
             contributions.append(beta)
