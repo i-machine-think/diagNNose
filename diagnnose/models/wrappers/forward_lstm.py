@@ -17,7 +17,7 @@ from diagnnose.typedefs.activations import (
 
 
 class ForwardLSTM(RecurrentLM):
-    """ Defines a default uni-directional n-layer LSTM.
+    """Defines a default uni-directional n-layer LSTM.
 
     Allows for extraction of intermediate states and gate activations.
 
@@ -59,43 +59,7 @@ class ForwardLSTM(RecurrentLM):
         self.weight: LayeredTensors = {}
         self.bias: LayeredTensors = {}
 
-        # LSTM weights
-        layer = 0
-        # 1 layer RNNs do not have a layer suffix in the state_dict
-        no_suffix = self.param_names(0, rnn_name, no_suffix=True)["weight_hh"] in params
-        assert (
-            self.param_names(0, rnn_name, no_suffix=no_suffix)["weight_hh"] in params
-        ), "rnn weight name not found, check if setup is correct"
-
-        while (
-            self.param_names(layer, rnn_name, no_suffix=no_suffix)["weight_hh"]
-            in params
-        ):
-            param_names = self.param_names(layer, rnn_name, no_suffix=no_suffix)
-
-            w_h = params[param_names["weight_hh"]]
-            w_i = params[param_names["weight_ih"]]
-
-            # Shape: (emb_size+nhid_h, 4*nhid_c)
-            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(config.DTYPE)
-
-            if param_names["bias_hh"] in params:
-                # Shape: (4*nhid_c,)
-                self.bias[layer] = (
-                    params[param_names["bias_hh"]] + params[param_names["bias_ih"]]
-                ).to(config.DTYPE)
-
-            self.sizes.update(
-                {
-                    (layer, "emb"): w_i.size(1),
-                    (layer, "hx"): w_h.size(1),
-                    (layer, "cx"): w_h.size(1),
-                }
-            )
-            layer += 1
-
-            if no_suffix:
-                break
+        self._set_lstm_weights(params, rnn_name)
 
         # Encoder and decoder weights
         self.word_embeddings: Tensor = params[f"{encoder_name}.weight"].to(config.DTYPE)
@@ -112,36 +76,8 @@ class ForwardLSTM(RecurrentLM):
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[Tensor] = None,
         compute_out: bool = False,
-    ) -> ActivationDict:
-        """ Performs a single forward pass across all LM layers.
-
-        Parameters
-        ----------
-        input_ids : Tensor, optional
-            Indices of input sequence tokens in the vocabulary.
-            Size: batch_size x max_sen_len
-        inputs_embeds : Tensor | ShapleTensor, optional
-            This is useful if you want more control over how to convert
-            `input_ids` indices into associated vectors than the model's
-            internal embedding lookup matrix. Also allows a
-            ShapleyTensor to be provided, allowing feature contributions
-            to be track during a forward pass.
-            Size: batch_size x max_sen_len x nhid
-        input_lengths : Tensor, optional
-            Tensor of the sentence lengths of each batch item.
-            If not provided, all items are assumed the same length.
-            Size: batch_size,
-        compute_out : bool, optional
-            Toggles the computation of the final decoder projection.
-            If set to False this projection is not calculated.
-            Defaults to True.
-
-        Returns
-        -------
-        all_activations : ActivationDict
-            Dictionary mapping activation names to tensors of shape:
-            batch_size x max_sen_len x nhid.
-        """
+        only_return_top_embs: bool = False,
+    ) -> Union[ActivationDict, Tensor]:
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError(
                 "You cannot specify both input_ids and inputs_embeds at the same time"
@@ -174,6 +110,11 @@ class ForwardLSTM(RecurrentLM):
         for a_name, activations in all_activations.items():
             all_activations[a_name] = activations[unsorted_indices]
 
+        if only_return_top_embs and compute_out:
+            return all_activations[self.top_layer, "out"]
+        elif only_return_top_embs:
+            return all_activations[self.top_layer, "hx"]
+
         return all_activations
 
     def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
@@ -183,7 +124,7 @@ class ForwardLSTM(RecurrentLM):
     def _create_iterator(
         input_ids: Tensor, input_lengths: Optional[Tensor]
     ) -> Tuple[Tuple[Tensor, ...], Tensor]:
-        """ Creates a PackedSequence that handles batching for the RNN.
+        """Creates a PackedSequence that handles batching for the RNN.
 
         Batch items are sorted based on sentence length, allowing
         <pad> tokens to be skipped efficiently during the forward pass.
@@ -210,7 +151,7 @@ class ForwardLSTM(RecurrentLM):
     def _init_activations(
         self, inputs_embeds: Tensor, compute_out: bool
     ) -> ActivationDict:
-        """ Returns a dictionary mapping activation names to tensors.
+        """Returns a dictionary mapping activation names to tensors.
 
         If the input is a ShapleyTensor this dict will store the
         ShapleyTensors as well.
@@ -283,7 +224,7 @@ class ForwardLSTM(RecurrentLM):
     def forward_cell(
         self, layer: int, input_: Tensor, prev_hx: Tensor, prev_cx: Tensor
     ) -> ActivationDict:
-        """ Performs the forward step of 1 LSTM cell.
+        """Performs the forward step of 1 LSTM cell.
 
         Parameters
         ----------
@@ -341,11 +282,50 @@ class ForwardLSTM(RecurrentLM):
 
         return activation_dict
 
+    def _set_lstm_weights(self, params: Dict[str, Tensor], rnn_name: str) -> None:
+        # LSTM weights
+        layer = 0
+        # 1 layer RNNs do not have a layer suffix in the state_dict
+        no_suffix = self.param_names(0, rnn_name, no_suffix=True)["weight_hh"] in params
+        assert (
+            self.param_names(0, rnn_name, no_suffix=no_suffix)["weight_hh"] in params
+        ), "rnn weight name not found, check if setup is correct"
+
+        while (
+            self.param_names(layer, rnn_name, no_suffix=no_suffix)["weight_hh"]
+            in params
+        ):
+            param_names = self.param_names(layer, rnn_name, no_suffix=no_suffix)
+
+            w_h = params[param_names["weight_hh"]]
+            w_i = params[param_names["weight_ih"]]
+
+            # Shape: (emb_size+nhid_h, 4*nhid_c)
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(config.DTYPE)
+
+            if param_names["bias_hh"] in params:
+                # Shape: (4*nhid_c,)
+                self.bias[layer] = (
+                    params[param_names["bias_hh"]] + params[param_names["bias_ih"]]
+                ).to(config.DTYPE)
+
+            self.sizes.update(
+                {
+                    (layer, "emb"): w_i.size(1),
+                    (layer, "hx"): w_h.size(1),
+                    (layer, "cx"): w_h.size(1),
+                }
+            )
+            layer += 1
+
+            if no_suffix:
+                break
+
     @staticmethod
     def param_names(
         layer: int, rnn_name: str, no_suffix: bool = False
     ) -> Dict[str, str]:
-        """ Creates a dictionary of parameter names in a state_dict.
+        """Creates a dictionary of parameter names in a state_dict.
 
         Parameters
         ----------
@@ -379,7 +359,7 @@ class ForwardLSTM(RecurrentLM):
         }
 
     def activation_names(self, compute_out: bool = False) -> ActivationNames:
-        """ Returns a list of all the model's activation names.
+        """Returns a list of all the model's activation names.
 
         Parameters
         ----------

@@ -15,14 +15,14 @@ from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 
 
 class GoogleLM(RecurrentLM):
-    """ Reimplementation of the LM of Jozefowicz et al. (2016).
+    """Reimplementation of the LM of Jozefowicz et al. (2016).
 
     Paper: https://arxiv.org/abs/1602.02410
     Lib: https://github.com/tensorflow/models/tree/master/research/lm_1b
 
     This implementation allows for only a subset of the SoftMax to be
     loaded in, to alleviate RAM usage.
-    
+
     Parameters
     ----------
     pbtxt_path : str

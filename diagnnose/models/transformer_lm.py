@@ -1,14 +1,14 @@
 from functools import reduce
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import torch
 from torch import Tensor
 from transformers import (
     AutoModel,
+    AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
-    AutoModelWithLMHead,
     PreTrainedModel,
 )
 
@@ -22,7 +22,7 @@ from diagnnose.typedefs.activations import (
 
 mode_to_auto_model = {
     None: AutoModel,
-    "language_modeling": AutoModelWithLMHead,
+    "language_modeling": AutoModelForMaskedLM,
     "question_answering": AutoModelForQuestionAnswering,
     "sequence_classification": AutoModelForSequenceClassification,
     "token_classification": AutoModelForTokenClassification,
@@ -30,9 +30,7 @@ mode_to_auto_model = {
 
 
 class TransformerLM(LanguageModel):
-    """ A TransformerLM is a HuggingFace model to which we attach
-    a corresponding tokenizer.
-    """
+    """ Huggingface LM wrapper. """
 
     def __init__(
         self,
@@ -55,10 +53,11 @@ class TransformerLM(LanguageModel):
         self,
         input_ids: Optional[Tensor] = None,
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
-        input_lengths: Optional[Tensor] = None,
+        input_lengths: Optional[List[int]] = None,
         attention_mask: Optional[Tensor] = None,
-        compute_out: bool = False,
-    ) -> ActivationDict:  # TODO: move compute_out to init
+        compute_out: bool = True,
+        only_return_top_embs: bool = True,
+    ) -> Union[ActivationDict, Tensor]:
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError(
                 "You cannot specify both input_ids and inputs_embeds at the same time"
@@ -75,9 +74,10 @@ class TransformerLM(LanguageModel):
         if attention_mask is None:
             attention_mask = self.create_attention_mask(input_lengths)
 
-        output = self.model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
+        model = self.model if compute_out else self.model.base_model
+        output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
 
-        if isinstance(output, tuple):
+        if isinstance(output, tuple) and only_return_top_embs:
             output = output[0]
 
         return output
@@ -89,9 +89,8 @@ class TransformerLM(LanguageModel):
 
         Parameters
         ----------
-        batch_lengths : Tensor
-            Tensor containing sentence lengths of each batch item.
-            Size: batch_size x 1
+        input_lengths : List[int]
+            List containing sentence lengths of each batch item.
 
         Returns
         -------
@@ -100,11 +99,11 @@ class TransformerLM(LanguageModel):
             account by the attention mechanism.
             Size: batch_size x max_sen_length
         """
-        max_sen_len = torch.max(batch_lengths).item()
+        max_sen_len = max(input_lengths)
 
-        attention_mask = torch.zeros(batch_lengths.size(0), max_sen_len)
+        attention_mask = torch.zeros(len(input_lengths), max_sen_len)
 
-        for idx, length in enumerate(batch_lengths.view(-1)):
+        for idx, length in enumerate(input_lengths):
             attention_mask[idx, :length] = 1.0
 
         return attention_mask

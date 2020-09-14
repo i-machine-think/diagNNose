@@ -49,7 +49,11 @@ class LanguageModel(ABC, nn.Module):
         compute_out : bool, optional
             Toggles the computation of the final decoder projection.
             If set to False this projection is not calculated.
-            Defaults to True.
+            Defaults to False.
+        only_return_top_embs : bool, optional
+            Toggle to only return the tensor of the hidden state of the
+            top layer of the network, instead of the full activation
+            dictionary. Defaults to False.
 
         Returns
         -------

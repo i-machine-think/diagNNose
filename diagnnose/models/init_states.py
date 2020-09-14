@@ -22,7 +22,7 @@ def set_init_states(
     pickle_path: Optional[str] = None,
     corpus_path: Optional[str] = None,
     use_default: bool = False,
-    tokenizer: Optional[str] = None,
+    tokenizer: Optional[PreTrainedTokenizer] = None,
     save_init_states_to: Optional[str] = None,
 ) -> None:
     """Set up the initial LM states.
@@ -36,6 +36,8 @@ def set_init_states(
 
     Parameters
     ----------
+    model : RecurrentLM
+        A recurrent language model for which the initial states are set.
     pickle_path : str, optional
         Path to pickled file with initial lstm states. If not
         provided zero-valued init states will be created.

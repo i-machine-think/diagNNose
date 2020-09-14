@@ -39,7 +39,6 @@ def import_transformer_lm(config_dict: ConfigDict) -> TransformerLM:
 
 def import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
     """ Imports a recurrent LM and sets the initial states. """
-    use_default = config_dict["model"].pop("use_default_init_states", False)
     model_type = config_dict["model"].pop("model_type")
 
     tokenizer = None
@@ -51,11 +50,6 @@ def import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
     model_constructor: Type[RecurrentLM] = getattr(wrappers, model_type)
     model = model_constructor(**config_dict["model"])
 
-    set_init_states(
-        model,
-        use_default=use_default,
-        tokenizer=tokenizer,
-        **config_dict.get("init_states", {})
-    )
+    set_init_states(model, tokenizer=tokenizer, **config_dict.get("init_states", {}))
 
     return model

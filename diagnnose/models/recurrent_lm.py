@@ -3,10 +3,7 @@ from typing import List
 from torch import Tensor
 
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationName,
-)
+from diagnnose.typedefs.activations import ActivationDict, ActivationName
 
 
 class RecurrentLM(LanguageModel):
