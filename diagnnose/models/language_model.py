@@ -4,6 +4,7 @@ from typing import Optional, Union
 import torch.nn as nn
 from torch import Tensor
 
+from diagnnose.attribute import ShapleyTensor
 from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationName,
@@ -23,7 +24,7 @@ class LanguageModel(ABC, nn.Module):
     def forward(
         self,
         input_ids: Optional[Tensor] = None,
-        inputs_embeds: Optional[Union[Tensor, "ShapleyTensor"]] = None,
+        inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[Tensor] = None,
         compute_out: bool = False,
         only_return_top_embs: bool = False,
