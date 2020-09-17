@@ -27,8 +27,10 @@ def simple_extract(
 
     Returns
     -------
+    activation_reader : ActivationReader
+        ActivationReader for the activations that have been extracted.
     remove_activations : RemoveCallback
-        callback function that can be executed at the end of a procedure
+        Callback function that can be executed at the end of a procedure
         that depends on the extracted activations. Removes all the
         activations that have been extracted. Takes no arguments.
     """
