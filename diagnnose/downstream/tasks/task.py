@@ -70,14 +70,14 @@ class DownstreamTask:
 
         for subtask, subtask_corpora in self.corpora.items():
             if isinstance(subtask_corpora, Corpus):
-                accuracy = self.run_single_corpus(
+                accuracy = self.run_corpus(
                     subtask_corpora, subtask, ignore_unk, use_full_model_probs
                 )
                 results[subtask] = accuracy
                 continue
 
             for condition, corpus in subtask_corpora.items():
-                accuracy = self.run_single_corpus(
+                accuracy = self.run_corpus(
                     corpus, subtask, ignore_unk, use_full_model_probs
                 )
 
@@ -85,7 +85,7 @@ class DownstreamTask:
 
         return results
 
-    def run_single_corpus(
+    def run_corpus(
         self, corpus: Corpus, subtask: str, ignore_unk: bool, use_full_model_probs: bool
     ) -> float:
         activations = self.calc_final_hidden(corpus)
@@ -99,6 +99,8 @@ class DownstreamTask:
             counter_activations = self.calc_final_hidden(
                 corpus, sen_column="counter_sen", selection_func=selection_func
             )
+
+        torch.save(activations, f"{subtask}_tensors.pt")
 
         accuracy = self.calc_accuracy(
             corpus,
