@@ -1,22 +1,18 @@
 import torch
 
-from diagnnose.config.arg_parser import create_arg_parser
-from diagnnose.config.setup import create_config_dict
+from diagnnose.config.config_dict import create_config_dict
 from diagnnose.corpus import Corpus
-from diagnnose.corpus.import_corpus import import_corpus
 from diagnnose.decompositions.factory import DecomposerFactory
 from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_model
-from diagnnose.vocab import get_vocab_path_from_config
+from diagnnose.tokenizer.create import create_tokenizer
 
 if __name__ == "__main__":
-    arg_groups = {"model", "init_states", "corpus", "vocab", "activations", "decompose"}
-    arg_parser, required_args = create_arg_parser(arg_groups)
-    config_dict = create_config_dict(arg_parser, required_args)
+    config_dict = create_config_dict()
 
     model: LanguageModel = import_model(config_dict)
-    vocab_path = get_vocab_path_from_config(config_dict)
-    corpus: Corpus = import_corpus(vocab_path=vocab_path, **config_dict["corpus"])
+    tokenizer = create_tokenizer(**config_dict["tokenizer"])
+    corpus: Corpus = Corpus.create(tokenizer=tokenizer, **config_dict["corpus"])
 
     decompose_args = {**config_dict["decompose"], **config_dict["activations"]}
 

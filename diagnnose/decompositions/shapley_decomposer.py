@@ -19,7 +19,7 @@ InputPartition = Union[Tuple[int, int], List[int]]
 
 
 class ShapleyDecomposer(BaseDecomposer):
-    """ Shapley Decomposer, uses the mechanism of CD but considers all
+    """Shapley Decomposer, uses the mechanism of CD but considers all
     input features simultaneously.
 
     Inherits and uses functions from BaseDecomposer.
@@ -42,7 +42,7 @@ class ShapleyDecomposer(BaseDecomposer):
         input_partitions: Optional[List[InputPartition]] = None,
         gate_bias_rel: bool = True,
     ) -> Tensor:
-        """ Main loop for the contextual decomposition.
+        """Main loop for the contextual decomposition.
 
         Parameters
         ----------
@@ -86,7 +86,7 @@ class ShapleyDecomposer(BaseDecomposer):
         return self._calc_scores()
 
     def _calc_activations(self, layer: int, i: int) -> None:
-        """ Recalculates the decomposed model activations.
+        """Recalculates the decomposed model activations.
 
         Input is either the word embedding in layer 0, or the beta/gamma
         decomposition of the hidden state in the previous layer.
@@ -174,7 +174,7 @@ class ShapleyDecomposer(BaseDecomposer):
         self._add_interactions(layer, i, shapley_o, shapley_c, cell_type="h_wo_proj")
 
     def _calc_shapley_values(self, layer: int, i: int, activation_type: str) -> Tensor:
-        """ Calculate the Shapley values at a specific instance.
+        """Calculate the Shapley values at a specific instance.
 
         We only need to take into account the activations of the
         partitions that have been observed up to step i, which saves a
@@ -206,7 +206,7 @@ class ShapleyDecomposer(BaseDecomposer):
         return shapley_values
 
     def _partitions_seen(self, i: int) -> List[int]:
-        """ Return the set of partitions that have been seen at step i.
+        """Return the set of partitions that have been seen at step i.
         Future partitions to not need to be taken into account yet.
         """
         first_i_partitions = list(self.idx2partition_idx.values())[: i + 1]
@@ -239,7 +239,7 @@ class ShapleyDecomposer(BaseDecomposer):
             self.decompositions[layer][cell_type][:, p_idx, i] += gated_source
 
     def _project_hidden(self, layer: int, i: int) -> None:
-        if self.model.sizes[layer]["h"] != self.model.sizes[layer]["c"]:
+        if self.model.sizes[layer, "hx"] != self.model.sizes[layer, "cx"]:
             c2h_wo_proj = self.model.lstm.weight_P[layer]
 
             self.decompositions[layer]["h"][:, :, i] = (
@@ -258,15 +258,15 @@ class ShapleyDecomposer(BaseDecomposer):
         self.decompositions = {
             layer: {
                 "c": torch.zeros(
-                    (batch_size, self.num_partitions, slen + 1, sizes[layer]["c"]),
+                    (batch_size, self.num_partitions, slen + 1, sizes[layer, "cx"]),
                     dtype=config.DTYPE,
                 ),
                 "h": torch.zeros(
-                    (batch_size, self.num_partitions, slen + 1, sizes[layer]["c"]),
+                    (batch_size, self.num_partitions, slen + 1, sizes[layer, "cx"]),
                     dtype=config.DTYPE,
                 ),
                 "h_wo_proj": torch.zeros(
-                    (batch_size, self.num_partitions, slen + 1, sizes[layer]["c"]),
+                    (batch_size, self.num_partitions, slen + 1, sizes[layer, "cx"]),
                     dtype=config.DTYPE,
                 ),
             }

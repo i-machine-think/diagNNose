@@ -1,16 +1,15 @@
 from itertools import combinations
 from math import factorial
-from typing import Callable, Dict, Sequence
+from typing import Callable, Dict, Tuple
 
 import numpy as np
 import torch
-from scipy.special import expit as sigmoid
 from torch import Tensor
 
 import diagnnose.typedefs.config as config
 
 
-def calc_shapley_factors(n: int) -> Dict[Sequence[int], int]:
+def calc_shapley_factors(n: int) -> Dict[Tuple[int, ...], int]:
     """Creates the normalization factors for each subset of `n` items.
 
     These factors are based on the original Shapley formulation:

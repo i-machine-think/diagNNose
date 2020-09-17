@@ -9,7 +9,7 @@ from diagnnose.typedefs.classifiers import LinearDecoder
 
 
 class BaseDecomposer:
-    """ Base decomposer which decomposition classes should inherit
+    """Base decomposer which decomposition classes should inherit
 
     Parameters
     ----------

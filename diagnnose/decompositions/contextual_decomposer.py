@@ -13,7 +13,7 @@ from .shapley_fixed import shapley_three, shapley_three_fixed, shapley_two
 
 
 class ContextualDecomposer(BaseDecomposer):
-    """ Implementation of the LSTM decomposition method described in:
+    """Implementation of the LSTM decomposition method described in:
 
     Murdoch et al., Beyond Word Importance: Contextual Decomposition to
     Extract Interactions from LSTMs (2018)
@@ -52,7 +52,7 @@ class ContextualDecomposer(BaseDecomposer):
         use_extracted_activations: bool = True,
         **kwargs: Any,
     ) -> NamedTensors:
-        """ Main loop for the contextual decomposition.
+        """Main loop for the contextual decomposition.
 
         Parameters
         ----------
@@ -72,7 +72,7 @@ class ContextualDecomposer(BaseDecomposer):
             rel-irrel. Defaults to rel-rel, rel-irrel & rel-b.
         fix_shapley : bool, optional
             Fix the bias term position in the gate linearization, as
-            is done in the original paper. Setting this to True will 
+            is done in the original paper. Setting this to True will
             lead to a very considerable _bias_ towards the bias!
             Defaults to True.
         bias_bias_only_in_phrase : bool, optional
@@ -146,7 +146,7 @@ class ContextualDecomposer(BaseDecomposer):
 
     @staticmethod
     def _get_inside_phrase(start: Union[int, Tensor], stop: Union[int, Tensor], i: int):
-        """ Returns bool or bool tensor indicating whether current
+        """Returns bool or bool tensor indicating whether current
         position i is part of the relevant phrase.
         """
         if isinstance(start, int) and isinstance(stop, int):
@@ -163,7 +163,7 @@ class ContextualDecomposer(BaseDecomposer):
         inside_phrase: Union[bool, Tensor],
         input_never_rel: bool,
     ) -> None:
-        """ Recalculates the decomposed model activations.
+        """Recalculates the decomposed model activations.
 
         Input is either the word embedding in layer 0, or the beta/gamma
         decomposition of the hidden state in the previous layer.
@@ -277,7 +277,7 @@ class ContextualDecomposer(BaseDecomposer):
         )
 
     def _add_output_decomposition(self, layer: int, i: int, decompose_o: bool) -> None:
-        """ Calculates the output gate decomposition, Equation (23).
+        """Calculates the output gate decomposition, Equation (23).
 
         As stated in the paper, output decomposition is not always
         beneficial and can therefore be toggled off.

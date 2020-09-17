@@ -31,7 +31,7 @@ from .base_decomposer import BaseDecomposer
 
 
 class DecomposerFactory:
-    """ Creates a BaseDecomposer class for activation decomposition
+    """Creates a BaseDecomposer class for activation decomposition
 
     Parameters
     ----------
@@ -88,7 +88,7 @@ class DecomposerFactory:
         classes: Optional[ActivationIndex] = None,
         extra_classes: Optional[List[int]] = None,
     ) -> BaseDecomposer:
-        """ Creates an instance of a BaseDecomposer.
+        """Creates an instance of a BaseDecomposer.
 
         Parameters
         ----------
@@ -175,7 +175,7 @@ class DecomposerFactory:
         return final_indices.to(torch.long)
 
     def _calc_batch_lens(self, sen_ids: ActivationIndex) -> Tensor:
-        """ Returns final indices of current batch.
+        """Returns final indices of current batch.
 
         Parameters
         ----------

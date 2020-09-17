@@ -24,7 +24,7 @@ TMP_DIR = "tmp"
 
 
 class CDAttention:
-    """ Creates an attention-like plot based on CD scores.
+    """Creates an attention-like plot based on CD scores.
 
     An example of such plots can be found in Figure 2 of Jumelet et al.
     (2019): https://www.aclweb.org/anthology/K19-1001.pdf
@@ -77,7 +77,7 @@ class CDAttention:
         save_arr_as: Optional[str] = None,
         save_plot_as: Optional[str] = None,
     ) -> Tensor:
-        """ Calculates the CD contributions and creates a plot.
+        """Calculates the CD contributions and creates a plot.
 
         Parameters
         ----------
@@ -160,7 +160,7 @@ class CDAttention:
         extra_classes: Optional[List[int]] = None,
         save_arr_as: Optional[str] = None,
     ) -> Tensor:
-        """ Calculates the CD contributions and creates a plot.
+        """Calculates the CD contributions and creates a plot.
 
         Parameters
         ----------
@@ -419,7 +419,7 @@ class CDAttention:
         classes: List[List[int]] = []
         for i, sen_id in enumerate(activation_index_to_iterable(sen_ids)):
             sen = self.corpus[sen_id].sen[1:]
-            tokens = [self.corpus.vocab.stoi[w] for w in sen]
+            tokens = [self.corpus.tokenizer.stoi[w] for w in sen]
             classes.append(tokens)
             if i > 0:
                 assert len(tokens) == len(

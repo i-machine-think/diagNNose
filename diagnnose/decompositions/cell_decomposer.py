@@ -9,7 +9,7 @@ from .base_decomposer import BaseDecomposer
 
 # TODO: Update class with new structure, currently broken.
 class CellDecomposer(BaseDecomposer):
-    """ Implementation of the LSTM decomposition method described in:
+    """Implementation of the LSTM decomposition method described in:
 
     Murdoch and Szlam, Automatic Rule Extraction from Long Short Term
     Memory Networks (2017) https://arxiv.org/pdf/1702.02540.pdf
@@ -21,7 +21,7 @@ class CellDecomposer(BaseDecomposer):
         return {"beta": self.calc_beta(), "gamma": self.calc_gamma()}
 
     def calc_beta(self) -> np.ndarray:
-        """ Calculates the beta term of the paper
+        """Calculates the beta term of the paper
 
         First entry is the contribution of the initial cell state.
 
@@ -36,7 +36,7 @@ class CellDecomposer(BaseDecomposer):
         return beta
 
     def calc_gamma(self) -> np.ndarray:
-        """ Calculates the gamma term of the paper
+        """Calculates the gamma term of the paper
 
         First entry is the contribution of the initial cell state.
 
