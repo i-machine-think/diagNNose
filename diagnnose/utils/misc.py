@@ -1,6 +1,8 @@
+import contextlib
+import cProfile
 import io
+import pstats
 from collections import MutableMapping
-from contextlib import redirect_stderr, redirect_stdout
 from functools import wraps
 from typing import Any, Callable, Dict
 
@@ -19,7 +21,7 @@ def suppress_print(func: Callable) -> Callable:
 
         trap = io.StringIO()
 
-        with redirect_stdout(trap), redirect_stderr(trap):
+        with contextlib.redirect_stdout(trap), contextlib.redirect_stderr(trap):
             result = func(*args, **kwargs)
 
         return result
@@ -41,3 +43,24 @@ def merge_dicts(d1: Dict, d2: Dict) -> Dict:
     d3.update(d2)
 
     return d3
+
+
+@contextlib.contextmanager
+def profile() -> None:
+    """
+    Profiler that operates as a context manager.
+    Example usage:
+
+    .. code-block:: python
+
+        with profile():
+            foo()
+            bar()
+    """
+    pr = cProfile.Profile()
+    pr.enable()
+
+    yield
+
+    pr.disable()
+    pstats.Stats(pr).sort_stats("cumulative").print_stats()
