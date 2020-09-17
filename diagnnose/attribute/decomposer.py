@@ -4,8 +4,10 @@ import torch
 from torch import Tensor
 from transformers import BatchEncoding
 
-from diagnnose.attribute.shapley_tensor import ShapleyTensor
 from diagnnose.models import LanguageModel
+
+from .gcd_tensor import GCDTensor
+from .shapley_tensor import ShapleyTensor
 
 
 class ShapleyDecomposer:
@@ -41,7 +43,7 @@ class ShapleyDecomposer:
             contribution[:, w_idx] = inputs_embeds[:, w_idx]
             contributions.append(contribution)
 
-        shapley_in = ShapleyTensor(
+        shapley_in = GCDTensor(
             inputs_embeds, contributions=contributions, validate=True
         )
 
@@ -66,13 +68,13 @@ class ContextualDecomposer(ShapleyDecomposer):
             beta = c[0] if w_idx == 0 else c[1]
             contributions.append(beta)
 
-        return ShapleyTensor(out, contributions)
+        return GCDTensor(out, contributions)
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> List[ShapleyTensor]:
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
         all_shapley_in = [
-            ShapleyTensor(
+            GCDTensor(
                 inputs_embeds,
                 contributions=[torch.zeros_like(inputs_embeds), inputs_embeds],
                 validate=True,
@@ -86,10 +88,10 @@ class ContextualDecomposer(ShapleyDecomposer):
             beta[:, w_idx] = gamma[:, w_idx]
             gamma[:, w_idx] = 0.0
 
-            contributions = [torch.zeros_like(inputs_embeds), beta, gamma]
+            contributions = [gamma, beta]
 
-            shapley_in = ShapleyTensor(
-                inputs_embeds, contributions=contributions, validate=True
+            shapley_in = GCDTensor(
+                inputs_embeds, contributions=contributions, validate=False
             )
 
             all_shapley_in.append(shapley_in)

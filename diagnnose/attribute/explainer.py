@@ -5,7 +5,7 @@ from transformers import BatchEncoding, PreTrainedTokenizer
 
 from diagnnose.models import LanguageModel
 
-from diagnnose.attribute.shapley_decomposer import ContextualDecomposer, ShapleyDecomposer
+from diagnnose.attribute.decomposer import ContextualDecomposer, ShapleyDecomposer
 
 decomposers = {
     "shapley_decomposer": ShapleyDecomposer,

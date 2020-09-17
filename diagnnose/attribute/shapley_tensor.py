@@ -95,16 +95,19 @@ class ShapleyTensor:
         if isinstance(attr, Callable):
 
             def attr_wrapper(*args, **kwargs):
-                if hasattr(torch, attr.__name__) and isinstance(
-                    getattr(torch, attr.__name__), Callable
-                ):
-                    torch_fn = getattr(torch, attr.__name__)
+                torch_fn = getattr(torch, attr.__name__, None)
 
+                if isinstance(torch_fn, Callable):
+                    # Captures function calls like tensor.transpose(*args), and returns them
+                    # like torch.transpose(tensor, *args), so the function call can be captured
+                    # using __torch_function__.
                     if attr.__name__ == "reshape":
                         return torch_fn(self, args, **kwargs)
 
                     return torch_fn(self, *args, **kwargs)
                 else:
+                    # Captures tensor functions that don't exist as a stand-alone torch method,
+                    # such as tensor.view(*args). Applies the same function to all contributions.
                     output = attr(*args, **kwargs)
                     contributions = [
                         getattr(contribution, item)(*args, **kwargs)
@@ -126,7 +129,7 @@ class ShapleyTensor:
             data = self.data[index]
             contributions = [contribution[index] for contribution in self.contributions]
 
-        return ShapleyTensor(
+        return type(self)(
             data,
             contributions=contributions,
             shapley_factors=self.shapley_factors,
@@ -169,7 +172,7 @@ class ShapleyTensor:
         type structure of the output is preserved.
         """
         if isinstance(data, torch.Tensor):
-            return ShapleyTensor(
+            return type(self)(
                 data,
                 contributions=contributions,
                 shapley_factors=self.shapley_factors,
@@ -285,6 +288,7 @@ class ShapleyTensor:
 
     @staticmethod
     def add_contributions(*args, **kwargs):
+        """ Non-ShapleyTensors are added to the default partition. """
         arg1, arg2 = args
         if not isinstance(arg1, ShapleyTensor):
             contributions = [
@@ -304,6 +308,23 @@ class ShapleyTensor:
                 torch.add(con1, con2, **kwargs)
                 for con1, con2 in zip(arg1.contributions, arg2.contributions)
             ]
+
+        return contributions
+
+    def mul_contributions(self, *args, **kwargs):
+        arg1, arg2 = args
+        if isinstance(arg1, torch.Tensor):
+            contributions = [
+                torch.mul(arg1, contribution, **kwargs)
+                for contribution in arg2.contributions
+            ]
+        elif isinstance(arg2, torch.Tensor):
+            contributions = [
+                torch.mul(contribution, arg2, **kwargs)
+                for contribution in arg1.contributions
+            ]
+        else:
+            contributions = self._calc_shapley_contributions(torch.mul, *args, **kwargs)
 
         return contributions
 
