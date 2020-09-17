@@ -6,7 +6,6 @@ import sklearn.metrics as metrics
 import torch
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegressionCV
-from skorch import NeuralNetClassifier
 from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
@@ -21,19 +20,19 @@ from diagnnose.typedefs.activations import (
 from diagnnose.typedefs.classifiers import ControlTask, DataDict
 from diagnnose.utils.pickle import dump_pickle
 
-from .logreg import LogRegModule
+from .logreg import L1NeuralNetClassifier, LogRegModule
 
 
 class DCTrainer:
-    """ Trains Diagnostic Classifiers (DC) on extracted activation data.
+    """Trains Diagnostic Classifiers (DC) on extracted activation data.
 
     For each activation that is part of the provided activation_names
     argument a different classifier will be trained.
 
     Parameters
     ----------
-    save_dir : str, optional
-        Directory to which trained models will be saved, if provided.
+    save_dir : str
+        Directory to which trained models will be saved.
     corpus : Corpus
         Corpus containing the token labels for each sentence.
     activation_names : ActivationNames
@@ -53,14 +52,16 @@ class DCTrainer:
     model : LanguageModel, optional
         LanguageModel that should be provided if new activations need
         to be extracted prior to training the classifiers.
-    selection_func : SelectFunc, optional
+    train_selection_func : SelectFunc, optional
         Selection function that determines whether a corpus item should
-        be taken into account for training. If such a function has been
-        used during extraction, make sure to pass it along here as well.
+        be taken into account for training. If not provided all
+        extracted activations will be used and split into a random
+        train/test split.
     test_selection_func : SelectFunc, optional
         Selection function that determines whether a corpus item should
-        be taken into account for testing. If such a function has been
-        used during extraction, make sure to pass it along here as well.
+        be taken into account for testing. If not provided all
+        extracted activations will be used and split into a random
+        train/test split.
     classifier_type : str, optional
         Either `logreg_torch`, using a torch logreg model, or
         `logreg_sklearn`, using a LogisticRegressionCV model of sklearn.
@@ -68,6 +69,9 @@ class DCTrainer:
         Control task function of Hewitt et al. (2019), mapping a corpus
         item to a random label. If not provided the corpus labels will
         be used instead.
+    save_logits : bool, optional
+        Toggle to store the output logits of the classifier on the test
+        set. Defaults to False.
     verbose : int, optional
         Set to any positive number for verbosity. Defaults to 0.
 
@@ -88,10 +92,11 @@ class DCTrainer:
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
         model: Optional[LanguageModel] = None,
-        selection_func: SelectionFunc = lambda sen_id, pos, example: True,
+        train_selection_func: SelectionFunc = lambda sen_id, pos, example: True,
         test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
         classifier_type: str = "logreg_torch",
+        save_logits: bool = False,
         verbose: int = 0,
     ) -> None:
         self.save_dir = save_dir
@@ -103,7 +108,7 @@ class DCTrainer:
             save_dir,
             corpus,
             activation_names,
-            selection_func,
+            train_selection_func,
             activations_dir,
             test_activations_dir,
             test_corpus,
@@ -111,7 +116,6 @@ class DCTrainer:
             model,
         )
 
-        self.model = model
         self.activation_names = activation_names
         self.data_dict: DataDict = {}
         self.data_loader = DataLoader(
@@ -119,7 +123,7 @@ class DCTrainer:
             corpus,
             test_activations_dir=test_activations_dir,
             test_corpus=test_corpus,
-            selection_func=selection_func,
+            train_selection_func=train_selection_func,
             test_selection_func=test_selection_func,
             control_task=control_task,
         )
@@ -128,6 +132,7 @@ class DCTrainer:
             "logreg_sklearn",
         ], "Classifier type not understood, should be either `logreg_toch` or `logreg_sklearn`"
         self.classifier_type = classifier_type
+        self.save_logits = save_logits
         self.verbose = verbose
 
     def train(
@@ -137,8 +142,10 @@ class DCTrainer:
         train_test_split: float = 0.9,
         store_activations: bool = True,
         rank: Optional[int] = None,
+        max_epochs: int = 10,
+        classifier_name: Optional[str] = None,
     ) -> Dict[ActivationName, Any]:
-        """ Trains DCs on multiple activation names.
+        """Trains DCs on multiple activation names.
 
         Parameters
         ----------
@@ -158,16 +165,25 @@ class DCTrainer:
         rank : int, optional
             Matrix rank of the linear classifier. Defaults to the full
             rank if not provided.
+        max_epochs : int, optional
+            Maximum number of training epochs used by skorch.
+            Defaults to 10.
+        classifier_name : str, optional
+            Name for the trained classifier that is saved. If not
+            provided `{name}_l{layer}.pt` will be used.
         """
+
         full_results_dict = {}
 
         for activation_name in self.activation_names:
             results_dict = self._train(
                 activation_name,
-                calc_class_weights=calc_class_weights,
-                data_subset_size=data_subset_size,
-                train_test_split=train_test_split,
-                rank=rank,
+                calc_class_weights,
+                data_subset_size,
+                train_test_split,
+                rank,
+                max_epochs,
+                classifier_name,
             )
             full_results_dict[activation_name] = results_dict
 
@@ -180,17 +196,19 @@ class DCTrainer:
     def _train(
         self,
         activation_name: ActivationName,
-        calc_class_weights: bool = False,
-        data_subset_size: int = -1,
-        train_test_split: float = 0.9,
-        rank: Optional[int] = None,
+        calc_class_weights: bool,
+        data_subset_size: int,
+        train_test_split: float,
+        rank: Optional[int],
+        max_epochs: int,
+        classifier_name: Optional[str],
     ) -> Dict[str, Any]:
         """ Initiates training the DC on 1 activation type. """
         self.data_dict = self.data_loader.create_data_split(
             activation_name, data_subset_size, train_test_split
         )
 
-        self._reset_classifier(rank=rank)
+        self._reset_classifier(rank, max_epochs)
         if self.verbose > 0:
             train_size = self.data_dict["train_x"].size(0)
             test_size = self.data_dict["test_x"].size(0)
@@ -204,7 +222,7 @@ class DCTrainer:
         self._fit(activation_name)
         results_dict = self._eval(self.data_dict["test_y"])
 
-        self._save_classifier(activation_name)
+        self._save_classifier(activation_name, classifier_name)
 
         if self.data_dict["train_y_control"] is not None:
             self._control_task(rank, results_dict)
@@ -231,17 +249,16 @@ class DCTrainer:
         mcc = metrics.matthews_corrcoef(labels, pred_y)
         cm = metrics.confusion_matrix(labels, pred_y)
 
-        # TODO: remove later
-        # proba = self.classifier.predict_proba(self.data_dict["test_x"])
-        logits = self.classifier.infer(self.data_dict["test_x"], create_softmax=False)
+        results_dict = {"accuracy": acc, "f1": f1, "mcc": mcc, "confusion_matrix": cm}
 
-        results_dict = {
-            "probs": logits.detach(),
-            "accuracy": acc,
-            "f1": f1,
-            "mcc": mcc,
-            "confusion_matrix": cm,
-        }
+        if self.save_logits and self.classifier_type == "logreg_torch":
+            logits = self.classifier.infer(
+                self.data_dict["test_x"], create_softmax=False
+            )
+            results_dict["logits"] = logits.detach()
+        elif self.save_logits and self.classifier_type == "logreg_sklearn":
+            logits = self.classifier.predict_proba(self.data_dict["test_x"])
+            results_dict["logits"] = torch.from_numpy(logits)
 
         return results_dict
 
@@ -260,11 +277,18 @@ class DCTrainer:
             results_dict["accuracy"] - results_dict["accuracy_control"]
         )
 
-    def _save_classifier(self, activation_name: ActivationName):
+    def _save_classifier(
+        self, activation_name: ActivationName, classifier_name: Optional[str]
+    ):
         if self.save_dir is not None:
             l, name = activation_name
-            model_path = os.path.join(self.save_dir, f"{name}_l{l}.joblib")
-            joblib.dump(self.classifier, model_path)
+            fn = classifier_name if classifier_name else f"{name}_l{l}"
+            if self.classifier_type == "logreg_torch":
+                model_path = os.path.join(self.save_dir, fn + ".pt")
+                torch.save(self.classifier.module.state_dict(), model_path)
+            elif self.classifier_type == "logreg_sklearn":
+                model_path = os.path.join(self.save_dir, fn + ".joblib")
+                joblib.dump(self.classifier, model_path)
 
     def _save_results(
         self, results_dict: Dict[str, Any], activation_name: ActivationName
@@ -279,19 +303,20 @@ class DCTrainer:
             preds_path = os.path.join(self.save_dir, f"{name}_l{l}_results.pickle")
             dump_pickle(results_dict, preds_path)
 
-    def _reset_classifier(self, rank: Optional[int] = None) -> None:
+    def _reset_classifier(self, rank: Optional[int], max_epochs: int) -> None:
         if self.classifier_type == "logreg_torch":
             ninp = self.data_dict["train_x"].size(1)
             nout = len(self.data_loader.label_vocab)
-            self.classifier = NeuralNetClassifier(
+            self.classifier = L1NeuralNetClassifier(
                 LogRegModule(ninp=ninp, nout=nout, rank=rank),
                 lr=0.01,
-                max_epochs=3,
+                max_epochs=max_epochs,
                 verbose=self.verbose,
                 optimizer=torch.optim.Adam,
+                lambda1=0.005,
             )
         elif self.classifier_type == "logreg_sklearn":
-            self.classifier = LogisticRegressionCV()
+            self.classifier = LogisticRegressionCV(tol=1e-2, max_iter=max_epochs)
 
     # TODO: comply with skorch
     def _set_class_weights(self, labels: Tensor) -> None:
@@ -329,18 +354,24 @@ class DCTrainer:
 
             activations_dir = os.path.join(save_dir, "activations")
             remove_callback = simple_extract(
-                model, activations_dir, corpus, activation_names, new_selection_func
+                model,
+                corpus,
+                activation_names,
+                activations_dir=activations_dir,
+                selection_func=new_selection_func,
             )
             self.remove_callbacks.append(remove_callback)
 
+        # If a separate test_corpus is provided we extract these activations separately.
         if test_corpus is not None and test_activations_dir is None:
             test_activations_dir = os.path.join(save_dir, "test_activations")
             remove_callback = simple_extract(
                 model,
-                test_activations_dir,
                 test_corpus,
                 activation_names,
-                test_selection_func or (lambda sen_id, pos, example: True),
+                activations_dir=test_activations_dir,
+                selection_func=test_selection_func
+                or (lambda sen_id, pos, example: True),
             )
             self.remove_callbacks.append(remove_callback)
 
