@@ -6,10 +6,10 @@ from transformers import PreTrainedTokenizer
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
 
-from .task import DownstreamCorpora, DownstreamTask
+from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
-class LakretzDownstream(DownstreamTask):
+class LakretzTask(SyntaxEvalTask):
     """
 
     Parameters
@@ -40,7 +40,7 @@ class LakretzDownstream(DownstreamTask):
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
@@ -64,7 +64,7 @@ class LakretzDownstream(DownstreamTask):
         """
         subtasks = subtasks or self.descriptions.keys()
 
-        corpora: DownstreamCorpora = {}
+        corpora: SyntaxEvalCorpora = {}
 
         for subtask in subtasks:
             items_per_condition = self.descriptions[subtask]["items_per_condition"]

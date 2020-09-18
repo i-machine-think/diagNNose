@@ -10,7 +10,7 @@ from unidecode import unidecode
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
 
-from .task import DownstreamCorpora, DownstreamTask
+from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
 class RawItem(NamedTuple):
@@ -36,7 +36,7 @@ class RawItem(NamedTuple):
     nouns_up_to_verb: str
 
 
-class LinzenDownstream(DownstreamTask):
+class LinzenTask(SyntaxEvalTask):
     """
 
     Parameters
@@ -57,7 +57,7 @@ class LinzenDownstream(DownstreamTask):
         corpus_path: str,
         subtasks: Optional[List[str]] = None,
         items_per_subtask: Optional[int] = 1000,
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Linzen et al. (2016)
 
@@ -84,7 +84,7 @@ class LinzenDownstream(DownstreamTask):
         """
         subtasks = subtasks or ["SS", "SP", "PS", "PP", "SPP", "PSS", "SPPP", "PSSS"]
 
-        corpora: DownstreamCorpora = self.create_corpora(
+        corpora: SyntaxEvalCorpora = self.create_corpora(
             corpus_path, subtasks, items_per_subtask
         )
 
@@ -92,7 +92,7 @@ class LinzenDownstream(DownstreamTask):
 
     def create_corpora(
         self, corpus_path: str, subtasks: List[str], items_per_subtask: Optional[int]
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         raw_corpora: Dict[str, List[RawItem]] = self.create_raw_corpora(
             corpus_path, subtasks
         )

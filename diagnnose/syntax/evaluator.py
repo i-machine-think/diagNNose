@@ -2,28 +2,28 @@ from typing import Any, Dict, List, Optional, Type
 
 from transformers import PreTrainedTokenizer
 
-from diagnnose.downstream.tasks import (
-    DownstreamTask,
-    LakretzDownstream,
-    LinzenDownstream,
-    MarvinDownstream,
+from diagnnose.syntax.tasks import (
+    SyntaxEvalTask,
+    LakretzTask,
+    LinzenTask,
+    MarvinTask,
     ResultsDict,
-    WarstadtDownstream,
-    WinobiasDownstream,
+    WarstadtTask,
+    WinobiasTask,
 )
 from diagnnose.models import LanguageModel
 
-task_constructors: Dict[str, Type[DownstreamTask]] = {
-    "lakretz": LakretzDownstream,
-    "linzen": LinzenDownstream,
-    "marvin": MarvinDownstream,
-    "warstadt": WarstadtDownstream,
-    "winobias": WinobiasDownstream,
+task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
+    "lakretz": LakretzTask,
+    "linzen": LinzenTask,
+    "marvin": MarvinTask,
+    "warstadt": WarstadtTask,
+    "winobias": WinobiasTask,
 }
 
 
-class DownstreamSuite:
-    """Suite that runs multiple downstream tasks on a LM.
+class SyntacticEvaluator:
+    """Suite that runs multiple syntactic evaluation tasks on a LM.
 
     Tasks can be run on already extracted activations, or on a new LM
     for which new activations will be extracted.
@@ -53,9 +53,9 @@ class DownstreamSuite:
         tasks: Optional[List[str]] = None,
     ) -> None:
         self.ignore_unk = ignore_unk
-        self.tasks: Dict[str, DownstreamTask] = {}
+        self.tasks: Dict[str, SyntaxEvalTask] = {}
 
-        print("Initializing downstream tasks...")
+        print("Initializing syntactic evaluation tasks...")
 
         for task_name in tasks or config.keys():
             task_config = config[task_name]
@@ -70,7 +70,7 @@ class DownstreamSuite:
                 model, tokenizer, task_config.pop("path"), subtasks=subtasks
             )
 
-        print("Downstream task initialization finished")
+        print("Syntactic evaluation task initialization finished")
 
     def run(self, **kwargs: Any) -> Dict[str, Any]:
         results: Dict[str, ResultsDict] = {}

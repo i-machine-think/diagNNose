@@ -1,7 +1,7 @@
-# Downstream tasks
-This directory contains utilities for running a suite of downstream tasks that have been proposed in recent papers that analyse the linguistic capacities of language models.
+# Syntactic evaluation tasks
+This directory contains utilities for running a suite of syntactic evaluation tasks that have been proposed in recent papers that analyse the linguistic capacities of language models.
 
-These tasks can be run via the `DownstreamSuite` class of `suite.py`. A script for running this can be found in [`downstream.py`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.py) in the [`scripts`](https://github.com/i-machine-think/diagnnose/blob/master/scripts) directory, with configuration provided in [`downstream.json`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.json). Run the script as `python3 downstream.py -c downstream.json`. Note that only the tasks provided in `downstream.tasks` will be performed, to allow the setup of your other tasks to be stored in the same json.
+These tasks can be run via the `SyntacticEvaluator` class of `evaluator.py`. A script for running this can be found in [`downstream.py`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.py) in the [`scripts`](https://github.com/i-machine-think/diagnnose/blob/master/scripts) directory, with configuration provided in [`downstream.json`](https://github.com/i-machine-think/diagnnose/blob/master/scripts/downstream.json). Run the script as `python3 downstream.py -c downstream.json`. Note that only the tasks provided in `downstream.tasks` will be performed, to allow the setup of your other tasks to be stored in the same json.
 
 The following papers/corpora are currently implemented:
 - [Linzen et al. (2016)](https://arxiv.org/pdf/1611.01368.pdf) -- The landmark paper that instigated this field of research. Currently expects corpus file to be of a specific `.tsv` format which can be downloaded [here](https://www.dropbox.com/s/ajvj9ackil18ps0/1attr_sample.tsv?dl=0). Full corpus support will be added soon.

@@ -13,14 +13,12 @@ from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
 
 # subtask -> Corpus | (condition -> Corpus)
-DownstreamCorpora = Dict[str, Union[Corpus, Dict[str, Corpus]]]
+SyntaxEvalCorpora = Dict[str, Union[Corpus, Dict[str, Corpus]]]
 # subtask -> accuracy | (condition -> accuracy)
 ResultsDict = Dict[str, Union[float, Dict[str, float]]]
 
 
-# TODO: allow already extracted activations to be read from file
-# TODO: allow downstream task based on decomposed state
-class DownstreamTask:
+class SyntaxEvalTask:
     """
 
     Parameters
@@ -40,15 +38,15 @@ class DownstreamTask:
         self.model = model
         self.tokenizer = tokenizer
 
-        self.corpora: DownstreamCorpora = self.initialize(*args, **kwargs)
+        self.corpora: SyntaxEvalCorpora = self.initialize(*args, **kwargs)
 
-    def initialize(self, *args, **kwargs) -> DownstreamCorpora:
+    def initialize(self, *args, **kwargs) -> SyntaxEvalCorpora:
         raise NotImplementedError
 
     def run(
         self, ignore_unk: bool = False, use_full_model_probs: bool = True
     ) -> ResultsDict:
-        """Performs the downstream task that has been initialised.
+        """Performs the syntactic evaluation task that is initialised.
 
         Parameters
         ----------
@@ -63,8 +61,8 @@ class DownstreamTask:
         Returns
         -------
         results : ResultsDict
-            Dictionary mapping a downstream task to a task condition to
-            the model accuracy.
+            Dictionary mapping a task to a task condition to the model
+            accuracy.
         """
         results: ResultsDict = {}
 

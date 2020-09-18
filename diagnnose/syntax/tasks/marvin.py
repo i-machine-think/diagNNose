@@ -9,10 +9,10 @@ from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
-from .task import DownstreamCorpora, DownstreamTask
+from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
-class MarvinDownstream(DownstreamTask):
+class MarvinTask(SyntaxEvalTask):
     """
 
     Parameters
@@ -37,7 +37,7 @@ class MarvinDownstream(DownstreamTask):
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
@@ -65,7 +65,7 @@ class MarvinDownstream(DownstreamTask):
 
         subtasks: List[str] = subtasks or all_subtasks
 
-        corpora: DownstreamCorpora = {}
+        corpora: SyntaxEvalCorpora = {}
 
         for subtask in subtasks:
             subtask_path = subtask_to_path[subtask]

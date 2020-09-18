@@ -6,11 +6,11 @@ from transformers import PreTrainedTokenizer
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
 
-from .task import DownstreamCorpora, DownstreamTask
+from .task import SyntaxEvalCorpora, SyntaxEvalTask
 from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
 
 
-class WarstadtDownstream(DownstreamTask):
+class WarstadtTask(SyntaxEvalTask):
     """
 
     Parameters
@@ -35,7 +35,7 @@ class WarstadtDownstream(DownstreamTask):
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
 
@@ -59,7 +59,7 @@ class WarstadtDownstream(DownstreamTask):
         """
         subtasks: List[str] = subtasks or ENVS
 
-        corpora: DownstreamCorpora = {}
+        corpora: SyntaxEvalCorpora = {}
 
         orig_corpus = preproc_warstadt(corpus_path)
 

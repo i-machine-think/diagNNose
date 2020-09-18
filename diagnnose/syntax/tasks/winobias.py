@@ -7,10 +7,10 @@ from transformers import PreTrainedTokenizer
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
 
-from .task import DownstreamCorpora, DownstreamTask
+from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
-class WinobiasDownstream(DownstreamTask):
+class WinobiasTask(SyntaxEvalTask):
     def __init__(
         self,
         model: LanguageModel,
@@ -22,7 +22,7 @@ class WinobiasDownstream(DownstreamTask):
 
     def initialize(
         self, corpus_path: str, subtasks: Optional[List[str]] = None
-    ) -> DownstreamCorpora:
+    ) -> SyntaxEvalCorpora:
         """
 
         Parameters
@@ -41,7 +41,7 @@ class WinobiasDownstream(DownstreamTask):
         """
         subtasks = subtasks or ["stereo", "unamb"]
 
-        corpora: DownstreamCorpora = {}
+        corpora: SyntaxEvalCorpora = {}
 
         for subtask in subtasks:
             for condition in ["FF", "FM", "MF", "MM"]:
