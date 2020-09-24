@@ -16,7 +16,4 @@ Configuration
 -------------
 .. literalinclude:: ../../diagnnose/typedefs/config.py
 
-Corpus
-------
-.. literalinclude:: ../../diagnnose/typedefs/corpus.py
 

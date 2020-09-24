@@ -3,14 +3,13 @@ diagnnose
 
 .. toctree::
    diagnnose.activations
-   diagnnose.classifiers
+   diagnnose.attribute
    diagnnose.config
    diagnnose.corpus
-   diagnnose.decompositions
-   diagnnose.downstream
-   diagnnose.extractors
-   diagnnose.model_wrappers
+   diagnnose.extract
    diagnnose.models
+   diagnnose.probe
+   diagnnose.syntax
+   diagnnose.tokenizer
    diagnnose.utils
-   diagnnose.vocab
    custom_typedefs
