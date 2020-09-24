@@ -37,24 +37,9 @@ class RawItem(NamedTuple):
 
 
 class LinzenTask(SyntaxEvalTask):
-    """
-
-    Parameters
-    ----------
-    """
-
-    def __init__(
-        self,
-        model: LanguageModel,
-        tokenizer: PreTrainedTokenizer,
-        corpus_path: str,
-        subtasks: Optional[List[str]] = None,
-    ):
-        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
-
     def initialize(
         self,
-        corpus_path: str,
+        path: str,
         subtasks: Optional[List[str]] = None,
         items_per_subtask: Optional[int] = 1000,
     ) -> SyntaxEvalCorpora:
@@ -67,7 +52,7 @@ class LinzenTask(SyntaxEvalTask):
 
         Parameters
         ----------
-        corpus_path : str
+        path : str
             Path to directory containing the Marvin datasets that can be
             found in the github repo.
         subtasks : List[str], optional
@@ -85,7 +70,7 @@ class LinzenTask(SyntaxEvalTask):
         subtasks = subtasks or ["SS", "SP", "PS", "PP", "SPP", "PSS", "SPPP", "PSSS"]
 
         corpora: SyntaxEvalCorpora = self.create_corpora(
-            corpus_path, subtasks, items_per_subtask
+            path, subtasks, items_per_subtask
         )
 
         return corpora

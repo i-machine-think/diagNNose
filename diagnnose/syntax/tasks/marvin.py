@@ -3,40 +3,16 @@ import os
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from torchtext.data import Example, Field
-from transformers import PreTrainedTokenizer
 
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
 from diagnnose.utils.pickle import load_pickle
 
 from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
 class MarvinTask(SyntaxEvalTask):
-    """
-
-    Parameters
-    ----------
-    use_full_model_probs : bool, optional
-        Toggle to calculate the full model probs for the NPI sentences.
-        If set to False only the NPI logits will be compared, instead
-        of their Softmax probabilities. Defaults to True.
-    """
-
-    def __init__(
-        self,
-        model: LanguageModel,
-        tokenizer: PreTrainedTokenizer,
-        corpus_path: str,
-        subtasks: Optional[List[str]] = None,
-        use_full_model_probs: bool = True,
-    ):
-        self.use_full_model_probs = use_full_model_probs
-
-        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
-
     def initialize(
-        self, corpus_path: str, subtasks: Optional[List[str]] = None
+        self, path: str, subtasks: Optional[List[str]] = None
     ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
@@ -47,7 +23,7 @@ class MarvinTask(SyntaxEvalTask):
 
         Parameters
         ----------
-        corpus_path : str
+        path : str
             Path to directory containing the Marvin datasets that can be
             found in the github repo.
         subtasks : List[str], optional
@@ -59,7 +35,7 @@ class MarvinTask(SyntaxEvalTask):
         corpora : Dict[str, Corpus]
             Dictionary mapping a subtask to a Corpus.
         """
-        subtask_paths = glob.glob(os.path.join(corpus_path, "*.pickle"))
+        subtask_paths = glob.glob(os.path.join(path, "*.pickle"))
         all_subtasks = [os.path.basename(path).split(".")[0] for path in subtask_paths]
         subtask_to_path = dict(zip(all_subtasks, subtask_paths))
 
@@ -76,10 +52,6 @@ class MarvinTask(SyntaxEvalTask):
             corpora[subtask] = subtask_corpora
 
         return corpora
-
-    @staticmethod
-    def calc_counter_sen(subtask: str) -> bool:
-        return "npi" in subtask
 
     def initialize_subtask(self, subtask: str, corpus_path: str) -> Dict[str, Corpus]:
         corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(corpus_path)

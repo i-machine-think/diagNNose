@@ -1,40 +1,16 @@
 from typing import Dict, List, Optional
 
 from torchtext.data import Example
-from transformers import PreTrainedTokenizer
 
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
 
 from .task import SyntaxEvalCorpora, SyntaxEvalTask
 from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
 
 
 class WarstadtTask(SyntaxEvalTask):
-    """
-
-    Parameters
-    ----------
-    use_full_model_probs : bool, optional
-        Toggle to calculate the full model probs for the NPI sentences.
-        If set to False only the NPI logits will be compared, instead
-        of their Softmax probabilities. Defaults to True.
-    """
-
-    def __init__(
-        self,
-        model: LanguageModel,
-        tokenizer: PreTrainedTokenizer,
-        corpus_path: str,
-        subtasks: Optional[List[str]] = None,
-        use_full_model_probs: bool = True,
-    ):
-        self.use_full_model_probs = use_full_model_probs
-
-        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
-
     def initialize(
-        self, corpus_path: str, subtasks: Optional[List[str]] = None
+        self, path: str, subtasks: Optional[List[str]] = None
     ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
@@ -45,7 +21,7 @@ class WarstadtTask(SyntaxEvalTask):
 
         Parameters
         ----------
-        corpus_path : str
+        path : str
             Path to directory containing the Marvin datasets that can be
             found in the github repo.
         subtasks : List[str], optional
@@ -61,7 +37,7 @@ class WarstadtTask(SyntaxEvalTask):
 
         corpora: SyntaxEvalCorpora = {}
 
-        orig_corpus = preproc_warstadt(corpus_path)
+        orig_corpus = preproc_warstadt(path)
 
         for env in subtasks:
             raw_corpus = create_downstream_corpus(orig_corpus, envs=[env])
@@ -79,7 +55,3 @@ class WarstadtTask(SyntaxEvalTask):
             corpora[env] = corpus
 
         return corpora
-
-    @staticmethod
-    def calc_counter_sen(subtask: str) -> bool:
-        return True

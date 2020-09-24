@@ -2,32 +2,21 @@ import os
 from typing import Dict, List, Optional
 
 from torchtext.data import RawField
-from transformers import PreTrainedTokenizer
 
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
 
 from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
 class WinobiasTask(SyntaxEvalTask):
-    def __init__(
-        self,
-        model: LanguageModel,
-        tokenizer: PreTrainedTokenizer,
-        corpus_path: str,
-        subtasks: Optional[List[str]] = None,
-    ):
-        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
-
     def initialize(
-        self, corpus_path: str, subtasks: Optional[List[str]] = None
+        self, path: str, subtasks: Optional[List[str]] = None
     ) -> SyntaxEvalCorpora:
         """
 
         Parameters
         ----------
-        corpus_path : str
+        path : str
             Path to directory containing the Marvin datasets that can be
             found in the github repo.
         subtasks : List[str], optional
@@ -46,7 +35,7 @@ class WinobiasTask(SyntaxEvalTask):
         for subtask in subtasks:
             for condition in ["FF", "FM", "MF", "MM"]:
                 corpus = Corpus.create(
-                    os.path.join(corpus_path, f"{subtask}_{condition}.tsv"),
+                    os.path.join(path, f"{subtask}_{condition}.tsv"),
                     header_from_first_line=True,
                     tokenizer=self.tokenizer,
                 )

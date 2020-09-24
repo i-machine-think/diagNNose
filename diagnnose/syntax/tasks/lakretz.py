@@ -1,21 +1,12 @@
 import os
 from typing import Dict, List, Optional
 
-from transformers import PreTrainedTokenizer
-
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
 
 from .task import SyntaxEvalCorpora, SyntaxEvalTask
 
 
 class LakretzTask(SyntaxEvalTask):
-    """
-
-    Parameters
-    ----------
-    """
-
     descriptions = {
         "adv": {"items_per_condition": 900, "conditions": ["S", "P"]},
         "adv_adv": {"items_per_condition": 900, "conditions": ["S", "P"]},
@@ -29,17 +20,8 @@ class LakretzTask(SyntaxEvalTask):
         "simple": {"items_per_condition": 300, "conditions": ["S", "P"]},
     }
 
-    def __init__(
-        self,
-        model: LanguageModel,
-        tokenizer: PreTrainedTokenizer,
-        corpus_path: str,
-        subtasks: Optional[List[str]] = None,
-    ):
-        super().__init__(model, tokenizer, corpus_path, subtasks=subtasks)
-
     def initialize(
-        self, corpus_path: str, subtasks: Optional[List[str]] = None
+        self, path: str, subtasks: Optional[List[str]] = None
     ) -> SyntaxEvalCorpora:
         """Performs the initialization for the tasks of
         Marvin & Linzen (2018)
@@ -50,7 +32,7 @@ class LakretzTask(SyntaxEvalTask):
 
         Parameters
         ----------
-        corpus_path : str
+        path : str
             Path to directory containing the Marvin datasets that can be
             found in the github repo.
         subtasks : List[str], optional
@@ -75,7 +57,7 @@ class LakretzTask(SyntaxEvalTask):
                 condition_slice = slice(start_idx, stop_idx)
 
                 corpus = self.create_corpus(
-                    os.path.join(corpus_path, f"{subtask}.txt"), condition_slice
+                    os.path.join(path, f"{subtask}.txt"), condition_slice
                 )
 
                 corpora.setdefault(subtask, {})[condition] = corpus

@@ -33,6 +33,8 @@ class SyntacticEvaluator:
 
     Parameters
     ----------
+    tokenizer : PreTrainedTokenizer
+        Tokenizer that converts tokens to their index within the LM.
     config : Dict[str, Any]
         Dictionary mapping a task name (`lakretz`, `linzen`, `marvin`,
         or `winobias`) to its configuration (`path`, `tasks`, and
@@ -40,8 +42,6 @@ class SyntacticEvaluator:
         task, `tasks` is an optional list of subtasks, and
         `task_activations` an optional path to the folder containing
         the model activations.
-    tokenizer : PreTrainedTokenizer
-        Tokenizer that converts tokens to their index within the LM.
     """
 
     def __init__(
@@ -50,34 +50,32 @@ class SyntacticEvaluator:
         tokenizer: PreTrainedTokenizer,
         config: Dict[str, Any],
         ignore_unk: bool = False,
+        use_full_model_probs: bool = True,
         tasks: Optional[List[str]] = None,
     ) -> None:
-        self.ignore_unk = ignore_unk
         self.tasks: Dict[str, SyntaxEvalTask] = {}
 
         print("Initializing syntactic evaluation tasks...")
 
         for task_name in tasks or config.keys():
-            task_config = config[task_name]
+            constructor = task_constructors.get(task_name, SyntaxEvalTask)
 
-            # If a single subtask is passed as cmd arg it is not converted to a list yet
-            subtasks = task_config.pop("subtasks", None)
-            if isinstance(subtasks, str):
-                subtasks = [subtasks]
-
-            constructor = task_constructors[task_name]
             self.tasks[task_name] = constructor(
-                model, tokenizer, task_config.pop("path"), subtasks=subtasks
+                model,
+                tokenizer,
+                ignore_unk=ignore_unk,
+                use_full_model_probs=use_full_model_probs,
+                **config[task_name],
             )
 
         print("Syntactic evaluation task initialization finished")
 
-    def run(self, **kwargs: Any) -> Dict[str, Any]:
+    def run(self) -> Dict[str, Any]:
         results: Dict[str, ResultsDict] = {}
 
         for task_name, task in self.tasks.items():
             print(f"\n--=={task_name.upper()}==--")
 
-            results[task_name] = task.run(ignore_unk=self.ignore_unk, **kwargs)
+            results[task_name] = task.run()
 
         return results
