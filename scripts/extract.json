@@ -1,23 +1,21 @@
 {
   "model": {
-    "type": "ForwardLSTM",
+    "model_type": "ForwardLSTM",
     "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
   "init_states": {
-    "corpus_path": "../diagnnose/utils/init_sentence.txt"
+    "use_default": true
   },
-  "vocab": {
-    "path": "../lm_data/models/gulordava/vocab.txt"
+  "tokenizer": {
+    "path": "../lm_data/models/gulordava/vocab.txt",
+    "notify_unk": false
   },
   "corpus": {
     "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
     "header": ["sen", "condition", "wrong_correct", "sen_id"]
   },
   "activations": {
-    "activation_names": ["hx1"],
-    "activations_dir": "../lm_data/activations/extracted/warstadt_all_items"
-  },
-  "extract": {
-    "batch_size": 1024
+    "activation_names": [[1, "hx"]],
+    "activations_dir": "../lm_data/activations/extracted/nounpp"
   }
 }
