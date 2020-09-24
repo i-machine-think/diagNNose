@@ -2,16 +2,16 @@ from typing import Any, Dict, List, Optional, Type
 
 from transformers import PreTrainedTokenizer
 
+from diagnnose.models import LanguageModel
 from diagnnose.syntax.tasks import (
-    SyntaxEvalTask,
     LakretzTask,
     LinzenTask,
     MarvinTask,
     ResultsDict,
+    SyntaxEvalTask,
     WarstadtTask,
     WinobiasTask,
 )
-from diagnnose.models import LanguageModel
 
 task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
     "lakretz": LakretzTask,

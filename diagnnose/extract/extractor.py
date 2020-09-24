@@ -152,7 +152,10 @@ class Extractor:
         compute_out = (self.model.top_layer, "out") in self.activation_names
         with torch.no_grad():
             all_activations: ActivationDict = self.model(
-                input_ids=sens, input_lengths=sen_lens, compute_out=compute_out
+                input_ids=sens,
+                input_lengths=sen_lens,
+                compute_out=compute_out,
+                only_return_top_embs=False,
             )
 
         # a_name -> n_items_in_batch x nhid

@@ -95,7 +95,7 @@ arg_descriptions["corpus"] = {
     },
 }
 
-arg_descriptions["activations"] = {
+arg_descriptions["extract"] = {
     "activations_dir": {
         "help": "Path to directory to which extracted embeddings will be written."
     },
@@ -104,18 +104,15 @@ arg_descriptions["activations"] = {
         "help": "List of activation names to be extracted. Activation names must "
         "be provided as a list of lists: i.e. [[layer, name]].",
     },
-    "dtype": {
-        "help": "(optional) Activation dtype, should be one of float32 or float64. "
-        "Defaults to float32."
-    },
-}
-
-arg_descriptions["extract"] = {
     "batch_size": {
         "type": int,
         "help": "(optional) Amount of sentences processed per forward step. "
         "Higher batch size increases extraction speed, but should "
         "be done accordingly to the amount of available RAM. Defaults to 1.",
+    },
+    "dtype": {
+        "help": "(optional) Activation dtype, should be one of float32 or float64. "
+        "Defaults to float32."
     },
 }
 

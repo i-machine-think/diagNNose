@@ -115,8 +115,10 @@ class SyntaxEvalTask:
 
     def run_corpus(self, corpus: Corpus) -> float:
         if self.tokenizer.mask_token is not None:
+
             def selection_func(w_idx: int, item: Example) -> bool:
                 return item.sen[w_idx] == self.tokenizer.mask_token
+
         else:
             selection_func = final_token
 
@@ -124,6 +126,7 @@ class SyntaxEvalTask:
         counter_activations = None
 
         if "counter_sen" in corpus.fields:
+
             def selection_func(w_idx: int, item: Example) -> bool:
                 if self.tokenizer.mask_token is not None:
                     return item.counter_sen[w_idx] == self.tokenizer.mask_token

@@ -209,10 +209,9 @@ def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:
         if isinstance(value, list):
             value = " ".join(value)
 
-        return tokenizer._tokenize(value)
+        return [tokenizer.convert_ids_to_tokens(t) for t in tokenizer.encode(value)]
 
-    pad_index = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
     field.preprocessing = preprocess
-    field.pad_token = pad_index or 0
+    field.pad_token = tokenizer.pad_token
     field.vocab = tokenizer
     field.vocab.stoi = tokenizer.vocab

@@ -9,7 +9,9 @@ from transformers import (
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
     AutoModelForTokenClassification,
+    DistilBertForMaskedLM,
     PreTrainedModel,
+    XLMWithLMHeadModel,
 )
 
 from diagnnose.attribute.shapley_tensor import ShapleyTensor
@@ -21,7 +23,6 @@ from diagnnose.typedefs.activations import (
 )
 
 mode_to_auto_model = {
-    None: AutoModel,
     "language_modeling": AutoModelForMaskedLM,
     "question_answering": AutoModelForQuestionAnswering,
     "sequence_classification": AutoModelForSequenceClassification,
@@ -41,9 +42,9 @@ class TransformerLM(LanguageModel):
     ):
         super().__init__()
 
-        auto_model = mode_to_auto_model[mode]
+        auto_model = mode_to_auto_model.get(mode, AutoModel)
 
-        self.model: PreTrainedModel = auto_model.from_pretrained(
+        self.pretrained_model: PreTrainedModel = auto_model.from_pretrained(
             model_name, cache_dir=cache_dir
         )
 
@@ -74,13 +75,18 @@ class TransformerLM(LanguageModel):
         if attention_mask is None:
             attention_mask = self.create_attention_mask(input_lengths)
 
-        model = self.model if compute_out else self.model.base_model
+        model = (
+            self.pretrained_model if compute_out else self.pretrained_model.base_model
+        )
         output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
 
-        if isinstance(output, tuple) and only_return_top_embs:
+        if isinstance(output, tuple):
             output = output[0]
 
-        return output
+        if only_return_top_embs:
+            return output
+
+        return {(self.top_layer, "hx"): output}
 
     @staticmethod
     def create_attention_mask(input_lengths: List[int]) -> Tensor:
@@ -111,10 +117,10 @@ class TransformerLM(LanguageModel):
     def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
         if self.embeddings_attr is not None:
             attrs = self.embeddings_attr.split(".")
-            embeddings = reduce(getattr, attrs, self.model)
+            embeddings = reduce(getattr, attrs, self.pretrained_model)
             inputs_embeds: Tensor = embeddings(input_ids)
         else:
-            base_model = self.model.base_model
+            base_model = self.pretrained_model.base_model
             if hasattr(base_model, "wte"):
                 # GPT-2
                 inputs_embeds: Tensor = base_model.wte(input_ids)
@@ -139,14 +145,42 @@ class TransformerLM(LanguageModel):
 
         return inputs_embeds
 
-    def num_layers(self) -> int:
-        return self.model.config.n_layer
+    @property
+    def decoder(self) -> torch.nn.Module:
+        # RoBERTa / BERT
+        for attr in ["lm_head", "cls"]:
+            if hasattr(self.pretrained_model, attr):
+                return getattr(self.pretrained_model, attr)
 
+        if isinstance(self.pretrained_model, DistilBertForMaskedLM):
+            return torch.nn.Sequential(
+                self.pretrained_model.vocab_transform,
+                torch.nn.GELU(),
+                self.pretrained_model.vocab_layer_norm,
+                self.pretrained_model.vocab_projector,
+            )
+
+        if isinstance(self.pretrained_model, XLMWithLMHeadModel):
+            return self.pretrained_model.pred_layer.proj
+
+        raise AttributeError("Model decoder not found")
+
+    @property
+    def num_layers(self) -> int:
+        return self.pretrained_model.config.n_layer
+
+    @property
     def top_layer(self) -> int:
-        return self.model.config.n_layer - 1
+        if hasattr(self.pretrained_model.config, "n_layer"):
+            return int(self.pretrained_model.config.n_layer) - 1
+        elif hasattr(self.pretrained_model.config, "num_hidden_layers"):
+            return int(self.pretrained_model.config.num_hidden_layers) - 1
+        else:
+            raise AttributeError("Number of layers attribute not found in config")
 
     def nhid(self, activation_name: ActivationName) -> int:
-        return self.model.config.hidden_size
+        return self.pretrained_model.config.hidden_size
 
+    @property
     def activation_names(self) -> ActivationNames:
-        return [(-1, "hx")]
+        return [(self.top_layer, "hx")]
