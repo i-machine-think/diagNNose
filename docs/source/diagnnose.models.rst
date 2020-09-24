@@ -6,6 +6,13 @@ diagnnose.models
    :undoc-members:
    :show-inheritance:
 
+Subpackages
+-----------
+
+.. toctree::
+
+   diagnnose.models.wrappers
+
 Submodules
 ----------
 
@@ -13,6 +20,22 @@ diagnnose.models.import\_model module
 -------------------------------------
 
 .. automodule:: diagnnose.models.import_model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+diagnnose.models.init\_states module
+------------------------------------
+
+.. automodule:: diagnnose.models.init_states
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+diagnnose.models.language\_model module
+---------------------------------------
+
+.. automodule:: diagnnose.models.language_model
    :members:
    :undoc-members:
    :show-inheritance:

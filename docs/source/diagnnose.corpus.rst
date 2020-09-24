@@ -9,6 +9,14 @@ diagnnose.corpus
 Submodules
 ----------
 
+diagnnose.corpus.corpus module
+------------------------------
+
+.. automodule:: diagnnose.corpus.corpus
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 diagnnose.corpus.create\_iterator module
 ----------------------------------------
 
@@ -21,14 +29,6 @@ diagnnose.corpus.create\_labels module
 --------------------------------------
 
 .. automodule:: diagnnose.corpus.create_labels
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-diagnnose.corpus.import\_corpus module
---------------------------------------
-
-.. automodule:: diagnnose.corpus.import_corpus
    :members:
    :undoc-members:
    :show-inheritance:

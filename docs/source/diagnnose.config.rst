@@ -9,18 +9,18 @@ diagnnose.config
 Submodules
 ----------
 
-diagnnose.config.arg\_parser module
------------------------------------
+diagnnose.config.arg\_descriptions module
+-----------------------------------------
 
-.. automodule:: diagnnose.config.arg_parser
+.. automodule:: diagnnose.config.arg_descriptions
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.config.setup module
------------------------------
+diagnnose.config.config\_dict module
+------------------------------------
 
-.. automodule:: diagnnose.config.setup
+.. automodule:: diagnnose.config.config_dict
    :members:
    :undoc-members:
    :show-inheritance:
