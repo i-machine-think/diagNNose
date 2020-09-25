@@ -8,12 +8,6 @@ Activations
 -----------
 .. literalinclude:: ../../diagnnose/typedefs/activations.py
 
-Classifiers
------------
-.. literalinclude:: ../../diagnnose/typedefs/classifiers.py
-
-Configuration
--------------
-.. literalinclude:: ../../diagnnose/typedefs/config.py
-
-
+Probing
+-------
+.. literalinclude:: ../../diagnnose/typedefs/probe.py

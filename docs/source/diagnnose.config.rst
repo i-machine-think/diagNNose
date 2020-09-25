@@ -1,4 +1,4 @@
-diagnnose.config
+config
 ================
 
 .. automodule:: diagnnose.config
@@ -9,18 +9,20 @@ diagnnose.config
 Submodules
 ----------
 
-diagnnose.config.arg\_descriptions module
------------------------------------------
 
 .. automodule:: diagnnose.config.arg_descriptions
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.config.config\_dict module
-------------------------------------
 
 .. automodule:: diagnnose.config.config_dict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+.. automodule:: diagnnose.config.dtype
    :members:
    :undoc-members:
    :show-inheritance:

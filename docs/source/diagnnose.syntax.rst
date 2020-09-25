@@ -1,4 +1,4 @@
-diagnnose.syntax
+syntax
 ================
 
 .. automodule:: diagnnose.syntax
@@ -16,8 +16,6 @@ Subpackages
 Submodules
 ----------
 
-diagnnose.syntax.evaluator module
----------------------------------
 
 .. automodule:: diagnnose.syntax.evaluator
    :members:

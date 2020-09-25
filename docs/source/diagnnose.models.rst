@@ -1,4 +1,4 @@
-diagnnose.models
+models
 ================
 
 .. automodule:: diagnnose.models
@@ -16,40 +16,30 @@ Subpackages
 Submodules
 ----------
 
-diagnnose.models.import\_model module
--------------------------------------
 
 .. automodule:: diagnnose.models.import_model
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.models.init\_states module
-------------------------------------
 
 .. automodule:: diagnnose.models.init_states
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.models.language\_model module
----------------------------------------
 
 .. automodule:: diagnnose.models.language_model
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.models.recurrent\_lm module
--------------------------------------
 
 .. automodule:: diagnnose.models.recurrent_lm
    :members:
    :undoc-members:
    :show-inheritance:
 
-diagnnose.models.transformer\_lm module
----------------------------------------
 
 .. automodule:: diagnnose.models.transformer_lm
    :members:
