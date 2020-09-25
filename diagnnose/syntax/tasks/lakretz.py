@@ -56,7 +56,7 @@ class LakretzTask(SyntaxEvalTask):
                 stop_idx = (i + 1) * items_per_condition
                 condition_slice = slice(start_idx, stop_idx)
 
-                corpus = self.create_corpus(
+                corpus = self._create_corpus(
                     os.path.join(path, f"{subtask}.txt"), condition_slice
                 )
 
@@ -64,7 +64,7 @@ class LakretzTask(SyntaxEvalTask):
 
         return corpora
 
-    def create_corpus(self, path: str, condition_slice: slice) -> Corpus:
+    def _create_corpus(self, path: str, condition_slice: slice) -> Corpus:
         """Attach the correct and incorrect verb form to each sentence
         in the corpus.
         """

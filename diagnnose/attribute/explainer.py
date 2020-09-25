@@ -7,12 +7,14 @@ from diagnnose.attribute.decomposer import ContextualDecomposer, ShapleyDecompos
 from diagnnose.models import LanguageModel
 
 decomposers = {
-    "shapley_decomposer": ShapleyDecomposer,
-    "contextual_decomposer": ContextualDecomposer,
+    "ShapleyDecomposer": ShapleyDecomposer,
+    "ContextualDecomposer": ContextualDecomposer,
 }
 
 
 class Explainer:
+    """ Generates an explanation for a specific input. """
+
     def __init__(
         self,
         model: LanguageModel,
@@ -23,7 +25,7 @@ class Explainer:
         self.tokenizer = tokenizer
 
     def explain(self, input_tokens: Union[str, List[str]], output_tokens: List[str]):
-        batch_encoding = self.tokenize(input_tokens)
+        batch_encoding = self._tokenize(input_tokens)
 
         out, contributions = self.decomposer.decompose(batch_encoding)
 
@@ -39,7 +41,7 @@ class Explainer:
             full_probs, contribution_probs, batch_encoding, output_tokens
         )
 
-    def tokenize(self, sentences: Union[str, List[str]]) -> BatchEncoding:
+    def _tokenize(self, sentences: Union[str, List[str]]) -> BatchEncoding:
         sentences = [sentences] if isinstance(sentences, str) else sentences
 
         batch_encoding = self.tokenizer(

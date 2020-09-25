@@ -22,14 +22,14 @@ class Corpus(Dataset):
         if hasattr(self.fields[sen_column], "vocab"):
             self.tokenizer = self.fields[sen_column].vocab
 
-        self.attach_sen_ids()
+        self._attach_sen_ids()
 
         # TODO: Fix when refactoring classifier module
         # if any(field_name == labels_column for field_name, _ in self.fields):
         #     self.fields[labels_column].build_vocab(self)
 
         if create_pos_tags:
-            self.create_pos_tags()
+            self._create_pos_tags()
 
     @classmethod
     def create(
@@ -169,14 +169,16 @@ class Corpus(Dataset):
 
         return examples
 
-    def attach_sen_ids(self):
+    def _attach_sen_ids(self):
+        """ Adds a sentence index field to the Corpus. """
         self.fields["sen_idx"] = RawField()
         self.fields["sen_idx"].is_target = False
 
         for sen_idx, item in enumerate(self.examples):
             setattr(item, "sen_idx", sen_idx)
 
-    def create_pos_tags(self):
+    def _create_pos_tags(self):
+        """ Attaches nltk POS tags to the corpus for each sentence. """
         import nltk
 
         nltk.download("averaged_perceptron_tagger")

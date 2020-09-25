@@ -40,14 +40,14 @@ class WinobiasTask(SyntaxEvalTask):
                     tokenizer=self.tokenizer,
                 )
 
-                self.add_output_classes(corpus)
+                self._add_output_classes(corpus)
 
                 corpora.setdefault(subtask, {})[condition] = corpus
 
         return corpora
 
     @staticmethod
-    def add_output_classes(corpus: Corpus) -> None:
+    def _add_output_classes(corpus: Corpus) -> None:
         """ Set the correct and incorrect verb for each sentence. """
         corpus.fields["token"] = RawField()
         corpus.fields["wrong_token"] = RawField()

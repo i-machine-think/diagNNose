@@ -63,18 +63,18 @@ def set_init_states(
         corpus_path = os.path.join(diagnnose_utils_dir, "init_sentence.txt")
 
     if pickle_path is not None:
-        init_states = create_init_states_from_pickle(model, pickle_path)
+        init_states = _create_init_states_from_pickle(model, pickle_path)
     elif corpus_path is not None:
-        init_states = create_init_states_from_corpus(
+        init_states = _create_init_states_from_corpus(
             model, corpus_path, tokenizer, save_init_states_to
         )
     else:
-        init_states = create_zero_states(model)
+        init_states = _create_zero_states(model)
 
     model.init_states = init_states
 
 
-def create_zero_states(model: RecurrentLM) -> ActivationDict:
+def _create_zero_states(model: RecurrentLM) -> ActivationDict:
     """Zero-initialized states if no init state is provided.
 
     Returns
@@ -91,7 +91,7 @@ def create_zero_states(model: RecurrentLM) -> ActivationDict:
 
 
 @suppress_print
-def create_init_states_from_corpus(
+def _create_init_states_from_corpus(
     model: RecurrentLM,
     init_states_corpus: str,
     tokenizer: PreTrainedTokenizer,
@@ -107,7 +107,7 @@ def create_init_states_from_corpus(
         (layer, name) for layer in range(model.num_layers) for name in ["hx", "cx"]
     ]
 
-    model.init_states = create_zero_states(model)
+    model.init_states = _create_zero_states(model)
     extractor = Extractor(
         model,
         corpus,
@@ -120,17 +120,17 @@ def create_init_states_from_corpus(
     return init_states
 
 
-def create_init_states_from_pickle(
+def _create_init_states_from_pickle(
     model: RecurrentLM, pickle_path: str
 ) -> ActivationDict:
     init_states: ActivationDict = load_pickle(pickle_path)
 
-    validate_init_states_from_pickle(model, init_states)
+    _validate_init_states_from_pickle(model, init_states)
 
     return init_states
 
 
-def validate_init_states_from_pickle(
+def _validate_init_states_from_pickle(
     model: RecurrentLM, init_states: ActivationDict
 ) -> None:
     num_init_layers = max(layer for layer, _name in init_states)

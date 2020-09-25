@@ -103,17 +103,17 @@ class SyntaxEvalTask:
 
         for subtask, subtask_corpora in self.corpora.items():
             if isinstance(subtask_corpora, Corpus):
-                accuracy = self.run_corpus(subtask_corpora)
+                accuracy = self._run_corpus(subtask_corpora)
                 results[subtask] = accuracy
             else:
                 for condition, corpus in subtask_corpora.items():
-                    accuracy = self.run_corpus(corpus)
+                    accuracy = self._run_corpus(corpus)
 
                     results.setdefault(subtask, {})[condition] = accuracy
 
         return results
 
-    def run_corpus(self, corpus: Corpus) -> float:
+    def _run_corpus(self, corpus: Corpus) -> float:
         if self.tokenizer.mask_token is not None:
 
             def selection_func(w_idx: int, item: Example) -> bool:
@@ -122,7 +122,7 @@ class SyntaxEvalTask:
         else:
             selection_func = final_token
 
-        activations = self.calc_final_hidden(corpus, selection_func)
+        activations = self._calc_final_hidden(corpus, selection_func)
         counter_activations = None
 
         if "counter_sen" in corpus.fields:
@@ -133,11 +133,11 @@ class SyntaxEvalTask:
                 else:
                     return len(item.counter_sen) == (w_idx + 1)
 
-            counter_activations = self.calc_final_hidden(
+            counter_activations = self._calc_final_hidden(
                 corpus, selection_func, sen_column="counter_sen"
             )
 
-        accuracy = self.calc_accuracy(
+        accuracy = self._calc_accuracy(
             corpus,
             activations,
             counter_activations=counter_activations,
@@ -145,7 +145,7 @@ class SyntaxEvalTask:
 
         return accuracy
 
-    def calc_final_hidden(
+    def _calc_final_hidden(
         self,
         corpus: Corpus,
         selection_func: SelectionFunc,
@@ -166,13 +166,13 @@ class SyntaxEvalTask:
 
         return activations
 
-    def calc_accuracy(
+    def _calc_accuracy(
         self,
         corpus: Corpus,
         activations: Tensor,
         counter_activations: Optional[Tensor] = None,
     ) -> float:
-        mask = self.create_unk_sen_mask(corpus)
+        mask = self._create_unk_sen_mask(corpus)
 
         activations = activations[mask]
 
@@ -190,17 +190,17 @@ class SyntaxEvalTask:
             )
             counter_token_ids = counter_token_ids[mask]
 
-            accuracy = self.single_context_accuracy(
+            accuracy = self._single_context_accuracy(
                 activations, token_ids, counter_token_ids
             )
         else:
-            accuracy = self.dual_context_accuracy(
+            accuracy = self._dual_context_accuracy(
                 activations, counter_activations[mask], token_ids
             )
 
         return accuracy
 
-    def create_unk_sen_mask(self, corpus: Corpus) -> Tensor:
+    def _create_unk_sen_mask(self, corpus: Corpus) -> Tensor:
         """
         Creates a tensor mask for sentences that contain at least one
         token that is not part of the model's tokenizer.
@@ -217,16 +217,16 @@ class SyntaxEvalTask:
 
         return mask
 
-    def single_context_accuracy(
+    def _single_context_accuracy(
         self, activations: Tensor, token_ids: Tensor, counter_token_ids: Tensor
     ) -> float:
         """ Computes accuracy for comparing P(w1|h) > P(w2|h). """
-        logits = self.decode(activations, token_ids)
-        counter_logits = self.decode(activations, counter_token_ids)
+        logits = self._decode(activations, token_ids)
+        counter_logits = self._decode(activations, counter_token_ids)
 
         return torch.mean((logits >= counter_logits).to(torch.float)).item()
 
-    def dual_context_accuracy(
+    def _dual_context_accuracy(
         self,
         activations: Tensor,
         counter_activations: Tensor,
@@ -234,19 +234,21 @@ class SyntaxEvalTask:
     ) -> float:
         """ Computes accuracy for comparing P(w|h1) > P(w|h2). """
         if self.use_full_model_probs:
-            full_probs = self.decode(activations)
-            counter_probs = self.decode(counter_activations)
+            full_probs = self._decode(activations)
+            counter_probs = self._decode(counter_activations)
 
             batch_size = full_probs.shape[0]
             probs = full_probs[range(batch_size), token_ids]
             counter_probs = counter_probs[range(batch_size), token_ids]
         else:
-            probs = self.decode(activations, token_ids)
-            counter_probs = self.decode(counter_activations, token_ids)
+            probs = self._decode(activations, token_ids)
+            counter_probs = self._decode(counter_activations, token_ids)
 
         return torch.mean((probs >= counter_probs).to(torch.float)).item()
 
-    def decode(self, activations: Tensor, token_ids: Optional[Tensor] = None) -> Tensor:
+    def _decode(
+        self, activations: Tensor, token_ids: Optional[Tensor] = None
+    ) -> Tensor:
         if hasattr(self.model, "decoder_w"):
             decoder_w = self.model.decoder_w
             decoder_b = self.model.decoder_b

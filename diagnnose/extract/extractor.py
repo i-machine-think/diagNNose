@@ -39,13 +39,19 @@ class Extractor:
         Directory to which activations will be written. If not provided
         the `extract()` method will only return the activations without
         writing them to disk.
+    selection_func : Union[SelectionFunc, str]
+        Function which determines if activations for a token should
+        be extracted or not. Can also be provided as a string,
+        indicating the method name of one of the default
+        selection_funcs in
+        :py:mod:`diagnnose.activations.selection_funcs`.
     batch_size : int, optional
         Amount of sentences processed per forward step. Higher batch
         size increases extraction speed, but should be done
         accordingly to the amount of available RAM. Defaults to 1.
-    selection_func : Callable[[int, int, Example], bool]
-        Function which determines if activations for a token should
-        be extracted or not.
+    sen_column : str, optional
+        Corpus column that will be tokenized and extracted. Defaults to
+        `sen`.
     """
 
     def __init__(
@@ -56,6 +62,7 @@ class Extractor:
         activations_dir: Optional[str] = None,
         selection_func: Union[SelectionFunc, str] = return_all,
         batch_size: int = BATCH_SIZE,
+        sen_column: str = "sen",
     ) -> None:
         self.model = model
         self.corpus = corpus
@@ -65,8 +72,9 @@ class Extractor:
         else:
             self.selection_func = selection_func
         self.batch_size = batch_size
+        self.sen_column = sen_column
 
-        self.activation_ranges = self.create_activation_ranges()
+        self.activation_ranges = self._create_activation_ranges()
 
         if activations_dir is None:
             self.activation_writer: Optional[ActivationWriter] = None
@@ -76,15 +84,14 @@ class Extractor:
     def extract(self) -> ActivationReader:
         """Extracts embeddings from a corpus.
 
-        Uses contextlib.ExitStack to write to multiple files at once.
+        Uses :class:`contextlib.ExitStack` to write to multiple files
+        simultaneously.
 
         Returns
         -------
-        final_activations : Union[BatchActivationTensors, ActivationDict]
-            If `dynamic_dumping` is set to True, only the activations of
-            the final batch are returned, in a dictionary mapping the
-            batch id to the corresponding activations. If set to False
-            an `ActivationDict` containing all activations is returned.
+        activation_reader : ActivationReader
+            After extraction an activation_reader is returned that
+            provides direct access to the extracted activations.
         """
         print(f"\nStarting extraction of {len(self.corpus)} sentences...")
 
@@ -117,7 +124,7 @@ class Extractor:
 
     def _extract_corpus(self, dump: bool = True) -> ActivationDict:
         tot_extracted = self.activation_ranges[-1][1]
-        corpus_activations: ActivationDict = self.init_activation_dict(
+        corpus_activations: ActivationDict = self._init_activation_dict(
             tot_extracted, dump=dump
         )
 
@@ -146,7 +153,7 @@ class Extractor:
         return corpus_activations
 
     def _extract_batch(self, batch: Batch, n_items_in_batch: int) -> ActivationDict:
-        sens, sen_lens = getattr(batch, self.corpus.sen_column)
+        sens, sen_lens = getattr(batch, self.sen_column)
 
         # a_name -> batch_size x max_sen_len x nhid
         compute_out = (self.model.top_layer, "out") in self.activation_names
@@ -159,7 +166,7 @@ class Extractor:
             )
 
         # a_name -> n_items_in_batch x nhid
-        batch_activations: ActivationDict = self.init_activation_dict(n_items_in_batch)
+        batch_activations: ActivationDict = self._init_activation_dict(n_items_in_batch)
         self._select_activations(batch_activations, all_activations, batch)
 
         return batch_activations
@@ -170,7 +177,7 @@ class Extractor:
         all_activations: ActivationDict,
         batch: Batch,
     ) -> None:
-        sen_lens = getattr(batch, self.corpus.sen_column)[1]
+        sen_lens = getattr(batch, self.sen_column)[1]
 
         a_idx = 0
 
@@ -183,13 +190,13 @@ class Extractor:
                         batch_activations[a_name][a_idx] = selected_activation
                     a_idx += 1
 
-    def create_activation_ranges(self) -> ActivationRanges:
+    def _create_activation_ranges(self) -> ActivationRanges:
         activation_ranges: ActivationRanges = []
         tot_extracted = 0
 
         for item in self.corpus:
             start = tot_extracted
-            sen_len = len(getattr(item, self.corpus.sen_column))
+            sen_len = len(getattr(item, self.sen_column))
             for w_idx in range(sen_len):
                 if self.selection_func(w_idx, item):
                     tot_extracted += 1
@@ -198,10 +205,9 @@ class Extractor:
 
         return activation_ranges
 
-    def init_activation_dict(self, n_items: int, dump: bool = False) -> ActivationDict:
-        """If activations are dumped we don't keep track of the full
-        activation dictionary.
-        """
+    def _init_activation_dict(self, n_items: int, dump: bool = False) -> ActivationDict:
+        # If activations are dumped we don't keep track of the full activation dictionary,
+        # so an empty dictionary is returned.
         if dump:
             return {}
 

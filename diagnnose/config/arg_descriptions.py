@@ -1,6 +1,8 @@
-from diagnnose.typedefs.config import ArgDescriptions
+from typing import Any, Dict
 
-arg_descriptions: ArgDescriptions = {}
+# Dict mapping: group -> arg_name -> arg_attr -> value
+# Where arg_attr one of 'help', 'nargs', or 'type'.
+arg_descriptions: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 arg_descriptions["model"] = {
     # Gulordava/Forward LSTM

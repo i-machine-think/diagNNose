@@ -45,7 +45,7 @@ class MarvinTask(SyntaxEvalTask):
 
         for subtask in subtasks:
             subtask_path = subtask_to_path[subtask]
-            subtask_corpora: Dict[str, Corpus] = self.initialize_subtask(
+            subtask_corpora: Dict[str, Corpus] = self._initialize_subtask(
                 subtask, subtask_path
             )
 
@@ -53,7 +53,7 @@ class MarvinTask(SyntaxEvalTask):
 
         return corpora
 
-    def initialize_subtask(self, subtask: str, corpus_path: str) -> Dict[str, Corpus]:
+    def _initialize_subtask(self, subtask: str, corpus_path: str) -> Dict[str, Corpus]:
         corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(corpus_path)
 
         if "npi" in subtask:
@@ -69,7 +69,7 @@ class MarvinTask(SyntaxEvalTask):
         subtask_corpora: Dict[str, Corpus] = {}
 
         for condition, sens in corpus_dict.items():
-            examples = self.create_examples(subtask, sens, fields)
+            examples = self._create_examples(subtask, sens, fields)
 
             corpus = Corpus(examples, fields)
 
@@ -77,16 +77,16 @@ class MarvinTask(SyntaxEvalTask):
 
         return subtask_corpora
 
-    def create_examples(
+    def _create_examples(
         self, subtask: str, sens: List[Sequence[str]], fields: List[Tuple[str, Field]]
     ):
         if "npi" in subtask:
-            return self.create_npi_examples(sens, fields)
+            return self._create_npi_examples(sens, fields)
 
-        return self.create_sva_examples(sens, fields)
+        return self._create_sva_examples(sens, fields)
 
     @staticmethod
-    def create_sva_examples(
+    def _create_sva_examples(
         sens: List[Sequence[str]], fields: List[Tuple[str, Field]]
     ) -> List[Example]:
         examples = []
@@ -110,7 +110,7 @@ class MarvinTask(SyntaxEvalTask):
         return examples
 
     @staticmethod
-    def create_npi_examples(
+    def _create_npi_examples(
         sens: List[Sequence[str]], fields: List[Tuple[str, Field]]
     ) -> List[Example]:
         examples = []

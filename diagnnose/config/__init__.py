@@ -1,2 +1,2 @@
-from .config_dict import create_config_dict
+from .config_dict import ConfigDict, create_config_dict
 from .dtype import DTYPE

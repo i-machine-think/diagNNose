@@ -8,7 +8,7 @@ from torchtext.vocab import Vocab
 from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.typedefs.activations import ActivationName, SelectionFunc
-from diagnnose.typedefs.classifiers import ControlTask, DataDict
+from diagnnose.typedefs.probe import ControlTask, DataDict
 
 from .activation_reader import ActivationReader
 
@@ -135,7 +135,7 @@ class DataLoader:
             to control task labels (train_y_control, test_y_control).
         """
 
-        train_activations = self.activation_reader.read_activations(activation_name)
+        train_activations = self.activation_reader.activations(activation_name)
 
         test_activations = train_activations[self.test_ids]
         train_activations = train_activations[self.train_ids]
@@ -160,9 +160,7 @@ class DataLoader:
             train_labels_control = train_labels_control[indices]
 
         if self.test_activation_reader is not None:
-            test_activations = self.test_activation_reader.read_activations(
-                activation_name
-            )
+            test_activations = self.test_activation_reader.activations(activation_name)
             test_labels = self.test_labels
         # Create test set from split in training data
         elif test_activations.size(0) == 0:

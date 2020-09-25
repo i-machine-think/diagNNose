@@ -8,6 +8,18 @@ from .w2i import W2I
 
 
 def token_to_index(path: str) -> Dict[str, int]:
+    """Reads in a newline-separated file of tokenizer entries.
+
+    Parameters
+    ----------
+    path : str
+        Path to a vocabulary file.
+
+    Returns
+    -------
+    w2i : Dict[str, int]
+        Dictionary mapping a token string to its index.
+    """
     with open(os.path.expanduser(path), encoding="ISO-8859-1") as f:
         w2i = {token.strip(): idx for idx, token in enumerate(f)}
 
@@ -26,7 +38,7 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
     Parameters
     ----------
     path : str
-        Either the path towards a vocab.txt file, or the model name
+        Either the path towards a vocabulary file, or the model name
         of a Huggingface Transformer.
     notify_unk : bool, optional
         Optional toggle to notify a user if a token is not present in

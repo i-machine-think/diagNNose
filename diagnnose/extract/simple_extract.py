@@ -5,6 +5,7 @@ from diagnnose.activations import ActivationReader
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
 from diagnnose.extract import BATCH_SIZE, Extractor
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationNames,
     RemoveCallback,
@@ -15,7 +16,7 @@ from diagnnose.utils.misc import suppress_print
 
 @suppress_print
 def simple_extract(
-    model: "LanguageModel",
+    model: LanguageModel,
     corpus: Corpus,
     activation_names: ActivationNames,
     activations_dir: Optional[str] = None,
@@ -24,6 +25,29 @@ def simple_extract(
     sen_column: str = "sen",
 ) -> Tuple[ActivationReader, RemoveCallback]:
     """Basic extraction method.
+
+    Parameters
+    ----------
+    model : LanguageModel
+        Language model that inherits from LanguageModel.
+    corpus : Corpus
+        Corpus containing sentences to be extracted.
+    activation_names : List[tuple[int, str]]
+        List of (layer, activation_name) tuples
+    activations_dir : str, optional
+        Directory to which activations will be written. If not provided
+        the `extract()` method will only return the activations without
+        writing them to disk.
+    selection_func : SelectionFunc
+        Function which determines if activations for a token should
+        be extracted or not.
+    batch_size : int, optional
+        Amount of sentences processed per forward step. Higher batch
+        size increases extraction speed, but should be done
+        accordingly to the amount of available RAM. Defaults to 1.
+    sen_column : str, optional
+        Corpus column that will be tokenized and extracted. Defaults to
+        `sen`.
 
     Returns
     -------
@@ -34,15 +58,14 @@ def simple_extract(
         that depends on the extracted activations. Removes all the
         activations that have been extracted. Takes no arguments.
     """
-    corpus.sen_column = sen_column
-
     extractor = Extractor(
         model,
         corpus,
         activation_names,
         activations_dir=activations_dir,
-        batch_size=batch_size,
         selection_func=selection_func,
+        batch_size=batch_size,
+        sen_column=sen_column,
     )
 
     activation_reader = extractor.extract()

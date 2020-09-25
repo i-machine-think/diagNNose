@@ -1,4 +1,5 @@
-from typing import List
+import abc
+from typing import Dict, List, Type
 
 import torch
 from torch import Tensor
@@ -9,10 +10,51 @@ from diagnnose.models import LanguageModel
 from .gcd_tensor import GCDTensor
 from .shapley_tensor import ShapleyTensor
 
+tensor_types: Dict[str, Type[ShapleyTensor]] = {
+    "ShapleyTensor": ShapleyTensor,
+    "GCDTensor": GCDTensor,
+}
 
-class ShapleyDecomposer:
-    def __init__(self, model: LanguageModel):
+
+class Decomposer(abc.ABC):
+    """Abstract base class for Decomposer classes.
+
+    A Decomposer takes care of dividing the input features into the
+    desired partition of contributions.
+    """
+
+    def __init__(self, model: LanguageModel, tensor_type: str = "ShapleyTensor"):
         self.model = model
+        self.tensor_type = tensor_types[tensor_type]
+
+    @abc.abstractmethod
+    def decompose(self, batch_encoding: BatchEncoding) -> ShapleyTensor:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def wrap_inputs_embeds(self, input_ids: Tensor) -> ShapleyTensor:
+        raise NotImplementedError
+
+
+class ShapleyDecomposer(Decomposer):
+    """A ShapleyDecomposer propagates all input feature contributions
+    simultaneously.
+
+    That is, an input sequence of :math:`n` features will be transformed
+    into a ShapleyTensor containing :math:`n` feature contributions.
+
+    Concretely: if we have an input tensor :math:`X` of shape:
+    ``(num_features, input_dim)`` we can express this as a sum of
+    features:
+    :math:`X = \\sum_i^n \\phi^i`, where :math:`\\phi^i` is also of
+    shape ``(num_features, input_dim)``, with
+    :math:`\\phi^i_j =
+    \\begin{cases}X_j&i=j\\\\0&\\textit{otherwise}\\end{cases}`
+
+    Without approximations this way of partitioning scales
+    exponentially in the number of input features, quickly becoming
+    infeasible when :math:`n > 10`.
+    """
 
     def decompose(self, batch_encoding: BatchEncoding) -> ShapleyTensor:
         input_ids = torch.tensor(batch_encoding["input_ids"])
@@ -43,14 +85,42 @@ class ShapleyDecomposer:
             contribution[:, w_idx] = inputs_embeds[:, w_idx]
             contributions.append(contribution)
 
-        shapley_in = GCDTensor(
+        shapley_in = self.tensor_type(
             inputs_embeds, contributions=contributions, validate=True
         )
 
         return shapley_in
 
 
-class ContextualDecomposer(ShapleyDecomposer):
+class ContextualDecomposer(Decomposer):
+    """A ContextualDecomposer propagates each input feature
+    contribution individually, set out against the contributions of all
+    other features combined.
+
+    This idea has been proposed in Murdocht et al., (2018):
+    https://arxiv.org/abs/1801.05453
+
+    An input sequence of :math:`n` features will be transformed
+    into a ShapleyTensor containing :math:`2` feature contributions:
+    one containing the contributions of the feature of interest
+    (:math:`\\beta`), and one containing the contributions of all
+    other features (:math:`\\gamma`).
+
+    Concretely: if we have an input tensor :math:`X` of shape:
+    ``(num_features, input_dim)`` we can express this as a sum of
+    features:
+    :math:`X = \\beta^i + \\gamma^i`, where both :math:`\\beta` and
+    :math:`\\gamma` are also of shape ``(num_features, input_dim)``,
+    with :math:`\\beta^i_j =
+    \\begin{cases}X_j&i=j\\\\0&\\textit{otherwise}\\end{cases}` and
+    :math:`\\gamma^i_j =
+    \\begin{cases}X_j&i\\neq j\\\\0&\\textit{otherwise}\\end{cases}`
+
+    This way of partitioning scales polynomially in the number of input
+    features, but requires a separate forward pass for each individual
+    feature contribution :math:`\\beta^i`.
+    """
+
     def decompose(self, batch_encoding: BatchEncoding) -> ShapleyTensor:
         input_ids = torch.tensor(batch_encoding["input_ids"])
         shapley_tensors = self.wrap_inputs_embeds(input_ids)
@@ -74,7 +144,7 @@ class ContextualDecomposer(ShapleyDecomposer):
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
         all_shapley_in = [
-            GCDTensor(
+            self.tensor_type(
                 inputs_embeds,
                 contributions=[torch.zeros_like(inputs_embeds), inputs_embeds],
                 validate=True,

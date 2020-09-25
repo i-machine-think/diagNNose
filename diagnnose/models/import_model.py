@@ -1,7 +1,7 @@
 from typing import Type
 
+from diagnnose.config import ConfigDict
 from diagnnose.tokenizer.create import create_tokenizer
-from diagnnose.typedefs.config import ConfigDict
 
 from .init_states import set_init_states
 from .language_model import LanguageModel
@@ -23,21 +23,21 @@ def import_model(config_dict: ConfigDict) -> LanguageModel:
     """
 
     if "model_name" in config_dict["model"]:
-        model = import_transformer_lm(config_dict)
+        model = _import_transformer_lm(config_dict)
     else:
-        model = import_recurrent_lm(config_dict)
+        model = _import_recurrent_lm(config_dict)
 
     model.eval()
 
     return model
 
 
-def import_transformer_lm(config_dict: ConfigDict) -> TransformerLM:
+def _import_transformer_lm(config_dict: ConfigDict) -> TransformerLM:
     """ Imports a Transformer LM. """
     return TransformerLM(**config_dict["model"])
 
 
-def import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
+def _import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
     """ Imports a recurrent LM and sets the initial states. """
     model_type = config_dict["model"].pop("model_type")
 

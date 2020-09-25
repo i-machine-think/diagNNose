@@ -17,7 +17,7 @@ from diagnnose.typedefs.activations import (
     ActivationNames,
     SelectionFunc,
 )
-from diagnnose.typedefs.classifiers import ControlTask, DataDict
+from diagnnose.typedefs.probe import ControlTask, DataDict
 from diagnnose.utils.pickle import dump_pickle
 
 from .logreg import L1NeuralNetClassifier, LogRegModule

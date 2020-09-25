@@ -12,6 +12,9 @@ from diagnnose.utils.misc import merge_dicts
 
 from .arg_descriptions import arg_descriptions
 
+# group -> arg_name -> value
+ConfigDict = Dict[str, Dict[str, Any]]
+
 
 def create_config_dict() -> ConfigDict:
     """Sets up the configuration for extraction.
@@ -23,15 +26,15 @@ def create_config_dict() -> ConfigDict:
 
     Commandline args should be provided as dot-separated values, where
     the first dot indicates the arg group the arg belongs to.
-    For example, setting the `state_dict` of a `model` can be done as
-    `--model.state_dict ...`.
+    For example, setting the ``state_dict`` of a ``model`` can be done
+    with the flag ``--model.state_dict state_dict``.
 
     Returns
     -------
     config_dict : ConfigDict
         Dictionary mapping each arg group to their config values.
     """
-    arg_parser = create_arg_parser()
+    arg_parser = _create_arg_parser()
 
     args, unk_args = arg_parser.parse_known_args()
     cmd_args = vars(args)
@@ -42,12 +45,12 @@ def create_config_dict() -> ConfigDict:
         with open(cmd_args.pop("config")) as f:
             init_config_dict.update(json.load(f))
 
-    add_unk_args(cmd_args, unk_args)
-    config_dict = add_cmd_args(init_config_dict, cmd_args)
+    _add_unk_args(cmd_args, unk_args)
+    config_dict = _add_cmd_args(init_config_dict, cmd_args)
 
-    set_activation_config(config_dict)
+    _set_activation_config(config_dict)
 
-    set_tokenizer(config_dict)
+    _set_tokenizer(config_dict)
 
     print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
     pprint(config_dict)
@@ -55,7 +58,7 @@ def create_config_dict() -> ConfigDict:
     return config_dict
 
 
-def create_arg_parser() -> ArgumentParser:
+def _create_arg_parser() -> ArgumentParser:
     parser = ArgumentParser()
 
     # create group to load config from a file
@@ -97,7 +100,7 @@ def create_arg_parser() -> ArgumentParser:
     return parser
 
 
-def add_unk_args(cmd_args: Dict[str, Any], unk_args: List[str]):
+def _add_unk_args(cmd_args: Dict[str, Any], unk_args: List[str]):
     """ Add arguments that are not part of the default arg structure """
     unk_args = [x.split() for x in " ".join(unk_args).split("--") if len(x) > 0]
     for arg in unk_args:
@@ -106,7 +109,7 @@ def add_unk_args(cmd_args: Dict[str, Any], unk_args: List[str]):
         cmd_args[key] = val
 
 
-def add_cmd_args(config_dict: ConfigDict, cmd_args: Dict[str, Any]) -> ConfigDict:
+def _add_cmd_args(config_dict: ConfigDict, cmd_args: Dict[str, Any]) -> ConfigDict:
     """ Update provided config values with cmd args. """
     cdm_arg_dicts: List[ConfigDict] = []
     for arg, val in cmd_args.items():
@@ -123,7 +126,7 @@ def add_cmd_args(config_dict: ConfigDict, cmd_args: Dict[str, Any]) -> ConfigDic
     return config_dict
 
 
-def set_activation_config(config_dict: ConfigDict) -> None:
+def _set_activation_config(config_dict: ConfigDict) -> None:
     """Sets activation dtypes globally and casts activation names to
     the tuple format that is used throughout the library.
     """
@@ -144,7 +147,7 @@ def set_activation_config(config_dict: ConfigDict) -> None:
     activation_config["activation_names"] = list(map(tuple, raw_activation_names))
 
 
-def set_tokenizer(config_dict: ConfigDict) -> None:
+def _set_tokenizer(config_dict: ConfigDict) -> None:
     """ Set tokenizer name manually for Huggingface models. """
     if (
         "model" in config_dict

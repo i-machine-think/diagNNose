@@ -33,10 +33,6 @@ class ShapleyTensor:
         sums up to `data`. Defaults to False.
     """
 
-    if not utils.MONKEY_PATCH_PERFORMED:
-        utils.monkey_patch()
-        utils.MONKEY_PATCH_PERFORMED = True
-
     def __init__(
         self,
         data: Tensor,
@@ -44,6 +40,10 @@ class ShapleyTensor:
         shapley_factors: Optional[List[Tuple[List[int], int]]] = None,
         validate: bool = False,
     ):
+        if not utils.MONKEY_PATCH_PERFORMED:
+            utils.monkey_patch()
+            utils.MONKEY_PATCH_PERFORMED = True
+
         self.data = data
         self.contributions = contributions or []
         self.shapley_factors = shapley_factors
@@ -129,6 +129,7 @@ class ShapleyTensor:
             data = self.data[index]
             contributions = [contribution[index] for contribution in self.contributions]
 
+        # We return type(self) to allow a subclass that derives from ShapleyTensor to be preserved.
         return type(self)(
             data,
             contributions=contributions,

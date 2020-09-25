@@ -90,6 +90,7 @@ class ActivationWriter:
     def dump_meta_info(
         self, activation_ranges: ActivationRanges, selection_func: SelectionFunc
     ) -> None:
+        """ Dumps activation_ranges and selection_func to disk. """
         assert self.activation_ranges_file is not None
         assert self.selection_func_file is not None
 
@@ -107,10 +108,12 @@ class ActivationWriter:
             Set to True to overwrite the file containing the sequential
             pickle dump, otherwise creates a new file. Defaults to True.
         """
-        activation_reader = ActivationReader(self.activations_dir)
+        activation_reader = ActivationReader(
+            self.activations_dir, store_multiple_activations=False
+        )
 
         for (layer, name) in self.activation_names:
-            activations = activation_reader.read_activations((layer, name))
+            activations = activation_reader.activations((layer, name))
             filename = os.path.join(self.activations_dir, f"{name}_l{layer}.pickle")
             if not overwrite:
                 filename = filename.replace(".pickle", "_concat.pickle")

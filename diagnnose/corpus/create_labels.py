@@ -5,7 +5,7 @@ from torch import Tensor
 
 from diagnnose.corpus import Corpus
 from diagnnose.typedefs.activations import SelectionFunc
-from diagnnose.typedefs.classifiers import ControlTask
+from diagnnose.typedefs.probe import ControlTask
 
 
 def create_labels_from_corpus(
