@@ -5,11 +5,9 @@ from functools import reduce
 from pprint import pprint
 from typing import Any, Dict, List
 
-import numpy as np
 import torch
 
-import diagnnose.typedefs.config as config
-from diagnnose.typedefs.config import ConfigDict
+import diagnnose.config as config
 from diagnnose.utils.misc import merge_dicts
 
 from .arg_descriptions import arg_descriptions
@@ -130,10 +128,9 @@ def set_activation_config(config_dict: ConfigDict) -> None:
     the tuple format that is used throughout the library.
     """
     activation_config = config_dict.get("activations", {})
-    activation_dtype = activation_config.get("dtype", None)
+    activation_dtype = activation_config.pop("dtype", None)
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
-        config.DTYPE_np = getattr(np, activation_dtype)
 
     # Translate activation names to tuple format that is used in the library
     raw_activation_names = activation_config.get("activation_names", [])

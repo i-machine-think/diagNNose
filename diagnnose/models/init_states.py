@@ -5,10 +5,10 @@ from typing import Optional
 import torch
 from transformers import PreTrainedTokenizer
 
+import diagnnose.config as config
 from diagnnose.activations.selection_funcs import final_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import Extractor
-from diagnnose.typedefs import config as config
 from diagnnose.typedefs.activations import ActivationDict, ActivationNames
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print

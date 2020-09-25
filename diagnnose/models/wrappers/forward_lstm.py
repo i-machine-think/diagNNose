@@ -6,7 +6,7 @@ import torch
 from torch import Tensor
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
-import diagnnose.typedefs.config as config
+import diagnnose.config as config
 from diagnnose.attribute import ShapleyTensor
 from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.typedefs.activations import (

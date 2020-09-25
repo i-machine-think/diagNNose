@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 import torch
 from torch import Tensor
 
-import diagnnose.typedefs.config as config
+import diagnnose.config as config
 from diagnnose.activations.activation_index import activation_index_to_iterable
 from diagnnose.typedefs.activations import (
     ActivationDict,

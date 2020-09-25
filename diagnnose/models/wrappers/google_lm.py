@@ -7,7 +7,7 @@ import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
-import diagnnose.typedefs.config as config
+import diagnnose.config as config
 from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.tokenizer import create_char_vocab
 from diagnnose.tokenizer.c2i import C2I
