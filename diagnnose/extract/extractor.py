@@ -148,7 +148,8 @@ class Extractor:
                 for a_name, activations in batch_activations.items():
                     batch_slice = slice(n_extracted, n_extracted + n_items_in_batch)
                     corpus_activations[a_name][batch_slice] = batch_activations[a_name]
-                n_extracted += n_items_in_batch
+
+            n_extracted += n_items_in_batch
 
         return corpus_activations
 
