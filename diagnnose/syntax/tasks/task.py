@@ -5,10 +5,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import torch
 from torch import Tensor
-from torchtext.data import Example
 from transformers import PreTrainedTokenizer
 
-from diagnnose.activations.selection_funcs import final_token
+from diagnnose.activations.selection_funcs import final_token, only_mask_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
@@ -59,7 +58,7 @@ class SyntaxEvalTask:
         self.use_full_model_probs = use_full_model_probs
 
         # If a single subtask is passed as cmd arg it is not converted to a list yet
-        if "subtasks" in config and isinstance(config["subtasks"], str):
+        if isinstance(config.get("subtasks", None), str):
             config["subtasks"] = [config["subtasks"]]
 
         self.corpora: SyntaxEvalCorpora = self.initialize(**config)
@@ -114,28 +113,26 @@ class SyntaxEvalTask:
         return results
 
     def _run_corpus(self, corpus: Corpus) -> float:
-        if self.tokenizer.mask_token is not None:
+        mask_token = self.tokenizer.mask_token
 
-            def selection_func(w_idx: int, item: Example) -> bool:
-                return item.sen[w_idx] == self.tokenizer.mask_token
-
+        if mask_token is not None:
+            selection_func = only_mask_token(mask_token, "sen")
         else:
-            selection_func = final_token
+            selection_func = final_token("sen")
 
         activations = self._calc_final_hidden(corpus, selection_func)
-        counter_activations = None
 
         if "counter_sen" in corpus.fields:
-
-            def selection_func(w_idx: int, item: Example) -> bool:
-                if self.tokenizer.mask_token is not None:
-                    return item.counter_sen[w_idx] == self.tokenizer.mask_token
-                else:
-                    return len(item.counter_sen) == (w_idx + 1)
+            if mask_token is not None:
+                selection_func = only_mask_token(mask_token, "counter_sen")
+            else:
+                selection_func = final_token("counter_sen")
 
             counter_activations = self._calc_final_hidden(
                 corpus, selection_func, sen_column="counter_sen"
             )
+        else:
+            counter_activations = None
 
         accuracy = self._calc_accuracy(
             corpus,
