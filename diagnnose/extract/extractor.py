@@ -1,8 +1,11 @@
+import copy
+
 from contextlib import ExitStack
 from typing import List, Optional, Union
 
 import torch
 from torchtext.data import Batch
+from transformers import BatchEncoding
 from tqdm import tqdm
 
 import diagnnose.activations.selection_funcs as selection_funcs
@@ -128,8 +131,10 @@ class Extractor:
             tot_extracted, dump=dump
         )
 
+        corpus = self._filter_corpus()
+
         iterator = create_iterator(
-            self.corpus, batch_size=self.batch_size, device=self.model.device
+            corpus, batch_size=self.batch_size, device=self.model.device
         )
 
         n_extracted = 0
@@ -153,7 +158,23 @@ class Extractor:
 
         return corpus_activations
 
-    def _extract_batch(self, batch: Batch, n_items_in_batch: int) -> ActivationDict:
+    def _filter_corpus(self) -> Corpus:
+        """ Skip items for which selection_func yields 0 activations. """
+        sen_ids = [
+            idx
+            for idx, (start, stop) in enumerate(self.activation_ranges)
+            if start != stop
+        ]
+
+        if len(sen_ids) != len(self.corpus):
+            return self.corpus.slice(sen_ids)
+
+        return self.corpus
+
+    def _extract_batch(self, batch: Batch) -> ActivationDict:
+        """Processes the items in `batch` and selects the activations
+        that should should be extracted according to selection_func.
+        """
         sens, sen_lens = getattr(batch, self.sen_column)
 
         # a_name -> batch_size x max_sen_len x nhid
@@ -174,7 +195,6 @@ class Extractor:
 
     def _select_activations(
         self,
-        batch_activations: ActivationDict,
         all_activations: ActivationDict,
         batch: Batch,
     ) -> None:
