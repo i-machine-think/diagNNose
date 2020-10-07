@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 from torchtext.data import Dataset, Example, Field, Pipeline, RawField
 from transformers import PreTrainedTokenizer
@@ -25,9 +25,8 @@ class Corpus(Dataset):
         if "sen_idx" not in self.fields:
             self._attach_sen_ids()
 
-        # TODO: Fix when refactoring classifier module
-        # if any(field_name == labels_column for field_name, _ in self.fields):
-        #     self.fields[labels_column].build_vocab(self)
+        if labels_column in self.fields:
+            self.fields[labels_column].build_vocab(self)
 
         if create_pos_tags:
             self._create_pos_tags()
@@ -103,7 +102,7 @@ class Corpus(Dataset):
         if header is None:
             if header_from_first_line:
                 with open(corpus_path) as f:
-                    header = next(f).strip().split(sep)
+                    header = next(f).strip("\n").split(sep)
             elif corpus_path is not None:
                 # Infer header from file structure
                 with open(corpus_path) as f:
@@ -146,14 +145,13 @@ class Corpus(Dataset):
                 field = Field(batch_first=True, include_lengths=True, lower=to_lower)
                 if tokenizer is not None:
                     attach_tokenizer(field, tokenizer)
-            # TODO: fix when refactoring classifier module
-            # elif column == labels_column:
-            #     field = Field(
-            #         pad_token=None,
-            #         unk_token=None,
-            #         is_target=True,
-            #         preprocessing=pipeline,
-            #     )
+            elif column == labels_column:
+                field = Field(
+                    pad_token=None,
+                    unk_token=None,
+                    is_target=True,
+                    preprocessing=pipeline,
+                )
             else:
                 field = RawField(preprocessing=pipeline)
                 field.is_target = False
@@ -217,7 +215,8 @@ class Corpus(Dataset):
 
         print("Tagging corpus...")
         for item in self.examples:
-            setattr(item, "pos_tags", [t[1] for t in nltk.pos_tag(item.sen)])
+            sen = getattr(item, self.sen_column)
+            setattr(item, "pos_tags", [t[1] for t in nltk.pos_tag(sen)])
 
 
 def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:

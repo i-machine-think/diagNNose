@@ -26,29 +26,33 @@ def create_labels_from_corpus(
         Control task function of Hewitt et al. (2019), mapping a corpus
         item to a random label.
     """
-    labels = []
-    label_vocab = corpus.fields["labels"].tokenizer.stoi
-    for idx, item in enumerate(corpus.examples):
+    all_labels = []
+
+    for item in corpus.examples:
         label_idx = 0
-        each_token_labeled = len(item.sen) == len(item.labels)
-        for wpos in range(len(item.sen)):
-            if selection_func(idx, wpos, item):
+
+        sen = getattr(item, corpus.sen_column)
+        labels = getattr(item, corpus.labels_column)
+
+        each_token_labeled = len(sen) == len(labels)
+
+        for wpos in range(len(sen)):
+            if selection_func(wpos, item):
                 if control_task is not None:
-                    label = control_task(idx, wpos, item)
+                    label = control_task(wpos, item)
                 else:
-                    try:
-                        label = item.labels[label_idx]
-                    except IndexError:
-                        print(item)
-                        raise
-                if isinstance(label, str):
-                    label = label_vocab[label]
+                    label = labels[label_idx]
 
-                labels.append(label)
+                all_labels.append(label)
 
-                if not each_token_labeled:
+                if not each_token_labeled and len(labels) > 1:
                     label_idx += 1
             if each_token_labeled:
                 label_idx += 1
 
-    return torch.tensor(labels)
+    # Create new label vocab that only contains the labels that have been selected
+    label_vocab = {label: idx for idx, label in enumerate(set(all_labels))}
+    corpus.fields[corpus.labels_column].vocab.stoi = label_vocab
+    corpus.fields[corpus.labels_column].vocab.itos = list(label_vocab.keys())
+
+    return torch.tensor([label_vocab[label] for label in all_labels])
