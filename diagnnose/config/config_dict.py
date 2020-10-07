@@ -130,21 +130,22 @@ def _set_activation_config(config_dict: ConfigDict) -> None:
     """Sets activation dtypes globally and casts activation names to
     the tuple format that is used throughout the library.
     """
-    activation_config = config_dict.get("activations", {})
-    activation_dtype = activation_config.pop("dtype", None)
+    activation_dtype = config_dict.get("activations", {}).pop("dtype", None)
     if activation_dtype is not None:
         config.DTYPE = getattr(torch, activation_dtype)
 
     # Translate activation names to tuple format that is used in the library
-    raw_activation_names = activation_config.get("activation_names", [])
-    assert all(
-        isinstance(a_name, list)
-        and isinstance(a_name[0], int)
-        and isinstance(a_name[1], str)
-        for a_name in raw_activation_names
-    ), "Incorrect format for activation names, should be [[layer, name]]."
+    for group, group_config in config_dict.items():
+        if "activation_names" in group_config:
+            activation_names = group_config["activation_names"]
+            assert all(
+                isinstance(a_name, list)
+                and isinstance(a_name[0], int)
+                and isinstance(a_name[1], str)
+                for a_name in activation_names
+            ), "Incorrect format for activation names, should be [[layer, name]]."
 
-    activation_config["activation_names"] = list(map(tuple, raw_activation_names))
+            config_dict[group]["activation_names"] = list(map(tuple, activation_names))
 
 
 def _set_tokenizer(config_dict: ConfigDict) -> None:
