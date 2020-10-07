@@ -22,7 +22,7 @@ def simple_extract(
     activations_dir: Optional[str] = None,
     batch_size: int = BATCH_SIZE,
     selection_func: SelectionFunc = return_all,
-    sen_column: str = "sen",
+    sen_column: Optional[str] = None,
 ) -> Tuple[ActivationReader, RemoveCallback]:
     """Basic extraction method.
 
@@ -47,7 +47,7 @@ def simple_extract(
         accordingly to the amount of available RAM. Defaults to 1.
     sen_column : str, optional
         Corpus column that will be tokenized and extracted. Defaults to
-        `sen`.
+        ``corpus.sen_column``.
 
     Returns
     -------
@@ -65,7 +65,7 @@ def simple_extract(
         activations_dir=activations_dir,
         selection_func=selection_func,
         batch_size=batch_size,
-        sen_column=sen_column,
+        sen_column=sen_column or corpus.sen_column,
     )
 
     activation_reader = extractor.extract()

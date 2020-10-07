@@ -36,8 +36,10 @@ class Extractor:
         Language model that inherits from LanguageModel.
     corpus : Corpus
         Corpus containing sentences to be extracted.
-    activation_names : List[tuple[int, str]]
-        List of (layer, activation_name) tuples
+    activation_names : List[tuple[int, str]], optional
+        List of (layer, activation_name) tuples. If not provided all
+        activation_names corresponding to the ``model`` will be
+        extracted.
     activations_dir : str, optional
         Directory to which activations will be written. If not provided
         the `extract()` method will only return the activations without
@@ -53,8 +55,8 @@ class Extractor:
         size increases extraction speed, but should be done
         accordingly to the amount of available RAM. Defaults to 1.
     sen_column : str, optional
-        Corpus column that will be tokenized and extracted. Defaults to
-        `sen`.
+        Corpus column that will be tokenized and extracted. Defaults
+        to the ``sen_column`` of ``corpus``.
     """
 
     def __init__(
@@ -65,7 +67,7 @@ class Extractor:
         activations_dir: Optional[str] = None,
         selection_func: Union[SelectionFunc, str] = return_all,
         batch_size: int = BATCH_SIZE,
-        sen_column: str = "sen",
+        sen_column: Optional[str] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
@@ -75,7 +77,7 @@ class Extractor:
         else:
             self.selection_func = selection_func
         self.batch_size = batch_size
-        self.sen_column = sen_column
+        self.sen_column = sen_column or corpus.sen_column
 
         self.activation_ranges = self._create_activation_ranges()
 
@@ -139,24 +141,17 @@ class Extractor:
             corpus, batch_size=self.batch_size, device=self.model.device
         )
 
-        n_extracted = 0
-
         for batch in tqdm(iterator, unit="batch"):
-            n_items_in_batch = (
-                self.activation_ranges[batch.sen_idx[-1]][1] - n_extracted
-            )
-
-            batch_activations = self._extract_batch(batch, n_items_in_batch)
+            batch_activations = self._extract_batch(batch)
 
             if dump:
                 self.activation_writer.dump_activations(batch_activations)
             else:
                 # Insert extracted batch activations into full corpus activations dict.
+                batch_start = self.activation_ranges[batch.sen_idx[0]][0]
+                batch_stop = self.activation_ranges[batch.sen_idx[-1]][1]
                 for a_name, activations in batch_activations.items():
-                    batch_slice = slice(n_extracted, n_extracted + n_items_in_batch)
-                    corpus_activations[a_name][batch_slice] = batch_activations[a_name]
-
-            n_extracted += n_items_in_batch
+                    corpus_activations[a_name][batch_start:batch_stop] = activations
 
         return corpus_activations
 
@@ -179,9 +174,9 @@ class Extractor:
         """
         sens, sen_lens = getattr(batch, self.sen_column)
 
-        # a_name -> batch_size x max_sen_len x nhid
         compute_out = (self.model.top_layer, "out") in self.activation_names
         with torch.no_grad():
+            # a_name -> batch_size x max_sen_len x nhid
             all_activations: ActivationDict = self.model(
                 input_ids=sens,
                 input_lengths=sen_lens,
@@ -190,8 +185,7 @@ class Extractor:
             )
 
         # a_name -> n_items_in_batch x nhid
-        batch_activations: ActivationDict = self._init_activation_dict(n_items_in_batch)
-        self._select_activations(batch_activations, all_activations, batch)
+        batch_activations = self._select_activations(all_activations, batch)
 
         return batch_activations
 
@@ -199,19 +193,25 @@ class Extractor:
         self,
         all_activations: ActivationDict,
         batch: Batch,
-    ) -> None:
-        sen_lens = getattr(batch, self.sen_column)[1]
+    ) -> ActivationDict:
+        """ Selects only the activations that pass selection_func. """
+        batch_start = self.activation_ranges[batch.sen_idx[0]][0]
+        batch_end = self.activation_ranges[batch.sen_idx[-1]][1]
+        n_items_in_batch = batch_end - batch_start
+        batch_activations: ActivationDict = self._init_activation_dict(n_items_in_batch)
 
         a_idx = 0
 
-        for b_idx, sen_idx in enumerate(batch.sen_idx):
-            sen_len = sen_lens[b_idx].item()
+        for b_idx, item in enumerate(batch.dataset):
+            sen_len = len(getattr(item, self.sen_column))
             for w_idx in range(sen_len):
-                if self.selection_func(w_idx, self.corpus[sen_idx]):
+                if self.selection_func(w_idx, item):
                     for a_name in batch_activations:
                         selected_activation = all_activations[a_name][b_idx][w_idx]
                         batch_activations[a_name][a_idx] = selected_activation
                     a_idx += 1
+
+        return batch_activations
 
     def _create_activation_ranges(self) -> ActivationRanges:
         activation_ranges: ActivationRanges = []
