@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -11,6 +11,7 @@ from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationKey,
     ActivationName,
+    ActivationNames,
     ActivationRanges,
     SelectionFunc,
 )
@@ -32,6 +33,12 @@ class ActivationReader:
         If activations have not been extracted to disk, the
         activation_dict containing all extracted activations can be
         provided directly as well.
+    activation_names : ActivationNames, optional
+        Activation names, provided as a list of ``(layer, name)``
+        tuples. If not provided the index to
+        :func:`~diagnnose.activations.ActivationReader.__getitem__`
+        must always contain the activation_name that is being requested,
+        as the ``ActivationReader`` can not infer it automatically.
     activation_ranges : ActivationRanges, optional
         ``ActivationRanges`` dictionary that should be provided if
         ``activation_dict`` is passed directly.
@@ -42,22 +49,29 @@ class ActivationReader:
         Set to true to store multiple activation arrays in RAM at once.
         Defaults to False, meaning that only one activation type will be
         stored in the class.
+    cat_activations : bool, optional
+        Toggle to concatenate the activations returned by
+        :func:`~diagnnose.activations.ActivationReader.__getitem__`.
+        Otherwise the activations will be split into a tuple with each
+        each tuple item containing the activations of one sentence.
     """
 
     def __init__(
         self,
         activations_dir: Optional[str] = None,
         activation_dict: Optional[ActivationDict] = None,
+        activation_names: Optional[ActivationNames] = None,
         activation_ranges: Optional[ActivationRanges] = None,
         selection_func: Optional[SelectionFunc] = None,
         store_multiple_activations: bool = False,
+        cat_activations: bool = False,
     ) -> None:
         if activations_dir is not None:
             assert os.path.exists(
                 activations_dir
             ), f"Activations dir not found: {activations_dir}"
             assert (
-                activation_dict
+                activation_dict is None
             ), "activations_dir and activations_dict can not be provided simultaneously"
         else:
             assert activation_dict is not None
@@ -66,13 +80,17 @@ class ActivationReader:
 
         self.activations_dir = activations_dir
         self.activation_dict: ActivationDict = activation_dict or {}
+        self.activation_names: ActivationNames = (
+            activation_names or list(self.activation_dict.keys())
+        )
 
         self._activation_ranges: Optional[ActivationRanges] = activation_ranges
         self._selection_func: Optional[SelectionFunc] = selection_func
 
         self.store_multiple_activations = store_multiple_activations
+        self.cat_activations = cat_activations
 
-    def __getitem__(self, key: ActivationKey) -> Tuple[Tensor, ...]:
+    def __getitem__(self, key: ActivationKey) -> Union[Tensor, Tuple[Tensor, ...]]:
         """Allows for concise and efficient indexing of activations.
 
         The ``key`` argument should be either an ``ActivationIndex``
@@ -80,8 +98,9 @@ class ActivationReader:
         ``(index, activation_name)`` tuple. An ``activation_name`` is
         a tuple of shape ``(layer, name)``.
 
-        If multiple activation_names have been the ``activation_name``
-        must be provided, otherwise it can be left out.
+        If multiple activation_names have been extracted the
+        ``activation_name`` must be provided, otherwise it can be left
+        out.
 
         The return value is a tuple of tensors, with each tensor of
         shape (sen_len, nhid).
@@ -90,11 +109,20 @@ class ActivationReader:
 
         .. code-block:: python
 
-            activation_reader = ActivationReader(*args, **kwargs)
+            activation_reader = ActivationReader(
+                dir, activation_names=[(0, "hx"), (1, "hx")], **kwargs
+            )
 
+            # activation_name must be passed.
             activations_first_sen = activation_reader[0, (1, "hx")]
-            activations_first_10_sens = activation_reader[:10, (1, "hx")]
             all_activations = activation_reader[:, (1, "hx")]
+
+            activation_reader2 = ActivationReader(
+                dir, activation_names=[(1, "hx")], **kwargs
+            )
+
+            # activation_name can be left implicit.
+            activations_first_10_sens = activation_reader2[:10]
 
         Parameters
         ----------
@@ -104,18 +132,19 @@ class ActivationReader:
 
         Returns
         -------
-        split_activations : Tuple[Tensor, ...]
-            Tuple of tensors, with each item corresponding to the
-            extracted activations of a specific sentence.
+        split_activations : Tensor | Tuple[Tensor, ...]
+            Tensor, if ``self.cat_activations`` is set to True.
+            Otherwise a tuple of tensors, with each item corresponding
+            to the extracted activations of a specific sentence.
         """
         if isinstance(key, tuple):
             index, activation_name = key
         else:
             assert (
-                len(self.activation_dict) == 1
+                len(self.activation_names) == 1
             ), "Activation name must be provided if multiple activations have been extracted"
             index = key
-            activation_name = next(iter(self.activation_dict))
+            activation_name = self.activation_names[0]
 
         iterable_index = activation_index_to_iterable(
             index, len(self.activation_ranges)
@@ -124,6 +153,9 @@ class ActivationReader:
 
         sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
         activations = self.activations(activation_name)[sen_indices]
+
+        if self.cat_activations:
+            return activations
 
         lengths = [x[1] - x[0] for x in ranges]
         split_activations: Tuple[Tensor, ...] = torch.split(activations, lengths)

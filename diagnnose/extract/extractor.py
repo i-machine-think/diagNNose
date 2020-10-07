@@ -109,13 +109,15 @@ class Extractor:
                 )
 
             activation_reader = ActivationReader(
-                activations_dir=self.activation_writer.activations_dir
+                activations_dir=self.activation_writer.activations_dir,
+                activation_names=self.activation_names
             )
         else:
             corpus_activations = self._extract_corpus(dump=False)
 
             activation_reader = ActivationReader(
                 activation_dict=corpus_activations,
+                activation_names=self.activation_names,
                 activation_ranges=self.activation_ranges,
                 selection_func=self.selection_func,
             )
