@@ -10,9 +10,35 @@ def return_all(_w_idx: int, _item: Example) -> bool:
     return True
 
 
-def final_token(w_idx: int, item: Example) -> bool:
+def final_token(sen_column: str = "sen") -> SelectionFunc:
+    """ Only returns the final token of a sentence.
+
+    Wrapper allows a different ``sen_column`` to be set, that indicates
+    the ``sen`` attribute of a corpus item that is being processed.
+    """
+
+    def selection_func(w_idx: int, item: Example) -> bool:
+        sen = getattr(item, sen_column)
+
+        return w_idx == (len(sen) - 1)
+
+    return selection_func
+
+
+def final_sen_token(w_idx: int, item: Example) -> bool:
     """ Only returns the final token of a sentence. """
-    return len(item.sen) == (w_idx + 1)
+    sen = getattr(item, "sen")
+
+    return w_idx == (len(sen) - 1)
+
+
+def only_mask_token(mask_token: str, sen_column: str = "sen") -> SelectionFunc:
+    def selection_func(w_idx: int, item: Example) -> bool:
+        sen = getattr(item, sen_column)
+
+        return sen[w_idx] == mask_token
+
+    return selection_func
 
 
 def first_n(n: int) -> SelectionFunc:
