@@ -22,7 +22,8 @@ class Corpus(Dataset):
         if hasattr(self.fields[sen_column], "vocab"):
             self.tokenizer = self.fields[sen_column].vocab
 
-        self._attach_sen_ids()
+        if "sen_idx" not in self.fields:
+            self._attach_sen_ids()
 
         # TODO: Fix when refactoring classifier module
         # if any(field_name == labels_column for field_name, _ in self.fields):
@@ -168,6 +169,34 @@ class Corpus(Dataset):
         examples = [Example.fromlist(line, fields) for line in raw_corpus]
 
         return examples
+
+    def slice(self, sen_ids: List[int]) -> "Corpus":
+        """ Returns a new Corpus only containing examples from sen_ids.
+
+        Parameters
+        ----------
+        sen_ids : List[int]
+            List of sentence indices based on which the examples in the
+            current Corpus will be filtered. These indices refer to the
+            sen_idx in the original corpus; the newly sliced corpus
+            will retain the original sen_idx of an Example item.
+
+        Returns
+        -------
+        subcorpus : Corpus
+            A new Corpus instance containing the filtered list of
+            Examples.
+        """
+        examples = [ex for ex in self.examples if ex.sen_idx in sen_ids]
+
+        subcorpus = Corpus(
+            examples,
+            self.fields,
+            sen_column=self.sen_column,
+            labels_column=self.labels_column
+        )
+
+        return subcorpus
 
     def _attach_sen_ids(self):
         """ Adds a sentence index field to the Corpus. """
