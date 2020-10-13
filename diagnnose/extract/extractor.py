@@ -202,7 +202,8 @@ class Extractor:
 
         a_idx = 0
 
-        for b_idx, item in enumerate(batch.dataset):
+        for b_idx, sen_idx in enumerate(batch.sen_idx):
+            item = self.corpus[sen_idx]
             sen_len = len(getattr(item, self.sen_column))
             for w_idx in range(sen_len):
                 if self.selection_func(w_idx, item):
