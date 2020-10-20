@@ -88,7 +88,7 @@ class TransformerLM(LanguageModel):
         if only_return_top_embs:
             return output
 
-        return {(self.top_layer, "out"): output}
+        return {(-1, "out"): output}
 
     @staticmethod
     def create_attention_mask(input_lengths: List[int]) -> Tensor:

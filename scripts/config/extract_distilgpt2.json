@@ -10,6 +10,6 @@
   },
   "activations": {
     "activations_dir": "../lm_data/activations/extracted/gpt2",
-    "activation_names": [[5, "out"]]
+    "activation_names": [[-1, "out"]]
   }
 }

@@ -1,11 +1,8 @@
-import copy
-
 from contextlib import ExitStack
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import torch
 from torchtext.data import Batch
-from transformers import BatchEncoding
 from tqdm import tqdm
 
 import diagnnose.activations.selection_funcs as selection_funcs
@@ -112,7 +109,7 @@ class Extractor:
 
             activation_reader = ActivationReader(
                 activations_dir=self.activation_writer.activations_dir,
-                activation_names=self.activation_names
+                activation_names=self.activation_names,
             )
         else:
             corpus_activations = self._extract_corpus(dump=False)
@@ -174,7 +171,7 @@ class Extractor:
         """
         sens, sen_lens = getattr(batch, self.sen_column)
 
-        compute_out = (self.model.top_layer, "out") in self.activation_names
+        compute_out = any("out" in a_name for a_name in self.activation_names)
         with torch.no_grad():
             # a_name -> batch_size x max_sen_len x nhid
             all_activations: ActivationDict = self.model(
