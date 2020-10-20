@@ -5,8 +5,7 @@ from typing import Optional
 import torch
 from transformers import PreTrainedTokenizer
 
-import diagnnose.config as config
-from diagnnose.activations.selection_funcs import final_token
+from diagnnose.activations.selection_funcs import final_sen_token
 from diagnnose.corpus import Corpus
 from diagnnose.extract import Extractor
 from diagnnose.typedefs.activations import ActivationDict, ActivationNames
@@ -83,7 +82,7 @@ def _create_zero_states(model: RecurrentLM) -> ActivationDict:
         Dictionary mapping (layer, name) tuple to zero-tensor.
     """
     init_states: ActivationDict = {
-        a_name: torch.zeros((1, model.nhid(a_name)), dtype=config.DTYPE)
+        a_name: torch.zeros((1, model.nhid(a_name)))
         for a_name in product(range(model.num_layers), ["cx", "hx"])
     }
 
@@ -113,7 +112,7 @@ def _create_init_states_from_corpus(
         corpus,
         activation_names,
         activations_dir=save_init_states_to,
-        selection_func=final_token,
+        selection_func=final_sen_token,
     )
     init_states = extractor.extract().activation_dict
 

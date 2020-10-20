@@ -5,7 +5,6 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import Tensor
 
-import diagnnose.config as config
 from diagnnose.activations.activation_index import activation_index_to_iterable
 from diagnnose.typedefs.activations import (
     ActivationDict,
@@ -80,8 +79,8 @@ class ActivationReader:
 
         self.activations_dir = activations_dir
         self.activation_dict: ActivationDict = activation_dict or {}
-        self.activation_names: ActivationNames = (
-            activation_names or list(self.activation_dict.keys())
+        self.activation_names: ActivationNames = activation_names or list(
+            self.activation_dict.keys()
         )
 
         self._activation_ranges: Optional[ActivationRanges] = activation_ranges
@@ -225,7 +224,7 @@ class ActivationReader:
                     if activations is None:
                         hidden_size = sen_activations.shape[1]
                         activations = torch.empty(
-                            (len(self), hidden_size), dtype=config.DTYPE
+                            (len(self), hidden_size), dtype=sen_activations.dtype
                         )
 
                     i = len(sen_activations)

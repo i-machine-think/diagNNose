@@ -6,7 +6,6 @@ import torch
 from torch import Tensor
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
-import diagnnose.config as config
 from diagnnose.attribute import ShapleyTensor
 from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.typedefs.activations import (
@@ -62,9 +61,9 @@ class ForwardLSTM(RecurrentLM):
         self._set_lstm_weights(params, rnn_name)
 
         # Encoder and decoder weights
-        self.word_embeddings: Tensor = params[f"{encoder_name}.weight"].to(config.DTYPE)
-        self.decoder_w: Tensor = params[f"{decoder_name}.weight"].to(config.DTYPE)
-        self.decoder_b: Tensor = params[f"{decoder_name}.bias"].to(config.DTYPE)
+        self.word_embeddings: Tensor = params[f"{encoder_name}.weight"]
+        self.decoder_w: Tensor = params[f"{decoder_name}.weight"]
+        self.decoder_b: Tensor = params[f"{decoder_name}.bias"]
 
         self.sizes[self.top_layer, "out"] = self.decoder_b.size(0)
 
@@ -164,9 +163,7 @@ class ForwardLSTM(RecurrentLM):
         """
         batch_size, max_sen_len = inputs_embeds.shape[:2]
         all_activations: ActivationDict = {
-            a_name: torch.zeros(batch_size, max_sen_len, self.nhid(a_name)).to(
-                config.DTYPE
-            )
+            a_name: torch.zeros(batch_size, max_sen_len, self.nhid(a_name))
             for a_name in self.activation_names(compute_out)
         }
 
@@ -301,13 +298,13 @@ class ForwardLSTM(RecurrentLM):
             w_i = params[param_names["weight_ih"]]
 
             # Shape: (emb_size+nhid_h, 4*nhid_c)
-            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t().to(config.DTYPE)
+            self.weight[layer] = torch.cat((w_h, w_i), dim=1).t()
 
             if param_names["bias_hh"] in params:
                 # Shape: (4*nhid_c,)
                 self.bias[layer] = (
                     params[param_names["bias_hh"]] + params[param_names["bias_ih"]]
-                ).to(config.DTYPE)
+                )
 
             self.sizes.update(
                 {

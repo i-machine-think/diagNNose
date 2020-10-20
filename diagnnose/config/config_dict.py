@@ -5,9 +5,6 @@ from functools import reduce
 from pprint import pprint
 from typing import Any, Dict, List
 
-import torch
-
-import diagnnose.config as config
 from diagnnose.utils.misc import merge_dicts
 
 from .arg_descriptions import arg_descriptions
@@ -48,7 +45,7 @@ def create_config_dict() -> ConfigDict:
     _add_unk_args(cmd_args, unk_args)
     config_dict = _add_cmd_args(init_config_dict, cmd_args)
 
-    _set_activation_config(config_dict)
+    _cast_activation_names(config_dict)
 
     _set_tokenizer(config_dict)
 
@@ -126,14 +123,10 @@ def _add_cmd_args(config_dict: ConfigDict, cmd_args: Dict[str, Any]) -> ConfigDi
     return config_dict
 
 
-def _set_activation_config(config_dict: ConfigDict) -> None:
-    """Sets activation dtypes globally and casts activation names to
-    the tuple format that is used throughout the library.
+def _cast_activation_names(config_dict: ConfigDict) -> None:
+    """Casts activation names tobthe tuple format that is used
+    throughout the library.
     """
-    activation_dtype = config_dict.get("activations", {}).pop("dtype", None)
-    if activation_dtype is not None:
-        config.DTYPE = getattr(torch, activation_dtype)
-
     # Translate activation names to tuple format that is used in the library
     for group, group_config in config_dict.items():
         if "activation_names" in group_config:
