@@ -5,6 +5,7 @@ import torch
 from torch import Tensor
 from transformers import (
     AutoModel,
+    AutoModelForCausalLM,
     AutoModelForMaskedLM,
     AutoModelForQuestionAnswering,
     AutoModelForSequenceClassification,
@@ -23,7 +24,8 @@ from diagnnose.typedefs.activations import (
 )
 
 mode_to_auto_model = {
-    "language_modeling": AutoModelForMaskedLM,
+    "causal_lm": AutoModelForCausalLM,
+    "masked_lm": AutoModelForMaskedLM,
     "question_answering": AutoModelForQuestionAnswering,
     "sequence_classification": AutoModelForSequenceClassification,
     "token_classification": AutoModelForTokenClassification,
@@ -86,7 +88,7 @@ class TransformerLM(LanguageModel):
         if only_return_top_embs:
             return output
 
-        return {(self.top_layer, "hx"): output}
+        return {(self.top_layer, "out"): output}
 
     @staticmethod
     def create_attention_mask(input_lengths: List[int]) -> Tensor:
@@ -179,8 +181,10 @@ class TransformerLM(LanguageModel):
             raise AttributeError("Number of layers attribute not found in config")
 
     def nhid(self, activation_name: ActivationName) -> int:
+        if activation_name[1] == "out":
+            return self.pretrained_model.config.vocab_size
+
         return self.pretrained_model.config.hidden_size
 
-    @property
     def activation_names(self) -> ActivationNames:
         return [(self.top_layer, "hx")]
