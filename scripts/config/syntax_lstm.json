@@ -11,7 +11,7 @@
     "notify_unk": true
   },
   "downstream": {
-    "tasks": ["marvin"],
+    "tasks": ["warstadt"],
     "ignore_unk": false,
     "use_full_model_probs": true,
     "config": {

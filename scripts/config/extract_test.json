@@ -1,13 +1,11 @@
 {
   "model": {
-    "type": "ForwardLSTM",
+    "model_type": "ForwardLSTM",
     "state_dict": "data/model/state_dict.pt"
   },
-  "vocab": {
-    "path": "data/model/vocab.txt"
-  },
   "corpus": {
-    "path": "data/minicorpus.txt"
+    "path": "data/minicorpus.txt",
+    "vocab_path": "data/model/vocab.txt"
   },
   "activations": {
     "activation_names": [[1, "hx"]],

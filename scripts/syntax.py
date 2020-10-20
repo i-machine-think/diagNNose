@@ -3,9 +3,9 @@ from pprint import pprint
 from transformers import PreTrainedTokenizer
 
 from diagnnose.config.config_dict import create_config_dict
-from diagnnose.syntax.evaluator import SyntacticEvaluator
 from diagnnose.models import LanguageModel
 from diagnnose.models.import_model import import_model
+from diagnnose.syntax.evaluator import SyntacticEvaluator
 from diagnnose.tokenizer import create_tokenizer
 
 if __name__ == "__main__":

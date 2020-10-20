@@ -1,0 +1,13 @@
+{
+  "model": {
+    "model_type": "ForwardLSTM",
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
+  },
+  "init_states": {
+    "use_default": true
+  },
+  "tokenizer": {
+    "path": "../lm_data/models/gulordava/vocab.txt",
+    "notify_unk": false
+  }
+}
