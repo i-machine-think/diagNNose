@@ -51,6 +51,7 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
         The instantiated tokenizer that maps tokens to their indices.
     """
     if os.path.exists(os.path.expanduser(path)):
+        # Word-based vocabulary, used by older LSTM models
         vocab = W2I(token_to_index(path), notify_unk=notify_unk)
 
         tokenizer = PreTrainedTokenizer()
@@ -71,11 +72,16 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
 
         return tokenizer
 
+    # Subword-based vocabulary, used by Transformer models
     tokenizer = AutoTokenizer.from_pretrained(path)
-    # GPT-2 & Roberta use a different attribute for the underlying vocab dictionary.
     if hasattr(tokenizer, "encoder"):
-        tokenizer.vocab = tokenizer.encoder
+        # GPT-2 & Roberta use a different attribute for the underlying vocab dictionary.
+        encoder: Dict[str, int] = getattr(tokenizer, "encoder")
+        tokenizer.vocab = W2I(encoder, unk_token=tokenizer.unk_token)
         tokenizer.ids_to_tokens = tokenizer.decoder
+
+    if getattr(tokenizer, "pad_token", None) is None:
+        tokenizer.pad_token = tokenizer.unk_token
 
     return tokenizer
 
