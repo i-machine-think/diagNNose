@@ -1,7 +1,7 @@
+import itertools
 from functools import wraps
-from itertools import combinations
 from math import factorial
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -45,7 +45,7 @@ def monkey_patch():
 def unwrap(args: Any, attr: str = "data", coalition: Optional[List[int]] = None) -> Any:
     """Unwraps a list of args that might contain ShapleyTensors.
 
-    Can be used to retrieve 1. The full tensor of each
+    Can be used to retrieve: 1. The full tensor of each
     ShapleyTensor, 2. The list of contributions, or 3. The sum of
     contributions for a specific coalition.
 
@@ -66,15 +66,16 @@ def unwrap(args: Any, attr: str = "data", coalition: Optional[List[int]] = None)
         returned, instead of the full list of contributions.
     """
     if hasattr(args, attr):
-        attr = getattr(args, attr)
+        args_attr = getattr(args, attr)
         if coalition is not None:
-            return sum_contributions(attr, coalition)
-        return attr
+            return sum_contributions(args_attr, coalition)
+        return args_attr
     elif isinstance(args, (Tensor, str)):
         return args
-    elif isinstance(args, (list, tuple)):
-        iterable_type = type(args)
-        return iterable_type(map(unwrap, args))
+    elif isinstance(args, list):
+        return [unwrap(arg, attr, coalition) for arg in args]
+    elif isinstance(args, tuple):
+        return tuple(unwrap(arg, attr, coalition) for arg in args)
 
     return args
 
@@ -88,25 +89,24 @@ def sum_contributions(contributions: List[Tensor], coalition: List[int]) -> Tens
     return contributions_sum
 
 
-def calc_shapley_factors(n: int) -> List[Tuple[List[int], int]]:
-    """Creates the normalization factors for each subset of `n` items.
+def calc_shapley_factors(num_features: int) -> List[Tuple[List[int], int]]:
+    """Creates the normalization factors for each subset of features.
 
     These factors are based on the original Shapley formulation:
     https://en.wikipedia.org/wiki/Shapley_value
 
     If, for instance, we were to compute these factors for item
     :math:`a` in the set :math:`N = \{a, b, c\}`, we would pass
-    :math:`|N|-1`. This returns the list
-    :math:`[([], 2), ([0], 1), ([1], 1), ([0, 1], 2])`. The first item
+    :math:`|N|`. This returns the list
+    :math:`[([], 2), ([0], 1), ([1], 1), ([0, 1], 2])]`. The first item
     of each tuple should be interpreted as the indices for the set
     :math:`N\setminus\{a\}: (0 \Rightarrow b, 1 \Rightarrow c)`, mapped
     to their factors: :math:`|ids|! \cdot (n - |ids|)!`.
 
     Parameters
     ----------
-    n : int
-        Set size (i.e. number of features) for which Shapley values will
-        be computed.
+    num_features : int
+        Number of features for which Shapley values will be computed.
 
     Returns
     -------
@@ -116,9 +116,82 @@ def calc_shapley_factors(n: int) -> List[Tuple[List[int], int]]:
     """
     shapley_factors = []
 
-    for i in range(n + 1):
-        factor = factorial(i) * factorial(n - i)
-        for pi in combinations(range(n), i):
+    for i in range(num_features):
+        factor = factorial(i) * factorial(num_features - i - 1)
+        for pi in itertools.combinations(range(num_features - 1), i):
             shapley_factors.append((list(pi), factor))
 
     return shapley_factors
+
+
+def perm_generator(num_features: int, num_samples: int) -> Iterable[List[int]]:
+    """ Generator for feature index permutations. """
+    for _ in range(num_samples):
+        yield torch.randperm(num_features).tolist()
+
+
+def calc_exact_shapley_values(
+    fn: Callable,
+    num_features: int,
+    shapley_factors: List[Tuple[List[int], int]],
+    data_shape: torch.Size,
+    *args,
+    **kwargs,
+) -> List[Tensor]:
+    contributions = []
+
+    for f_idx in range(num_features):
+        other_ids = torch.tensor([i for i in range(num_features) if i != f_idx])
+
+        contribution = torch.zeros(data_shape)
+
+        for coalition_ids, factor in shapley_factors:
+            coalition = list(other_ids[coalition_ids])
+            args_wo = unwrap(args, attr="contributions", coalition=coalition)
+
+            args_with = unwrap(
+                args, attr="contributions", coalition=(coalition + [f_idx])
+            )
+
+            contribution += factor * (fn(*args_with, **kwargs) - fn(*args_wo, **kwargs))
+
+        contribution /= factorial(num_features)
+        contributions.append(contribution)
+
+    # Add baseline to default feature ([0]).
+    zero_input_args = unwrap(args, attr="contributions", coalition=[])
+    baseline = fn(*zero_input_args, **kwargs)
+    contributions[0] += baseline
+
+    return contributions
+
+
+def calc_sample_shapley_values(
+    fn: Callable,
+    num_features: int,
+    num_samples: int,
+    data_shape: torch.Size,
+    *args,
+    **kwargs,
+) -> List[Tensor]:
+    contributions = [torch.zeros(data_shape) for _ in range(num_features)]
+
+    generator = perm_generator(num_features, num_samples)
+
+    zero_input_args = unwrap(args, attr="contributions", coalition=[])
+    baseline = fn(*zero_input_args, **kwargs)
+
+    for sample in generator:
+        prev_value = baseline
+        for sample_idx, feature_idx in enumerate(sample, start=1):
+            coalition = sample[:sample_idx]
+            coalition_args = unwrap(args, attr="contributions", coalition=coalition)
+
+            new_value = fn(*coalition_args, **kwargs)
+            contributions[feature_idx] += new_value - prev_value
+            prev_value = new_value
+
+    contributions = [c / num_samples for c in contributions]
+    contributions[0] += baseline
+
+    return contributions

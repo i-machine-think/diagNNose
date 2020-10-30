@@ -3,13 +3,7 @@ from typing import List, Tuple, Union
 from torch import Tensor
 from transformers import BatchEncoding, PreTrainedTokenizer
 
-from diagnnose.attribute.decomposer import ContextualDecomposer, ShapleyDecomposer
-from diagnnose.models import LanguageModel
-
-decomposers = {
-    "ShapleyDecomposer": ShapleyDecomposer,
-    "ContextualDecomposer": ContextualDecomposer,
-}
+from diagnnose.attribute.decomposer import Decomposer
 
 
 class Explainer:
@@ -17,11 +11,10 @@ class Explainer:
 
     def __init__(
         self,
-        model: LanguageModel,
+        decomposer: Decomposer,
         tokenizer: PreTrainedTokenizer,
-        decomposer: str = "shapley_decomposer",
     ):
-        self.decomposer = decomposers[decomposer](model)
+        self.decomposer = decomposer
         self.tokenizer = tokenizer
 
     def explain(self, input_tokens: Union[str, List[str]], output_tokens: List[str]):
@@ -37,15 +30,13 @@ class Explainer:
             for contribution in contributions
         ]
 
-        self._print_attributions(
-            full_probs, contribution_probs, batch_encoding, output_tokens
-        )
+        return full_probs, contribution_probs
 
-    def _tokenize(self, sentences: Union[str, List[str]]) -> BatchEncoding:
-        sentences = [sentences] if isinstance(sentences, str) else sentences
+    def _tokenize(self, input_tokens: Union[str, List[str]]) -> BatchEncoding:
+        input_tokens = [input_tokens] if isinstance(input_tokens, str) else input_tokens
 
         batch_encoding = self.tokenizer(
-            sentences,
+            input_tokens,
             padding=True,
             return_attention_mask=False,
             return_length=True,
@@ -78,10 +69,10 @@ class Explainer:
                 sub_token_ids = self.tokenizer.encode(
                     f"{mask_token} {token}", add_special_tokens=False
                 )[1:]
-                sub_tokens = self.tokenizer.decode(sub_token_ids)
+                sub_tokens = self.tokenizer.convert_ids_to_tokens(sub_token_ids)
                 assert (
-                    len(sub_tokens) == 1
-                ), f"Multi-subword tokens not supported ({token} -> {sub_tokens})"
+                    len(sub_token_ids) == 1
+                ), f"Multi-subword tokens not supported ({token} -> {str(sub_tokens)})"
                 sub_token_id = sub_token_ids[0]
 
             output_ids.append(sub_token_id)
@@ -116,13 +107,15 @@ class Explainer:
 
         return token_probs
 
-    def _print_attributions(
+    def print_attributions(
         self,
         full_probs: Tensor,
         contribution_probs: List[Tensor],
-        batch_encoding: BatchEncoding,
+        input_tokens: Union[str, List[str]],
         output_tokens: List[str],
     ):
+        batch_encoding = self._tokenize(input_tokens)
+
         for sen_idx, token_ids in enumerate(batch_encoding["input_ids"]):
             print((" " * 15) + "".join(f"{w:<15}" for w in output_tokens))
             print(

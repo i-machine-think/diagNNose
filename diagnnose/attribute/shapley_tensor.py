@@ -38,6 +38,7 @@ class ShapleyTensor:
         data: Tensor,
         contributions: Optional[List[Tensor]] = None,
         shapley_factors: Optional[List[Tuple[List[int], int]]] = None,
+        num_samples: Optional[int] = None,
         validate: bool = False,
     ):
         if not utils.MONKEY_PATCH_PERFORMED:
@@ -47,18 +48,18 @@ class ShapleyTensor:
         self.data = data
         self.contributions = contributions or []
         self.shapley_factors = shapley_factors
+        self.num_samples = num_samples
         self.validate = validate
 
         self.current_fn: Optional[str] = None
+        self.new_data_shape: Optional[torch.Size] = None
 
         if len(self.contributions) > 0:
             if validate:
                 self._validate_contributions()
 
-            if shapley_factors is None:
-                self.shapley_factors = utils.calc_shapley_factors(
-                    len(contributions) - 1
-                )
+            if shapley_factors is None and num_samples is None:
+                self.shapley_factors = utils.calc_shapley_factors(self.num_features)
 
     def __torch_function__(self, fn, _types, args=(), kwargs=None):
         self.current_fn = fn.__name__
@@ -66,10 +67,9 @@ class ShapleyTensor:
         kwargs = kwargs or {}
 
         data = fn(*map(utils.unwrap, args), **kwargs)
-        if len(self.contributions) == 0:
-            contributions = []
-        else:
-            contributions = self._calc_contributions(fn, *args, **kwargs)
+        self.new_data_shape = data.shape if isinstance(data, Tensor) else None
+
+        contributions = self._calc_contributions(fn, *args, **kwargs)
 
         output = self._pack_output(data, contributions)
 
@@ -83,13 +83,22 @@ class ShapleyTensor:
         return self.data.size(*args, **kwargs)
 
     def __iter__(self):
-        """ Allows a ShapleyTensor to be unpacked directly. """
+        """Allows a ShapleyTensor to be unpacked directly as:
+
+        .. code-block:: python
+
+            data, contributions = shapley_tensor
+        """
         yield from [self.data, self.contributions]
 
     def __len__(self):
         return len(self.data)
 
     def __getattr__(self, item: str) -> Any:
+        """
+        Handles torch methods that are called on a tensor itself, like
+        ``tensor.add(*args)`` or ``tensor.view(*args)``.
+        """
         attr = getattr(self.data, item)
 
         if isinstance(attr, Callable):
@@ -130,10 +139,13 @@ class ShapleyTensor:
             contributions = [contribution[index] for contribution in self.contributions]
 
         # We return type(self) to allow a subclass that derives from ShapleyTensor to be preserved.
-        return type(self)(
+        tensor_type = type(self)
+
+        return tensor_type(
             data,
             contributions=contributions,
             shapley_factors=self.shapley_factors,
+            num_samples=self.num_samples,
             validate=self.validate,
         )
 
@@ -173,10 +185,12 @@ class ShapleyTensor:
         type structure of the output is preserved.
         """
         if isinstance(data, torch.Tensor):
-            return type(self)(
+            tensor_type = type(self)
+            return tensor_type(
                 data,
                 contributions=contributions,
                 shapley_factors=self.shapley_factors,
+                num_samples=self.num_samples,
                 validate=self.validate,
             )
         elif self.current_fn == "_pack_padded_sequence":
@@ -196,10 +210,13 @@ class ShapleyTensor:
         return data
 
     def _calc_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
-        """Some methods have custom behaviour for how the output is
+        """
+        Some methods have custom behaviour for how the output is
         decomposed into a new set of contributions.
         """
-        if hasattr(self, f"{fn.__name__}_contributions"):
+        if self.num_features == 0:
+            return []
+        elif hasattr(self, f"{fn.__name__}_contributions"):
             fn = getattr(self, f"{fn.__name__}_contributions")
             return fn(*args, **kwargs)
         elif fn.__name__ in [
@@ -215,42 +232,24 @@ class ShapleyTensor:
 
     def _calc_shapley_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         """ Calculates the Shapley decomposition of the current fn. """
-        contributions = []
-
-        for f_idx in range(self.num_features):
-            other_ids = torch.tensor(
-                [i for i in range(self.num_features) if i != f_idx]
+        if self.num_samples is None:
+            return utils.calc_exact_shapley_values(
+                fn,
+                self.num_features,
+                self.shapley_factors,
+                self.new_data_shape,
+                *args,
+                **kwargs,
             )
-
-            contribution = 0.0
-
-            for coalition_ids, factor in self.shapley_factors:
-                coalition = list(other_ids[coalition_ids])
-                args_wo = [
-                    utils.unwrap(arg, attr="contributions", coalition=coalition)
-                    for arg in args
-                ]
-
-                coalition += [f_idx]
-                args_with = [
-                    utils.unwrap(arg, attr="contributions", coalition=coalition)
-                    for arg in args
-                ]
-
-                contribution += factor * (
-                    fn(*args_with, **kwargs) - fn(*args_wo, **kwargs)
-                )
-
-            contribution /= factorial(self.num_features)
-            contributions.append(contribution)
-
-        # Add baseline to default feature ([0]).
-        zero_input_args = [
-            utils.unwrap(arg, attr="contributions", coalition=[]) for arg in args
-        ]
-        contributions[0] += fn(*zero_input_args, **kwargs)
-
-        return contributions
+        else:
+            return utils.calc_sample_shapley_values(
+                fn,
+                self.num_features,
+                self.num_samples,
+                self.new_data_shape,
+                *args,
+                **kwargs,
+            )
 
     def cat_contributions(self, *args, **kwargs):
         # A non-ShapleyTensor only contributes to the default feature, and is padded with 0s.

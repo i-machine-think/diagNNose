@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
 import torch
 from torch import Tensor
@@ -23,8 +23,14 @@ class Decomposer(abc.ABC):
     desired partition of contributions.
     """
 
-    def __init__(self, model: LanguageModel, tensor_type: str = "ShapleyTensor"):
+    def __init__(
+        self,
+        model: LanguageModel,
+        num_samples: Optional[int] = None,
+        tensor_type: str = "ShapleyTensor",
+    ):
         self.model = model
+        self.num_samples = num_samples
         self.tensor_type = tensor_types[tensor_type]
 
     @abc.abstractmethod
@@ -86,7 +92,10 @@ class ShapleyDecomposer(Decomposer):
             contributions.append(contribution)
 
         shapley_in = self.tensor_type(
-            inputs_embeds, contributions=contributions, validate=True
+            inputs_embeds,
+            contributions=contributions,
+            validate=True,
+            num_samples=self.num_samples,
         )
 
         return shapley_in
@@ -144,10 +153,11 @@ class ContextualDecomposer(Decomposer):
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
         all_shapley_in = [
-            self.tensor_type(
+            GCDTensor(
                 inputs_embeds,
                 contributions=[torch.zeros_like(inputs_embeds), inputs_embeds],
                 validate=True,
+                num_samples=self.num_samples,
             )
         ]
 
@@ -161,7 +171,10 @@ class ContextualDecomposer(Decomposer):
             contributions = [gamma, beta]
 
             shapley_in = GCDTensor(
-                inputs_embeds, contributions=contributions, validate=False
+                inputs_embeds,
+                contributions=contributions,
+                validate=False,
+                num_samples=self.num_samples,
             )
 
             all_shapley_in.append(shapley_in)
