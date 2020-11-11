@@ -1,4 +1,3 @@
-from math import factorial
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 from warnings import warn
 
@@ -52,7 +51,7 @@ class ShapleyTensor:
         self.validate = validate
 
         self.current_fn: Optional[str] = None
-        self.new_data_shape: Optional[torch.Size] = None
+        self.new_data: Optional[Union[Tensor, Iterable[Tensor]]] = None
 
         if len(self.contributions) > 0:
             if validate:
@@ -66,14 +65,11 @@ class ShapleyTensor:
 
         kwargs = kwargs or {}
 
-        data = fn(*map(utils.unwrap, args), **kwargs)
-        self.new_data_shape = data.shape if isinstance(data, Tensor) else None
+        self.new_data = fn(*map(utils.unwrap, args), **kwargs)
 
-        contributions = self._calc_contributions(fn, *args, **kwargs)
+        new_contributions = self._calc_contributions(fn, *args, **kwargs)
 
-        output = self._pack_output(data, contributions)
-
-        return output
+        return self._pack_output(self.new_data, new_contributions)
 
     @property
     def num_features(self) -> int:
@@ -175,8 +171,8 @@ class ShapleyTensor:
 
     def _pack_output(
         self,
-        data: Union[Tensor, Iterable[Tensor]],
-        contributions: Union[List[Tensor], Iterable[List[Tensor]]],
+        new_data: Union[Tensor, Iterable[Tensor]],
+        new_contributions: Union[List[Tensor], Iterable[List[Tensor]]],
     ) -> Any:
         """Packs the output and its corresponding contributions into a
         new ShapleyTensor.
@@ -184,30 +180,32 @@ class ShapleyTensor:
         If the output is an iterable (e.g. with a .split operation) the
         type structure of the output is preserved.
         """
-        if isinstance(data, torch.Tensor):
+        if isinstance(new_data, torch.Tensor):
             tensor_type = type(self)
+
             return tensor_type(
-                data,
-                contributions=contributions,
+                new_data,
+                contributions=new_contributions,
                 shapley_factors=self.shapley_factors,
                 num_samples=self.num_samples,
                 validate=self.validate,
             )
         elif self.current_fn == "_pack_padded_sequence":
-            contributions = [c[0] for c in contributions]
-            return self._pack_output(data[0], contributions), data[1]
-        elif isinstance(data, (list, tuple)):
-            iterable_type = type(data)
+            new_contributions = [c[0] for c in new_contributions]
 
-            if len(contributions) == 0:
-                return iterable_type(self._pack_output(item, []) for item in data)
+            return self._pack_output(new_data[0], new_contributions), new_data[1]
+        elif isinstance(new_data, (list, tuple)):
+            iterable_type = type(new_data)
+
+            if len(new_contributions) == 0:
+                return iterable_type(self._pack_output(item, []) for item in new_data)
 
             return iterable_type(
-                self._pack_output(item, contributions[idx])
-                for idx, item in enumerate(data)
+                self._pack_output(item, new_contributions[idx])
+                for idx, item in enumerate(new_data)
             )
 
-        return data
+        return new_data
 
     def _calc_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         """
@@ -232,12 +230,16 @@ class ShapleyTensor:
 
     def _calc_shapley_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         """ Calculates the Shapley decomposition of the current fn. """
+        assert (
+            isinstance(self.new_data, Tensor)
+        ), f"Current operation {self.current_fn} is not supported for Shapley calculation"
+
         if self.num_samples is None:
             return utils.calc_exact_shapley_values(
                 fn,
                 self.num_features,
                 self.shapley_factors,
-                self.new_data_shape,
+                self.new_data,
                 *args,
                 **kwargs,
             )
@@ -246,7 +248,7 @@ class ShapleyTensor:
                 fn,
                 self.num_features,
                 self.num_samples,
-                self.new_data_shape,
+                self.new_data,
                 *args,
                 **kwargs,
             )

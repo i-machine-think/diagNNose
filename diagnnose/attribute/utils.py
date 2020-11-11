@@ -134,7 +134,7 @@ def calc_exact_shapley_values(
     fn: Callable,
     num_features: int,
     shapley_factors: List[Tuple[List[int], int]],
-    data_shape: torch.Size,
+    new_data: Tensor,
     *args,
     **kwargs,
 ) -> List[Tensor]:
@@ -143,7 +143,7 @@ def calc_exact_shapley_values(
     for f_idx in range(num_features):
         other_ids = torch.tensor([i for i in range(num_features) if i != f_idx])
 
-        contribution = torch.zeros(data_shape)
+        contribution = torch.zeros_like(new_data)
 
         for coalition_ids, factor in shapley_factors:
             coalition = list(other_ids[coalition_ids])
@@ -170,11 +170,11 @@ def calc_sample_shapley_values(
     fn: Callable,
     num_features: int,
     num_samples: int,
-    data_shape: torch.Size,
+    new_data: Tensor,
     *args,
     **kwargs,
 ) -> List[Tensor]:
-    contributions = [torch.zeros(data_shape) for _ in range(num_features)]
+    contributions = [torch.zeros_like(new_data) for _ in range(num_features)]
 
     generator = perm_generator(num_features, num_samples)
 
