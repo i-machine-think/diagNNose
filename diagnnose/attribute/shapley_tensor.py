@@ -288,6 +288,21 @@ class ShapleyTensor:
 
         return contributions
 
+    def dropout_contributions(self, *args, **kwargs):
+        dropout_mask = self.new_data != args[0].data
+
+        contributions = args[0].contributions
+        for contribution in contributions:
+            contribution[dropout_mask] = 0.
+
+        return contributions
+
+    def dropout2d_contributions(self, *args, **kwargs):
+        return self.dropout_contributions(*args, **kwargs)
+
+    def dropout3d_contributions(self, *args, **kwargs):
+        return self.dropout_contributions(*args, **kwargs)
+
     @staticmethod
     def add_contributions(*args, **kwargs):
         """ Non-ShapleyTensors are added to the default partition. """
