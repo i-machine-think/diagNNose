@@ -53,12 +53,8 @@ class ShapleyTensor:
         self.current_fn: Optional[str] = None
         self.new_data: Optional[Union[Tensor, Iterable[Tensor]]] = None
 
-        if len(self.contributions) > 0:
-            if validate:
-                self._validate_contributions()
-
-            if shapley_factors is None and num_samples is None:
-                self.shapley_factors = utils.calc_shapley_factors(self.num_features)
+        if len(self.contributions) > 0 and shapley_factors is None and num_samples is None:
+            self.shapley_factors = utils.calc_shapley_factors(self.num_features)
 
     def __torch_function__(self, fn, _types, args=(), kwargs=None):
         self.current_fn = fn.__name__
@@ -158,15 +154,16 @@ class ShapleyTensor:
         for c_idx, contribution in enumerate(self.contributions):
             contribution[index] = value.contributions[c_idx]
 
-    def _validate_contributions(self) -> None:
+    def _validate_contributions(self, data, contributions) -> None:
         """ Asserts whether the contributions sum up to the full tensor. """
-        diff = (self.data - sum(self.contributions)).float()
+        diff = (data - sum(contributions)).float()
         mean_diff = torch.mean(diff)
         max_diff = torch.max(torch.abs(diff))
-        if not torch.allclose(self.data, sum(self.contributions), rtol=1e-3, atol=1e-3):
+        if not torch.allclose(data, sum(contributions), rtol=1e-3, atol=1e-3):
             warn(
                 f"Contributions don't sum up to the provided tensor, with a mean difference of "
-                f"{mean_diff:.3E} and a max difference of {max_diff:.3E}."
+                f"{mean_diff:.3E} and a max difference of {max_diff:.3E}. "
+                f"Current function is: {self.current_fn}"
             )
 
     def _pack_output(
@@ -182,6 +179,9 @@ class ShapleyTensor:
         """
         if isinstance(new_data, torch.Tensor):
             tensor_type = type(self)
+
+            if self.validate and len(new_contributions) > 0:
+                self._validate_contributions(new_data, new_contributions)
 
             return tensor_type(
                 new_data,
