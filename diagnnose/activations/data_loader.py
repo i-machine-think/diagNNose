@@ -1,23 +1,22 @@
 import random
-from collections import namedtuple
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import torch
-from torchtext.vocab import Vocab
 
 from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_labels import create_labels_from_corpus
+from diagnnose.extract import simple_extract
+from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationIndex,
     ActivationName,
+    ActivationNames,
     SelectionFunc,
 )
-from diagnnose.typedefs.probe import ControlTask, DataDict
+from diagnnose.typedefs.probe import ControlTask, DataDict, DataSplit
 
 from .activation_reader import ActivationReader
-
-
-DataSplit = namedtuple("DataSplit", ["activation_reader", "labels", "control_labels"])
+from .selection_funcs import return_all, union
 
 
 class DataLoader:
@@ -65,25 +64,34 @@ class DataLoader:
 
     def __init__(
         self,
-        activations_dir: str,
         corpus: Corpus,
-        labels_column: str,
+        activations_dir: Optional[str] = None,
+        model: Optional[LanguageModel] = None,
+        activation_names: Optional[ActivationNames] = None,
+        train_selection_func: Optional[SelectionFunc] = None,
         test_activations_dir: Optional[str] = None,
         test_corpus: Optional[Corpus] = None,
-        test_labels_column: Optional[str] = None,
-        train_selection_func: Optional[SelectionFunc] = None,
         test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
         train_test_ratio: Optional[float] = None,
     ) -> None:
         assert (
-            (test_corpus is not None and test_activations_dir is not None)
+            None not in [test_corpus, test_selection_func]
             or test_selection_func is not None
             or train_test_ratio is not None
+        ), (
+            "Test split must be provided by either passing a test_corpus, a test_selection_func, "
+            "or a train_test_ratio. The docstring of DataLoader contains more precise information."
         )
 
-        train_activation_reader = ActivationReader(
-            activations_dir, cat_activations=True
+        selection_func = (
+            union((train_selection_func, test_selection_func))
+            if test_selection_func is not None and test_corpus is None
+            else train_selection_func
+        )
+
+        train_activation_reader = self._create_activation_reader(
+            model, corpus, activation_names, activations_dir, selection_func
         )
 
         self.train_ids, self.test_ids = self._train_test_ids(
@@ -97,24 +105,31 @@ class DataLoader:
         self.train_split = self._create_data_split(
             train_activation_reader,
             corpus,
-            labels_column,
             self.train_ids,
             control_task,
         )
 
-        self.test_split = self._create_test_split(
-            corpus,
-            labels_column,
-            train_activation_reader,
-            test_activations_dir,
+        if test_corpus is not None:
+            test_activation_reader = self._create_test_split(
+                model,
+                activation_names,
+                test_activations_dir,
+                test_corpus,
+                test_selection_func,
+            )
+        else:
+            test_activation_reader = train_activation_reader
+            test_corpus = corpus
+
+        self.test_split = self._create_data_split(
+            test_activation_reader,
             test_corpus,
-            test_labels_column,
-            test_selection_func,
+            self.test_ids,
             control_task,
-            train_test_ratio,
         )
 
-        self.label_vocab: Vocab = corpus.fields[labels_column].vocab
+        self.activation_names = train_activation_reader.activation_names
+        self.label_vocab: Dict[str, int] = corpus.fields[corpus.labels_column].vocab
 
         assert len(self.test_split.labels) > 0, (
             "DataSplit contains no test labels, check whether test_selection_func, "
@@ -122,10 +137,32 @@ class DataLoader:
         )
 
     @staticmethod
+    def _create_activation_reader(
+        model: Optional[LanguageModel],
+        corpus: Corpus,
+        activation_names: ActivationNames,
+        activations_dir: str,
+        selection_func: Optional[SelectionFunc],
+    ) -> ActivationReader:
+        if activations_dir is None:
+            assert model is not None
+
+            activation_reader, _ = simple_extract(
+                model,
+                corpus,
+                activation_names,
+                selection_func=selection_func or return_all,
+            )
+            activation_reader.cat_activations = True
+        else:
+            activation_reader = ActivationReader(activations_dir, cat_activations=True)
+
+        return activation_reader
+
+    @staticmethod
     def _create_data_split(
         activation_reader: ActivationReader,
         corpus: Corpus,
-        labels_column: str,
         label_ids: ActivationIndex,
         control_task: Optional[ControlTask],
     ) -> DataSplit:
@@ -136,71 +173,50 @@ class DataLoader:
         """
         labels = create_labels_from_corpus(
             corpus,
-            labels_column,
             selection_func=activation_reader.selection_func,
         )
+        labels = labels[label_ids]
 
         if control_task is not None:
             control_labels = create_labels_from_corpus(
                 corpus,
-                labels_column,
                 selection_func=activation_reader.selection_func,
                 control_task=control_task,
             )
+            control_labels = control_labels[label_ids]
         else:
             control_labels = None
 
-        return DataSplit(
-            activation_reader, labels[label_ids], control_labels[label_ids]
-        )
+        return DataSplit(activation_reader, labels, control_labels)
 
     def _create_test_split(
         self,
-        corpus: Corpus,
-        labels_column: str,
-        train_activation_reader: ActivationReader,
+        model: Optional[LanguageModel],
+        activation_names: Optional[ActivationNames],
         test_activations_dir: Optional[str],
         test_corpus: Optional[Corpus],
-        test_labels_column: Optional[str],
         test_selection_func: Optional[SelectionFunc],
-        control_task: Optional[ControlTask],
-        train_test_ratio: Optional[float],
-    ) -> DataSplit:
-        """Creates the DataSplit for the test items.
-
-        Test items can be retrieved from a separate corpus, or from
-        a subsplit of the training corpus. In the latter case the test
-        items are either defined by a separate test_selection_func, or
-        a random
+    ) -> ActivationReader:
+        """Creates the DataSplit for the test items that are retrieved
+        from a different Corpus than the train items.
         """
-        if test_activations_dir is not None:
-            test_activation_reader = ActivationReader(
-                test_activations_dir, cat_activations=True
-            )
-
-            self.test_ids, _ = self._train_test_ids(
-                test_corpus,
-                test_activation_reader.selection_func,
-                test_selection_func,
-                None,
-                train_test_ratio,
-            )
-
-            return self._create_data_split(
-                test_activation_reader,
-                test_corpus,
-                (test_labels_column or labels_column),
-                self.test_ids,
-                control_task,
-            )
-
-        return self._create_data_split(
-            train_activation_reader,
-            corpus,
-            labels_column,
-            self.test_ids,
-            control_task,
+        test_activation_reader = self._create_activation_reader(
+            model,
+            test_corpus,
+            activation_names,
+            test_activations_dir,
+            test_selection_func,
         )
+
+        self.test_ids, _ = self._train_test_ids(
+            test_corpus,
+            test_activation_reader.selection_func,
+            test_selection_func,
+            None,
+            None,
+        )
+
+        return test_activation_reader
 
     def load(
         self,
@@ -231,14 +247,16 @@ class DataLoader:
         train_control_labels = self.train_split.control_labels
         test_control_labels = self.test_split.control_labels
 
-        return {
-            "train_activations": train_activations,
-            "train_labels": train_labels,
-            "train_control_labels": train_control_labels,
-            "test_activations": test_activations,
-            "test_labels": test_labels,
-            "test_control_labels": test_control_labels,
-        }
+        data_dict = DataDict(
+            train_activations,
+            train_labels,
+            train_control_labels,
+            test_activations,
+            test_labels,
+            test_control_labels,
+        )
+
+        return data_dict
 
     @staticmethod
     def _train_test_ids(

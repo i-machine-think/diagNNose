@@ -64,10 +64,8 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
         tokenizer.unk_token = vocab.unk_token
         tokenizer.eos_token = vocab.eos_token
         tokenizer.pad_token = vocab.pad_token
-        tokenizer.mask_token = vocab.unk_token
 
-        # Separates punctuation from a token "hi!" -> ["hi", "!"]
-        tokenizer._tokenize = lambda s: re.findall(r"[\w']+|[.,!?;]", s)
+        tokenizer._tokenize = lambda s: s.split(" ")
         tokenizer._convert_token_to_id = lambda w: vocab[w]
 
         return tokenizer

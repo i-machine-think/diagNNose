@@ -32,7 +32,7 @@ def create_labels_from_corpus(
         label_idx = 0
 
         sen = getattr(item, corpus.sen_column)
-        labels = getattr(item, corpus.labels_column)
+        labels = getattr(item, corpus.labels_column).split()
 
         each_token_labeled = len(sen) == len(labels)
 
@@ -52,7 +52,6 @@ def create_labels_from_corpus(
 
     # Create new label vocab that only contains the labels that have been selected
     label_vocab = {label: idx for idx, label in enumerate(set(all_labels))}
-    corpus.fields[corpus.labels_column].vocab.stoi = label_vocab
-    corpus.fields[corpus.labels_column].vocab.itos = list(label_vocab.keys())
+    corpus.fields[corpus.labels_column].vocab = label_vocab
 
     return torch.tensor([label_vocab[label] for label in all_labels])

@@ -1,3 +1,5 @@
+from diagnnose.activations import DataLoader
+from diagnnose.activations.selection_funcs import final_sen_token, intersection
 from diagnnose.config.config_dict import create_config_dict
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
@@ -10,17 +12,22 @@ if __name__ == "__main__":
 
     tokenizer = create_tokenizer(**config_dict["tokenizer"])
     corpus: Corpus = Corpus.create(tokenizer=tokenizer, **config_dict["corpus"])
+    model: LanguageModel = import_model(**config_dict["model"])
 
-    model: LanguageModel = import_model(config_dict)
+    def selection_func(_, item) -> bool:
+        return item.env == "adverbs"
 
-    def selection_func(w_idx, item):
-        return w_idx == len(item.sentence1) - 4
-
-    dc_trainer = DCTrainer(
-        **config_dict["init_dc"],
-        corpus=corpus,
+    data_loader = DataLoader(
+        corpus,
         model=model,
-        train_selection_func=selection_func,
+        train_test_ratio=0.9,
+        activation_names=[(1, "hx")],
+        train_selection_func=intersection((selection_func, final_sen_token))
     )
 
-    results = dc_trainer.train(**config_dict["train_dc"])
+    dc_trainer = DCTrainer(
+        data_loader,
+        **config_dict["probe"],
+    )
+
+    results = dc_trainer.train()

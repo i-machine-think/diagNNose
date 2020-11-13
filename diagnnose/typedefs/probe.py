@@ -1,12 +1,27 @@
-from typing import Callable, Dict, Tuple, Union
+from collections import namedtuple
+from typing import Callable, Tuple, Union
 
 from torch import Tensor
 from torchtext.data import Example
 
-DataDict = Dict[str, Tensor]
+DataDict = namedtuple(
+    "DataDict",
+    [
+        "train_activations",
+        "train_labels",
+        "train_control_labels",
+        "test_activations",
+        "test_labels",
+        "test_control_labels",
+    ],
+)
+DataSplit = namedtuple("DataSplit", ["activation_reader", "labels", "control_labels"])
 
-LinearDecoder = Tuple[Tensor, Tensor]
+DCConfig = namedtuple(
+    "DCConfig",
+    ["lr", "max_epochs", "rank", "lambda1", "verbose"],
+)
 
 # https://www.aclweb.org/anthology/D19-1275/
-# sen_id, w position, batch item -> label
-ControlTask = Callable[[int, int, Example], Union[str, int]]
+# w position, batch item -> label
+ControlTask = Callable[[int, Example], Union[str, int]]

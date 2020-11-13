@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from torchtext.data import Dataset, Example, Field, Pipeline, RawField
 from transformers import PreTrainedTokenizer
@@ -11,7 +11,7 @@ class Corpus(Dataset):
         fields: List[Tuple[str, Field]],
         create_pos_tags: bool = False,
         sen_column: str = "sen",
-        labels_column: str = "labels",
+        labels_column: Optional[str] = None,
     ) -> None:
         super().__init__(examples, fields)
 
@@ -25,9 +25,6 @@ class Corpus(Dataset):
         if "sen_idx" not in self.fields:
             self._attach_sen_ids()
 
-        if labels_column in self.fields:
-            self.fields[labels_column].build_vocab(self)
-
         if create_pos_tags:
             self._create_pos_tags()
 
@@ -39,7 +36,7 @@ class Corpus(Dataset):
         header_from_first_line: bool = False,
         to_lower: bool = False,
         sen_column: str = "sen",
-        labels_column: str = "labels",
+        labels_column: Optional[str] = None,
         sep: str = "\t",
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
@@ -55,7 +52,6 @@ class Corpus(Dataset):
             header_from_first_line=header_from_first_line,
             corpus_path=path,
             sen_column=sen_column,
-            labels_column=labels_column,
             sep=sep,
         )
 
@@ -63,7 +59,6 @@ class Corpus(Dataset):
             header,
             to_lower=to_lower,
             sen_column=sen_column,
-            labels_column=labels_column,
             tokenize_columns=tokenize_columns,
             convert_numerical=convert_numerical,
             tokenizer=tokenizer,
@@ -96,21 +91,12 @@ class Corpus(Dataset):
         header_from_first_line: bool = False,
         corpus_path: Optional[str] = None,
         sen_column: str = "sen",
-        labels_column: str = "labels",
         sep: str = "\t",
     ) -> List[str]:
         if header is None:
             if header_from_first_line:
                 with open(corpus_path) as f:
                     header = next(f).strip("\n").split(sep)
-            elif corpus_path is not None:
-                # Infer header from file structure
-                with open(corpus_path) as f:
-                    first_line = next(f).strip().split(sep)
-                if len(first_line) == 2:
-                    header = [sen_column, labels_column]
-                else:
-                    header = [sen_column]
             else:
                 header = [sen_column]
 
@@ -123,7 +109,6 @@ class Corpus(Dataset):
         header: List[str],
         to_lower: bool = False,
         sen_column: str = "sen",
-        labels_column: str = "labels",
         tokenize_columns: Optional[List[str]] = None,
         convert_numerical: bool = False,
         tokenizer: Optional[PreTrainedTokenizer] = None,
@@ -145,13 +130,6 @@ class Corpus(Dataset):
                 field = Field(batch_first=True, include_lengths=True, lower=to_lower)
                 if tokenizer is not None:
                     attach_tokenizer(field, tokenizer)
-            elif column == labels_column:
-                field = Field(
-                    pad_token=None,
-                    unk_token=None,
-                    is_target=True,
-                    preprocessing=pipeline,
-                )
             else:
                 field = RawField(preprocessing=pipeline)
                 field.is_target = False
@@ -169,7 +147,7 @@ class Corpus(Dataset):
         return examples
 
     def slice(self, sen_ids: List[int]) -> "Corpus":
-        """ Returns a new Corpus only containing examples from sen_ids.
+        """Returns a new Corpus only containing examples from sen_ids.
 
         Parameters
         ----------
@@ -191,7 +169,7 @@ class Corpus(Dataset):
             examples,
             self.fields,
             sen_column=self.sen_column,
-            labels_column=self.labels_column
+            labels_column=self.labels_column,
         )
 
         return subcorpus
