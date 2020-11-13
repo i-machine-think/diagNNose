@@ -141,7 +141,7 @@ def create_downstream_corpus(
     corpus = [
         "\t".join(
             [
-                "sen_idx",
+                "orig_sen_idx",
                 "condition",
                 "sen",
                 "counter_sen",
@@ -211,6 +211,6 @@ if __name__ == "__main__":
         "../../../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv",
         output_path="../../../lm_data/corpora/npi/lc_detection_binary_NEW.tsv",
         conditions=[(1, 1, 1), (0, 1, 1)],
-        skip_duplicate_items=False,
+        skip_duplicate_items=True,
     )
     print(len(new_corpus))
