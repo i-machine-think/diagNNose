@@ -98,8 +98,8 @@ class DataLoader:
             corpus,
             train_activation_reader.selection_func,
             train_selection_func,
-            test_selection_func,
-            train_test_ratio,
+            test_selection_func if test_corpus is None else None,
+            train_test_ratio if test_corpus is None else None,
         )
 
         self.train_split = self._create_data_split(

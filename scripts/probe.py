@@ -22,7 +22,7 @@ if __name__ == "__main__":
         model=model,
         train_test_ratio=0.9,
         activation_names=[(1, "hx")],
-        train_selection_func=intersection((selection_func, final_sen_token))
+        train_selection_func=intersection((selection_func, final_sen_token)),
     )
 
     dc_trainer = DCTrainer(

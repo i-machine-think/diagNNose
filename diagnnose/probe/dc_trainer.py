@@ -1,5 +1,4 @@
 import os
-from collections import namedtuple
 from time import time
 from typing import Any, Dict, Optional
 
@@ -9,7 +8,7 @@ from torch import Tensor
 
 from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
-from diagnnose.typedefs.probe import DataDict
+from diagnnose.typedefs.probe import DataDict, DCConfig
 from diagnnose.utils.pickle import dump_pickle
 
 from .logreg import L1NeuralNetClassifier, LogRegModule
