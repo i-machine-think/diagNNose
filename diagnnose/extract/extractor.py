@@ -1,5 +1,5 @@
 from contextlib import ExitStack
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import torch
 from torchtext.data import Batch
@@ -10,13 +10,15 @@ from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationDict,
     ActivationNames,
     ActivationRanges,
     SelectionFunc,
 )
+
+if TYPE_CHECKING:
+    from diagnnose.models import LanguageModel
 
 BATCH_SIZE = 1024
 
@@ -58,7 +60,7 @@ class Extractor:
 
     def __init__(
         self,
-        model: LanguageModel,
+        model: "LanguageModel",
         corpus: Corpus,
         activation_names: Optional[ActivationNames] = None,
         activations_dir: Optional[str] = None,

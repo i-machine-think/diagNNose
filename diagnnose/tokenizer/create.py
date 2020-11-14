@@ -1,5 +1,4 @@
 import os
-import re
 from typing import Dict, List, Union
 
 from transformers import AutoTokenizer, PreTrainedTokenizer

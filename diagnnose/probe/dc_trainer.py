@@ -6,11 +6,11 @@ import sklearn.metrics as metrics
 import torch
 from torch import Tensor
 
-from diagnnose.activations.data_loader import DataLoader
 from diagnnose.typedefs.activations import ActivationName
 from diagnnose.typedefs.probe import DataDict, DCConfig
 from diagnnose.utils.pickle import dump_pickle
 
+from .data_loader import DataLoader
 from .logreg import L1NeuralNetClassifier, LogRegModule
 
 
@@ -103,9 +103,13 @@ class DCTrainer:
 
         if data_dict.train_control_labels is not None:
             self._fit(data_dict.train_activations, data_dict.train_control_labels)
-            control_results = self._eval(data_dict.test_activations, data_dict.test_control_labels)
+            control_results = self._eval(
+                data_dict.test_activations, data_dict.test_control_labels
+            )
             results_dict["control"] = control_results
-            results_dict["selectivity"] = results_dict["accuracy"] - control_results["accuracy"]
+            results_dict["selectivity"] = (
+                results_dict["accuracy"] - control_results["accuracy"]
+            )
             self._save_classifier(activation_name, postfix="_control")
 
         self._save_results(results_dict, activation_name)

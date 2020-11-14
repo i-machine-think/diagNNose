@@ -1,14 +1,16 @@
 import abc
-from typing import Dict, List, Optional, Type
+from typing import TYPE_CHECKING, Dict, List, Optional, Type
 
 import torch
 from torch import Tensor
 from transformers import BatchEncoding
 
-from diagnnose.models import LanguageModel
-
 from .gcd_tensor import GCDTensor
 from .shapley_tensor import ShapleyTensor
+
+if TYPE_CHECKING:
+    from diagnnose.models import LanguageModel
+
 
 tensor_types: Dict[str, Type[ShapleyTensor]] = {
     "ShapleyTensor": ShapleyTensor,
@@ -25,7 +27,7 @@ class Decomposer(abc.ABC):
 
     def __init__(
         self,
-        model: LanguageModel,
+        model: "LanguageModel",
         num_samples: Optional[int] = None,
         tensor_type: str = "ShapleyTensor",
     ):

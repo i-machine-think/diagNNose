@@ -1,7 +1,6 @@
 from collections import namedtuple
-from typing import Callable, Tuple, Union
+from typing import Callable, Union
 
-from torch import Tensor
 from torchtext.data import Example
 
 DataDict = namedtuple(

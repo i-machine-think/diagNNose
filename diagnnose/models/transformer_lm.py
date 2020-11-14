@@ -15,7 +15,7 @@ from transformers import (
     XLMWithLMHeadModel,
 )
 
-from diagnnose.attribute.shapley_tensor import ShapleyTensor
+from diagnnose.attribute import ShapleyTensor
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationDict,

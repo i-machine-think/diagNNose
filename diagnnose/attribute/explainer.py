@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 from torch import Tensor
 from transformers import BatchEncoding, PreTrainedTokenizer
 
-from diagnnose.attribute.decomposer import Decomposer
+from .decomposer import Decomposer
 
 
 class Explainer:

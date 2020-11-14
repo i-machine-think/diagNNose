@@ -3,6 +3,8 @@ from typing import Dict, Optional, Tuple
 
 import torch
 
+from diagnnose.activations.activation_reader import ActivationReader
+from diagnnose.activations.selection_funcs import return_all, union
 from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extract import simple_extract
@@ -14,9 +16,6 @@ from diagnnose.typedefs.activations import (
     SelectionFunc,
 )
 from diagnnose.typedefs.probe import ControlTask, DataDict, DataSplit
-
-from .activation_reader import ActivationReader
-from .selection_funcs import return_all, union
 
 
 class DataLoader:

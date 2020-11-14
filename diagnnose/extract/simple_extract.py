@@ -4,7 +4,6 @@ from typing import Optional, Tuple
 from diagnnose.activations import ActivationReader
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
-from diagnnose.extract import BATCH_SIZE, Extractor
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (
     ActivationNames,
@@ -12,6 +11,8 @@ from diagnnose.typedefs.activations import (
     SelectionFunc,
 )
 from diagnnose.utils.misc import suppress_print
+
+from .extractor import BATCH_SIZE, Extractor
 
 
 @suppress_print
