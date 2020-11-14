@@ -1,55 +1,46 @@
 from typing import Type
 
-from diagnnose.config import ConfigDict
-from diagnnose.tokenizer.create import create_tokenizer
+import diagnnose.models.wrappers as wrappers
 
-from .init_states import set_init_states
+from .init_states import _create_zero_states
 from .language_model import LanguageModel
 from .recurrent_lm import RecurrentLM
 from .transformer_lm import TransformerLM
 
 
-def import_model(config_dict: ConfigDict) -> LanguageModel:
+def import_model(*args, **kwargs) -> LanguageModel:
     """Import a model from a json file.
 
-    Parameters
-    ----------
-    config_dict : ConfigDict
-        Dictionary containing the model and init_states configuration.
     Returns
     --------
     model : LanguageModel
         A LanguageModel instance, based on the provided config_dict.
     """
 
-    if "model_name" in config_dict["model"]:
-        model = _import_transformer_lm(config_dict)
+    if "model_name" in kwargs:
+        model = _import_transformer_lm(*args, **kwargs)
     else:
-        model = _import_recurrent_lm(config_dict)
+        model = _import_recurrent_lm(*args, **kwargs)
 
     model.eval()
 
     return model
 
 
-def _import_transformer_lm(config_dict: ConfigDict) -> TransformerLM:
+def _import_transformer_lm(*args, **kwargs) -> TransformerLM:
     """ Imports a Transformer LM. """
-    return TransformerLM(**config_dict["model"])
+    return TransformerLM(*args, **kwargs)
 
 
-def _import_recurrent_lm(config_dict: ConfigDict) -> RecurrentLM:
+def _import_recurrent_lm(*args, **kwargs) -> RecurrentLM:
     """ Imports a recurrent LM and sets the initial states. """
-    model_type = config_dict["model"].pop("model_type")
 
-    tokenizer = None
-    if "tokenizer" in config_dict:
-        tokenizer = create_tokenizer(**config_dict["tokenizer"])
-
-    import diagnnose.models.wrappers as wrappers
+    assert "model_type" in kwargs, "model_type should be given for recurrent LM"
+    model_type = kwargs.pop("model_type")
 
     model_constructor: Type[RecurrentLM] = getattr(wrappers, model_type)
-    model = model_constructor(**config_dict["model"])
+    model = model_constructor(*args, **kwargs)
 
-    set_init_states(model, tokenizer=tokenizer, **config_dict.get("init_states", {}))
+    model.init_states = _create_zero_states(model)
 
     return model

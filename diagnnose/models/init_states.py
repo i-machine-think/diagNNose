@@ -106,7 +106,6 @@ def _create_init_states_from_corpus(
         (layer, name) for layer in range(model.num_layers) for name in ["hx", "cx"]
     ]
 
-    model.init_states = _create_zero_states(model)
     extractor = Extractor(
         model,
         corpus,
