@@ -53,7 +53,11 @@ class ShapleyTensor:
         self.current_fn: Optional[str] = None
         self.new_data: Optional[Union[Tensor, Iterable[Tensor]]] = None
 
-        if len(self.contributions) > 0 and shapley_factors is None and num_samples is None:
+        if (
+            len(self.contributions) > 0
+            and shapley_factors is None
+            and num_samples is None
+        ):
             self.shapley_factors = utils.calc_shapley_factors(self.num_features)
 
     def __torch_function__(self, fn, _types, args=(), kwargs=None):
@@ -230,8 +234,8 @@ class ShapleyTensor:
 
     def _calc_shapley_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
         """ Calculates the Shapley decomposition of the current fn. """
-        assert (
-            isinstance(self.new_data, Tensor)
+        assert isinstance(
+            self.new_data, Tensor
         ), f"Current operation {self.current_fn} is not supported for Shapley calculation"
 
         if self.num_samples is None:
@@ -293,7 +297,7 @@ class ShapleyTensor:
 
         contributions = args[0].contributions
         for contribution in contributions:
-            contribution[dropout_mask] = 0.
+            contribution[dropout_mask] = 0.0
 
         return contributions
 
