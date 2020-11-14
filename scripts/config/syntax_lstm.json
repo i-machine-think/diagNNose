@@ -3,15 +3,12 @@
     "model_type": "ForwardLSTM",
     "state_dict": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulordava/40.pt"
   },
-  "init_states": {
-    "use_default": true
-  },
   "tokenizer": {
     "path": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulordava/vocab.txt",
     "notify_unk": true
   },
   "downstream": {
-    "tasks": ["warstadt"],
+    "tasks": ["lakretz"],
     "ignore_unk": false,
     "use_full_model_probs": true,
     "config": {

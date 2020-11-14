@@ -3,15 +3,14 @@
     "model_type": "ForwardLSTM",
     "state_dict": "data/model/state_dict.pt"
   },
-  "corpus": {
-    "path": "data/minicorpus.txt",
-    "vocab_path": "data/model/vocab.txt"
+  "tokenizer": {
+    "path": "data/model/vocab.txt"
   },
-  "activations": {
-    "activation_names": [[1, "hx"]],
-    "activations_dir": "extracted"
+  "corpus": {
+    "path": "data/minicorpus.txt"
   },
   "extract": {
-    "batch_size": 10
+    "activation_names": [[1, "hx"]],
+    "activations_dir": "extracted"
   }
 }

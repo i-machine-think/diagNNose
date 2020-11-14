@@ -1,10 +1,8 @@
-from diagnnose.activations import DataLoader
 from diagnnose.activations.selection_funcs import final_sen_token, intersection
-from diagnnose.config.config_dict import create_config_dict
+from diagnnose.config import create_config_dict
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
-from diagnnose.models.import_model import import_model
-from diagnnose.probe.dc_trainer import DCTrainer
+from diagnnose.models import LanguageModel, import_model, set_init_states
+from diagnnose.probe import DataLoader, DCTrainer
 from diagnnose.tokenizer import create_tokenizer
 
 if __name__ == "__main__":
@@ -13,6 +11,7 @@ if __name__ == "__main__":
     tokenizer = create_tokenizer(**config_dict["tokenizer"])
     corpus: Corpus = Corpus.create(tokenizer=tokenizer, **config_dict["corpus"])
     model: LanguageModel = import_model(**config_dict["model"])
+    set_init_states(model, use_default=True, tokenizer=tokenizer)
 
     def selection_func(_, item) -> bool:
         return item.env == "adverbs"

@@ -8,7 +8,7 @@
     "path": "data/minicorpus.txt",
     "header": ["sen", "labels"]
   },
-  "activations": {
+  "extract": {
     "activations_dir": "../lm_data/activations/extracted/gpt2",
     "activation_names": [[-1, "out"]]
   }

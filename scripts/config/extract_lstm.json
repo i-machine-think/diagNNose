@@ -14,7 +14,7 @@
     "path": "../lm_data/corpora/downstream/lakretz/nounpp.txt",
     "header": ["sen", "condition", "wrong_correct", "sen_id"]
   },
-  "activations": {
+  "extract": {
     "activation_names": [[1, "hx"]],
     "activations_dir": "../lm_data/activations/extracted/nounpp"
   }
