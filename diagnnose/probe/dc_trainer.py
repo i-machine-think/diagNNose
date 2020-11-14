@@ -1,8 +1,8 @@
 import os
+import warnings
 from time import time
 from typing import Any, Dict, Optional
 
-import sklearn.metrics as metrics
 import torch
 from torch import Tensor
 
@@ -127,6 +127,12 @@ class DCTrainer:
             print(f"Fitting done in {time() - start_time:.2f}s")
 
     def _eval(self, activations: Tensor, labels: Tensor) -> Dict[str, Any]:
+        try:
+            import sklearn.metrics as metrics
+        except ImportError:
+            warnings.warn("sklearn.metrics is needed for DC evaluation")
+            raise
+
         pred_y = self.classifier.predict(activations)
 
         acc = metrics.accuracy_score(labels, pred_y)

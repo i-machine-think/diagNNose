@@ -1,8 +1,5 @@
 from typing import Any, Dict, Set
 
-import numpy as np
-from unidecode import unidecode
-
 from .w2i import W2I
 
 
@@ -36,7 +33,7 @@ class C2I(W2I):
         self.eow_char = free_ids[3]  # <end word>
         self.pad_char = free_ids[4]  # <padding>
 
-        self._word_char_ids: Dict[str, np.ndarray] = {}
+        self._word_char_ids = {}
 
         for w in self.w2i.keys():
             self._word_char_ids[w] = self._convert_word_to_char_ids(w)
@@ -45,7 +42,9 @@ class C2I(W2I):
     def max_word_length(self) -> int:
         return self._max_word_length
 
-    def _convert_word_to_char_ids(self, word: str) -> np.ndarray:
+    def _convert_word_to_char_ids(self, word: str):
+        import numpy as np
+
         code = np.zeros([self.max_word_length], dtype=np.int32)
         code[:] = ord(self.pad_char)
 
@@ -56,7 +55,9 @@ class C2I(W2I):
             code[j] = ord(cur_word[j])
         return code.reshape((1, 1, -1))
 
-    def token_to_char_ids(self, token: str) -> np.ndarray:
+    def token_to_char_ids(self, token: str):
+        from unidecode import unidecode
+
         if not all(ord(c) < 256 for c in token):
             token = unidecode(token)
 

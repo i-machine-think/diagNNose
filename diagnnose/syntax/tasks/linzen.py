@@ -2,7 +2,6 @@ import os
 import warnings
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
-import inflect
 from torchtext.data import Example, Field
 from unidecode import unidecode
 
@@ -173,6 +172,12 @@ class LinzenTask(SyntaxEvalTask):
         We only add token mappings if both the singular and plural form
         is present in the model's vocabulary.
         """
+        try:
+            import inflect
+        except ImportError:
+            warnings.warn("`inflect` is needed, can be installed using pip")
+            raise
+
         infl_eng = inflect.engine()
 
         pos_to_token = {"VBP": [], "VBZ": []}

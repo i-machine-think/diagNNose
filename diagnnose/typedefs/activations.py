@@ -1,6 +1,5 @@
 from typing import BinaryIO, Callable, Dict, List, Tuple, Union
 
-from numpy import ndarray
 from torch import Tensor
 from torchtext.data import Example
 
@@ -33,7 +32,7 @@ RemoveCallback = Callable[[], None]
 
 # INDEXING
 # Activation indexing, as done in ActivationReader
-ActivationIndex = Union[int, slice, List[int], ndarray, Tensor]
+ActivationIndex = Union[int, slice, List[int], Tensor]
 
 ActivationKey = Union[ActivationIndex, Tuple[ActivationIndex, ActivationName]]
 
