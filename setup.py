@@ -18,7 +18,7 @@ else:
         install_requires = [l.strip() for l in f]
 
 setup(
-    name="diagnnose",
+    name="diagNNose",
     version="0.1-alpha",
     description="A library that facilitates a broad set of tools for analysing "
                 "hidden activations of neural models.",
@@ -34,6 +34,6 @@ setup(
     url="https://github.com/i-machine-think/diagnnose",
     packages=find_packages(exclude=["contrib", "docs", "test", "scripts"]),
     install_requires=install_requires,
-    python_requires=">=3.7.0",
+    python_requires=">=3.6.0",
     extras_require={"dev": ["check-manifest"], "test": ["coverage"]},
 )
