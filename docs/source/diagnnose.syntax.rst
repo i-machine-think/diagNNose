@@ -17,6 +17,8 @@ Submodules
 ----------
 
 
+Evaluator
+~~~~~~~~~
 .. automodule:: diagnnose.syntax.evaluator
    :members:
    :undoc-members:

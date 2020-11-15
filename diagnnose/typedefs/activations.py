@@ -14,8 +14,6 @@ SizeDict = Dict[ActivationName, int]
 
 # Maps a layer index to a tensor
 LayeredTensors = Dict[int, Tensor]
-# Maps an arbitrary string to a tensor
-NamedTensors = Dict[str, Tensor]
 
 
 # EXTRACTION
@@ -35,7 +33,3 @@ RemoveCallback = Callable[[], None]
 ActivationIndex = Union[int, slice, List[int], Tensor]
 
 ActivationKey = Union[ActivationIndex, Tuple[ActivationIndex, ActivationName]]
-
-
-# DECOMPOSITIONS
-Decompositions = Dict[int, NamedTensors]

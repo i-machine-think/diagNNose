@@ -10,7 +10,8 @@ from typing import Any, Callable, Dict
 def suppress_print(func: Callable) -> Callable:
     """
     Function decorator to suppress print output for testing purposes.
-    Thanks to codingdose.info/2018/03/22/supress-print-output-in-python
+    Thanks to
+    https://codingdose.info/2018/03/22/supress-print-output-in-python
     for text "entrapment".
     """
 
@@ -48,8 +49,7 @@ def merge_dicts(d1: Dict, d2: Dict) -> Dict:
 @contextlib.contextmanager
 def profile() -> None:
     """
-    Profiler that operates as a context manager.
-    Example usage:
+    Profiler that operates as a context manager. Example usage:
 
     .. code-block:: python
 

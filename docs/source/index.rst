@@ -8,7 +8,7 @@ It contains an extensive **activation extraction module** that allows for the ex
 The analysis techniques that are currently implemented include:
 
 * Targeted syntactic evaluation tasks, such as those of Linzen et al. (2016) andMarvin and Linzen (2018).
-* Probing withdiagnostic classifiers (`Hupkes et al., 2018 <https://arxiv.org/pdf/1711.10203.pdf>`_), and control tasks (`Hewitt & Liang, 2019 <https://arxiv.org/pdf/1909.03368.pdf>`_).
+* Probing with diagnostic classifiers (`Hupkes et al., 2018 <https://arxiv.org/pdf/1711.10203.pdf>`_), and control tasks (`Hewitt & Liang, 2019 <https://arxiv.org/pdf/1909.03368.pdf>`_).
 * Feature attributions that retrieve a feature’s contribution to a model prediction (`Murdoch et al., 2018 <https://arxiv.org/pdf/1801.05453.pdf>`_). Our implementation is model-agnostic, which means that any type of model architecture can be explained by it.
 
 The library is structured into the following modules:
@@ -68,7 +68,7 @@ The library is structured into the following modules:
 
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Documentation overview:
 
    diagnnose.activations

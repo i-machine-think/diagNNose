@@ -16,9 +16,21 @@ except ModuleNotFoundError:
 MONKEY_PATCH_PERFORMED = False
 
 
-# Not all torch functions correctly implement __torch_function__ yet:
-# https://github.com/pytorch/pytorch/issues/34294
-def monkey_patch_fn(original_fn):
+def monkey_patch():
+    """Not all torch functions correctly implement ``__torch_function__``
+    yet (i.e. in torch v1.5), as is discussed here:
+    https://github.com/pytorch/pytorch/issues/34294
+
+    We override the ``__torch_function__`` behaviour for ``torch.cat``,
+    ``torch.stack``, ``Tensor.expand_as``, and ``Tensor.type_as``.
+    """
+    torch.cat = _monkey_patch_fn(torch.cat)
+    torch.stack = _monkey_patch_fn(torch.stack)
+    Tensor.expand_as = _monkey_patch_tensor(Tensor.expand_as)
+    Tensor.type_as = _monkey_patch_tensor(Tensor.type_as)
+
+
+def _monkey_patch_fn(original_fn):
     @wraps(original_fn)
     def fn(tensors, dim=0, out=None):
         if not torch.jit.is_scripting():
@@ -31,7 +43,7 @@ def monkey_patch_fn(original_fn):
     return fn
 
 
-def monkey_patch_tensor(original_fn):
+def _monkey_patch_tensor(original_fn):
     @wraps(original_fn)
     def fn(self, other):
         if isinstance(other, Tensor):
@@ -39,13 +51,6 @@ def monkey_patch_tensor(original_fn):
         return original_fn(self, other.data)
 
     return fn
-
-
-def monkey_patch():
-    torch.cat = monkey_patch_fn(torch.cat)
-    torch.stack = monkey_patch_fn(torch.stack)
-    Tensor.expand_as = monkey_patch_tensor(Tensor.expand_as)
-    Tensor.type_as = monkey_patch_tensor(Tensor.type_as)
 
 
 def unwrap(args: Any, attr: str = "data", coalition: Optional[List[int]] = None) -> Any:

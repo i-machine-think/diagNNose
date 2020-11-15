@@ -6,22 +6,25 @@ tokenizer
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-
+C2i
+~~~
 .. automodule:: diagnnose.tokenizer.c2i
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+Create
+~~~~~~
 .. automodule:: diagnnose.tokenizer.create
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+W2i
+~~~
 .. automodule:: diagnnose.tokenizer.w2i
    :members:
    :undoc-members:

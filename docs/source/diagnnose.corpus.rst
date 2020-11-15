@@ -6,9 +6,6 @@ corpus
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
-
 
 .. automodule:: diagnnose.corpus.corpus
    :members:
@@ -16,12 +13,16 @@ Submodules
    :show-inheritance:
 
 
+Create Iterator
+~~~~~~~~~~~~~~~
 .. automodule:: diagnnose.corpus.create_iterator
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+Create Labels
+~~~~~~~~~~~~~
 .. automodule:: diagnnose.corpus.create_labels
    :members:
    :undoc-members:

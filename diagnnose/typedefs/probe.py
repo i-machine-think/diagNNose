@@ -14,6 +14,7 @@ DataDict = namedtuple(
         "test_control_labels",
     ],
 )
+
 DataSplit = namedtuple("DataSplit", ["activation_reader", "labels", "control_labels"])
 
 DCConfig = namedtuple(

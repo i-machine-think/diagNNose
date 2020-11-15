@@ -112,9 +112,11 @@ class ActivationReader:
                 dir, activation_names=[(0, "hx"), (1, "hx")], **kwargs
             )
 
-            # activation_name must be passed.
+            # activation_name must be passed because ActivationReader
+            # contains two activation_names.
             activations_first_sen = activation_reader[0, (1, "hx")]
             all_activations = activation_reader[:, (1, "hx")]
+
 
             activation_reader2 = ActivationReader(
                 dir, activation_names=[(1, "hx")], **kwargs
@@ -135,6 +137,8 @@ class ActivationReader:
             Tensor, if ``self.cat_activations`` is set to True.
             Otherwise a tuple of tensors, with each item corresponding
             to the extracted activations of a specific sentence.
+
+        .. automethod:: __getitem__
         """
         if isinstance(key, tuple):
             index, activation_name = key
@@ -162,7 +166,7 @@ class ActivationReader:
         return split_activations
 
     def __len__(self) -> int:
-        """ Returns total number of extracted activations. """
+        """ Returns the total number of extracted activations. """
         return self.activation_ranges[-1][1]
 
     @property

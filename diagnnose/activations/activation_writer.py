@@ -25,14 +25,6 @@ class ActivationWriter:
     ----------
     activations_dir : str, optional
         Directory to which activations will be written
-
-    Attributes
-    ----------
-    activations_dir : str
-    activation_names : List[tuple[int, str]]
-        List of (layer, activation_name) tuples
-    activation_files : ActivationFiles
-        Dict of files to which activations will be written.
     """
 
     def __init__(self, activations_dir: str) -> None:

@@ -6,16 +6,17 @@ extract
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-
+Extractor
+~~~~~~~~~
 .. automodule:: diagnnose.extract.extractor
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+Simple Extract
+~~~~~~~~~~~~~~
 .. automodule:: diagnnose.extract.simple_extract
    :members:
    :undoc-members:

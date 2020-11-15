@@ -6,22 +6,17 @@ utils
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-
-.. automodule:: diagnnose.utils.midpoint
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
+Misc
+~~~~
 .. automodule:: diagnnose.utils.misc
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+Pickle
+~~~~~~
 .. automodule:: diagnnose.utils.pickle
    :members:
    :undoc-members:

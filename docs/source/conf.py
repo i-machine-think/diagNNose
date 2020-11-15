@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__name__), ".."))
 
 # -- Project information -----------------------------------------------------
 
-project = 'diagnnose'
+project = 'diagNNose'
 copyright = '2020, Jaap Jumelet'
 author = 'Jaap Jumelet'
 
@@ -143,7 +143,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'diagnnose', 'diagnnose Documentation',
+    (master_doc, 'diagNNose', 'diagNNose Documentation',
      [author], 1)
 ]
 
@@ -180,7 +180,7 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-autodoc_mock_imports = ['torch', 'skorch', 'torchtext', 'sklearn', 'transformers']
+autodoc_mock_imports = ['torch', 'skorch', 'torchtext', 'sklearn', 'transformers', 'tqdm']
 
 html_theme_options = {
     'display_version': True,

@@ -1,9 +1,2 @@
-dataclasses
-numpy==1.16.2
-overrides
-scipy==1.2.0
-tqdm
-unidecode
-
 sphinx>=2.2
 sphinx_rtd_theme

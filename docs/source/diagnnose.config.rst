@@ -6,23 +6,18 @@ config
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
 
-
+Arg Descriptions
+~~~~~~~~~~~~~~~~
 .. automodule:: diagnnose.config.arg_descriptions
    :members:
    :undoc-members:
    :show-inheritance:
 
 
+Config Dict
+~~~~~~~~~~~
 .. automodule:: diagnnose.config.config_dict
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: diagnnose.config.dtype
    :members:
    :undoc-members:
    :show-inheritance:
