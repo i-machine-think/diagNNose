@@ -5,7 +5,13 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 import torch
 from torch import Tensor
-from torch._overrides import handle_torch_function, has_torch_function
+
+try:
+    # torch 1.5
+    from torch._overrides import handle_torch_function, has_torch_function
+except ModuleNotFoundError:
+    # torch >1.5
+    from torch.overrides import handle_torch_function, has_torch_function
 
 MONKEY_PATCH_PERFORMED = False
 
