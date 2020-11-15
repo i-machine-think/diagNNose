@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from overrides import overrides
 from torch import Tensor
 
 from diagnnose.models.recurrent_lm import RecurrentLM
@@ -98,7 +97,6 @@ class GoogleLM(RecurrentLM):
     def peepholes(self) -> ActivationDict:
         return self.lstm.peepholes
 
-    @overrides
     def forward(
         self,
         tokens: List[str],
@@ -159,7 +157,6 @@ class CharCNN(nn.Module):
 
         return sess, t
 
-    @overrides
     def forward(self, tokens: List[str]) -> Tensor:
         embs = torch.zeros((len(tokens), 1024), device=self.device)
         for i, token in enumerate(tokens):
@@ -276,7 +273,6 @@ class LSTM(nn.Module):
             (layer, "c_tilde_g"): c_tilde_g,
         }
 
-    @overrides
     def forward(
         self, input_: Tensor, prev_activations: ActivationDict
     ) -> Tuple[Optional[Tensor], ActivationDict]:
