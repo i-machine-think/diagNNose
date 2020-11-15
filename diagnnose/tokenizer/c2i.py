@@ -1,5 +1,7 @@
 from typing import Any, Dict, Set
 
+from unidecode import unidecode
+
 from .w2i import W2I
 
 
@@ -56,8 +58,6 @@ class C2I(W2I):
         return code.reshape((1, 1, -1))
 
     def token_to_char_ids(self, token: str):
-        from unidecode import unidecode
-
         if not all(ord(c) < 256 for c in token):
             token = unidecode(token)
 

@@ -1,6 +1,7 @@
 torch>=1.5.1
 torchtext>=0.6.0
-tqdm
 skorch>=0.7.0
 transformers
+tqdm
 dill
+unidecode
