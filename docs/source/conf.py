@@ -178,10 +178,10 @@ epub_exclude_files = ["search.html"]
 
 
 # -- Extension configuration -------------------------------------------------
-
+# torch & torchtext are not mocked because that somehow messes up the classes
+# inheriting from these modules.
 autodoc_mock_imports = [
     "skorch",
-    "torchtext",
     "transformers",
     "tqdm",
     "dill",
