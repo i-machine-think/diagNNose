@@ -37,7 +37,7 @@ Shapley Tensor
    :members:
    :undoc-members:
    :show-inheritance:
-
+   :special-members: __iter__
 
 Utils
 ^^^^^

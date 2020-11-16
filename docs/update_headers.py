@@ -19,8 +19,13 @@ os.remove("source/modules.rst")
 with open("source/diagnnose.activations.rst", "r") as f:
     content = list(f)
     content.insert(22, "   :special-members: __getitem__,__len__")
-
 with open("source/diagnnose.activations.rst", "w") as f:
+    f.write("".join(content))
+
+with open("source/diagnnose.attribute.rst", "r") as f:
+    content = list(f)
+    content.insert(34, "   :special-members: __iter__")
+with open("source/diagnnose.attribute.rst", "w") as f:
     f.write("".join(content))
 
 
