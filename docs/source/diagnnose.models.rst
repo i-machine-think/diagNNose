@@ -6,19 +6,10 @@ models
    :undoc-members:
    :show-inheritance:
 
-Subpackages
------------
-
-.. toctree::
-
-   diagnnose.models.wrappers
-
-Submodules
-----------
 
 
 Import Model
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 .. automodule:: diagnnose.models.import_model
    :members:
    :undoc-members:
@@ -26,7 +17,7 @@ Import Model
 
 
 Init States
-~~~~~~~~~~~
+^^^^^^^^^^^
 .. automodule:: diagnnose.models.init_states
    :members:
    :undoc-members:
@@ -34,23 +25,23 @@ Init States
 
 
 Language Model
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 .. automodule:: diagnnose.models.language_model
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-Recurrent Lm
-~~~~~~~~~~~~
+Recurrent LM
+^^^^^^^^^^^^
 .. automodule:: diagnnose.models.recurrent_lm
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-Transformer Lm
-~~~~~~~~~~~~~~
+Transformer LM
+^^^^^^^^^^^^^^
 .. automodule:: diagnnose.models.transformer_lm
    :members:
    :undoc-members:

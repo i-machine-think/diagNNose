@@ -77,8 +77,10 @@ The library is structured into the following modules:
    diagnnose.corpus
    diagnnose.extract
    diagnnose.models
+   diagnnose.models.wrappers
    diagnnose.probe
    diagnnose.syntax
+   diagnnose.syntax.tasks
    diagnnose.tokenizer
    diagnnose.utils
    custom_typedefs

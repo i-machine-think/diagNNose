@@ -8,7 +8,7 @@ activations
 
 
 Activation Index
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.activations.activation_index
    :members:
    :undoc-members:
@@ -16,7 +16,7 @@ Activation Index
 
 
 Activation Reader
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.activations.activation_reader
    :members:
    :undoc-members:
@@ -24,7 +24,7 @@ Activation Reader
    :special-members: __getitem__,__len__
 
 Activation Writer
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.activations.activation_writer
    :members:
    :undoc-members:
@@ -32,7 +32,7 @@ Activation Writer
 
 
 Selection Funcs
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.activations.selection_funcs
    :members:
    :undoc-members:

@@ -14,7 +14,7 @@ corpus
 
 
 Create Iterator
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.corpus.create_iterator
    :members:
    :undoc-members:
@@ -22,7 +22,7 @@ Create Iterator
 
 
 Create Labels
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 .. automodule:: diagnnose.corpus.create_labels
    :members:
    :undoc-members:

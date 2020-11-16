@@ -8,15 +8,15 @@ probe
 
 
 Data Loader
-~~~~~~~~~~~
+^^^^^^^^^^^
 .. automodule:: diagnnose.probe.data_loader
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-Dc Trainer
-~~~~~~~~~~
+DC Trainer
+^^^^^^^^^^
 .. automodule:: diagnnose.probe.dc_trainer
    :members:
    :undoc-members:
@@ -24,7 +24,7 @@ Dc Trainer
 
 
 Logreg
-~~~~~~
+^^^^^^
 .. automodule:: diagnnose.probe.logreg
    :members:
    :undoc-members:

@@ -36,7 +36,7 @@ class LanguageModel(ABC, nn.Module):
         input_ids : Tensor, optional
             Indices of input sequence tokens in the vocabulary.
             Size: batch_size x max_sen_len
-        inputs_embeds : Tensor | ShapleTensor, optional
+        inputs_embeds : Tensor | ShapleyTensor, optional
             This is useful if you want more control over how to convert
             `input_ids` indices into associated vectors than the model's
             internal embedding lookup matrix. Also allows a

@@ -1,8 +1,6 @@
-syntax
+syntax.tasks
 ======================
 
-Tasks
-~~~~~
 .. automodule:: diagnnose.syntax.tasks
    :members:
    :undoc-members:
@@ -10,7 +8,7 @@ Tasks
 
 
 Lakretz
-~~~~~~~
+^^^^^^^
 .. automodule:: diagnnose.syntax.tasks.lakretz
    :members:
    :undoc-members:
@@ -18,7 +16,7 @@ Lakretz
 
 
 Linzen
-~~~~~~
+^^^^^^
 .. automodule:: diagnnose.syntax.tasks.linzen
    :members:
    :undoc-members:
@@ -26,7 +24,7 @@ Linzen
 
 
 Marvin
-~~~~~~
+^^^^^^
 .. automodule:: diagnnose.syntax.tasks.marvin
    :members:
    :undoc-members:
@@ -34,7 +32,7 @@ Marvin
 
 
 Task
-~~~~
+^^^^
 .. automodule:: diagnnose.syntax.tasks.task
    :members:
    :undoc-members:
@@ -42,7 +40,7 @@ Task
 
 
 Warstadt
-~~~~~~~~
+^^^^^^^^
 .. automodule:: diagnnose.syntax.tasks.warstadt
    :members:
    :undoc-members:
@@ -50,7 +48,7 @@ Warstadt
 
 
 Warstadt Preproc
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.syntax.tasks.warstadt_preproc
    :members:
    :undoc-members:
@@ -58,7 +56,7 @@ Warstadt Preproc
 
 
 Winobias
-~~~~~~~~
+^^^^^^^^
 .. automodule:: diagnnose.syntax.tasks.winobias
    :members:
    :undoc-members:

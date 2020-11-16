@@ -7,8 +7,8 @@ tokenizer
    :show-inheritance:
 
 
-C2i
-~~~
+C2I
+^^^
 .. automodule:: diagnnose.tokenizer.c2i
    :members:
    :undoc-members:
@@ -16,15 +16,15 @@ C2i
 
 
 Create
-~~~~~~
+^^^^^^
 .. automodule:: diagnnose.tokenizer.create
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-W2i
-~~~
+W2I
+^^^
 .. automodule:: diagnnose.tokenizer.w2i
    :members:
    :undoc-members:

@@ -8,7 +8,7 @@ extract
 
 
 Extractor
-~~~~~~~~~
+^^^^^^^^^
 .. automodule:: diagnnose.extract.extractor
    :members:
    :undoc-members:
@@ -16,7 +16,7 @@ Extractor
 
 
 Simple Extract
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 .. automodule:: diagnnose.extract.simple_extract
    :members:
    :undoc-members:

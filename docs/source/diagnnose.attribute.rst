@@ -8,7 +8,7 @@ attribute
 
 
 Decomposer
-~~~~~~~~~~
+^^^^^^^^^^
 .. automodule:: diagnnose.attribute.decomposer
    :members:
    :undoc-members:
@@ -16,15 +16,15 @@ Decomposer
 
 
 Explainer
-~~~~~~~~~
+^^^^^^^^^
 .. automodule:: diagnnose.attribute.explainer
    :members:
    :undoc-members:
    :show-inheritance:
 
 
-Gcd Tensor
-~~~~~~~~~~
+GCD Tensor
+^^^^^^^^^^
 .. automodule:: diagnnose.attribute.gcd_tensor
    :members:
    :undoc-members:
@@ -32,7 +32,7 @@ Gcd Tensor
 
 
 Shapley Tensor
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 .. automodule:: diagnnose.attribute.shapley_tensor
    :members:
    :undoc-members:
@@ -40,7 +40,7 @@ Shapley Tensor
 
 
 Utils
-~~~~~
+^^^^^
 .. automodule:: diagnnose.attribute.utils
    :members:
    :undoc-members:

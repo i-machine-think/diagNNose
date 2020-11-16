@@ -8,7 +8,7 @@ utils
 
 
 Misc
-~~~~
+^^^^
 .. automodule:: diagnnose.utils.misc
    :members:
    :undoc-members:
@@ -16,7 +16,7 @@ Misc
 
 
 Pickle
-~~~~~~
+^^^^^^
 .. automodule:: diagnnose.utils.pickle
    :members:
    :undoc-members:

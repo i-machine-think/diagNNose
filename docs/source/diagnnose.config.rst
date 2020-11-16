@@ -8,7 +8,7 @@ config
 
 
 Arg Descriptions
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 .. automodule:: diagnnose.config.arg_descriptions
    :members:
    :undoc-members:
@@ -16,7 +16,7 @@ Arg Descriptions
 
 
 Config Dict
-~~~~~~~~~~~
+^^^^^^^^^^^
 .. automodule:: diagnnose.config.config_dict
    :members:
    :undoc-members:
