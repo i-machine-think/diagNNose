@@ -1,8 +1,8 @@
-diagnnose documentation
+diagNNose documentation
 =======================
 
-``diagnnose`` is a Python library for analysing the activations of deep neural networks.
-``diagnnose``'s main focus currently lies on techniques that aid in uncovering linguistic knowledge that is encoded within a model’s representations.
+``diagNNose`` is a Python library for analysing the activations of deep neural networks.
+``diagNNose``'s main focus currently lies on techniques that aid in uncovering linguistic knowledge that is encoded within a model’s representations.
 The library provides abstractions that allow re-current models to be investigated in the sameway as Transformer models, in a modular fashion.
 It contains an extensive **activation extraction module** that allows for the extraction of (intermediate) model activations on a corpus.
 The analysis techniques that are currently implemented include:
@@ -38,7 +38,7 @@ The library is structured into the following modules:
         This way it is possible, for instance, to only extract the activations at the position of tokens of particular interest.
 
     config
-        The pipeline of ``diagnnose`` is configuration-driven.
+        The pipeline of ``diagNNose`` is configuration-driven.
         Configuration is defined in JSON format, but individual attributes can also be set from the command line directly.
 
     syntax

@@ -29,14 +29,14 @@ with open("source/diagnnose.attribute.rst", "w") as f:
     f.write("".join(content))
 
 
-files = glob.glob('source/diagnnose.*')
+files = glob.glob("source/diagnnose.*")
 
 for fn in files:
     with open(fn) as f:
         content = list(f)
 
-    content[0] = ".".join(content[0][:-9].split(".")[1:]) + '\n'
-    content[1] = content[1][:-9] + '\n'
+    content[0] = ".".join(content[0][:-9].split(".")[1:]) + "\n"
+    content[1] = content[1][:-9] + "\n"
 
     if "Submodules" in content[8]:
         del content[8:11]
@@ -49,7 +49,9 @@ for fn in files:
     for idx, line in enumerate(content):
         if "automodule" in line:
             snake_name = line.split(" ")[-1].split(".")[-1]
-            if snake_name != content[0][-len(snake_name):]:
+            if snake_name != content[0][-len(snake_name) :] or (
+                snake_name.strip() == "corpus" and len(line.split(" ")[-1].split(".")) == 3
+            ):
                 all_caps = ["lstm", "lm", "gcd", "awd", "dc", "w2i", "c2i"]
                 capital_list = [
                     x.upper() if x in all_caps else x.capitalize()
@@ -60,5 +62,5 @@ for fn in files:
                 new_content.append("^" * len(capital_name) + "\n")
         new_content.append(line)
 
-    with open(fn, 'w') as f:
-        f.write(''.join(new_content))
+    with open(fn, "w") as f:
+        f.write("".join(new_content))

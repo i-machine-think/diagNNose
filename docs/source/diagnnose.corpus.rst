@@ -7,6 +7,8 @@ corpus
    :show-inheritance:
 
 
+Corpus
+^^^^^^
 .. automodule:: diagnnose.corpus.corpus
    :members:
    :undoc-members:

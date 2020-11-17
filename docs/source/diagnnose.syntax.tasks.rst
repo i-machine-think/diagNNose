@@ -31,14 +31,6 @@ Marvin
    :show-inheritance:
 
 
-Task
-^^^^
-.. automodule:: diagnnose.syntax.tasks.task
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
 Warstadt
 ^^^^^^^^
 .. automodule:: diagnnose.syntax.tasks.warstadt

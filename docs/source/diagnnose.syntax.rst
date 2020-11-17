@@ -15,3 +15,11 @@ Evaluator
    :undoc-members:
    :show-inheritance:
 
+
+Task
+^^^^
+.. automodule:: diagnnose.syntax.task
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
