@@ -10,9 +10,9 @@ from typing import Any, Callable, Dict
 def suppress_print(func: Callable) -> Callable:
     """
     Function decorator to suppress print output for testing purposes.
-    Thanks to
-    https://codingdose.info/2018/03/22/supress-print-output-in-python
-    for text "entrapment".
+
+    If ``suppress_print: False`` is part of the ``**kwargs`` of the
+    wrapped method the output won't be suppressed.
     """
 
     @wraps(func)
