@@ -3,8 +3,9 @@ from typing import Dict, List, Optional
 from torchtext.data import Example
 
 from diagnnose.corpus import Corpus
+from diagnnose.typedefs.syntax import SyntaxEvalCorpora
 
-from .task import SyntaxEvalCorpora, SyntaxEvalTask
+from ..task import SyntaxEvalTask
 from .warstadt_preproc import ENVS, create_downstream_corpus, preproc_warstadt
 
 

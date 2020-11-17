@@ -3,15 +3,10 @@ from typing import Any, Dict, List, Optional, Type
 from transformers import PreTrainedTokenizer
 
 from diagnnose.models import LanguageModel
-from diagnnose.syntax.tasks import (
-    LakretzTask,
-    LinzenTask,
-    MarvinTask,
-    ResultsDict,
-    SyntaxEvalTask,
-    WarstadtTask,
-    WinobiasTask,
-)
+from diagnnose.typedefs.syntax import ResultsDict
+
+from .task import SyntaxEvalTask
+from .tasks import LakretzTask, LinzenTask, MarvinTask, WarstadtTask, WinobiasTask
 
 task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
     "lakretz": LakretzTask,
@@ -37,9 +32,9 @@ class SyntacticEvaluator:
         Tokenizer that converts tokens to their index within the LM.
     config : Dict[str, Any]
         Dictionary mapping a task name (`lakretz`, `linzen`, `marvin`,
-        or `winobias`) to its configuration (`path`, `tasks`, and
-        `task_activations`). `path` points to the corpus folder of the
-        task, `tasks` is an optional list of subtasks, and
+        `warstadt`, or `winobias`) to its configuration (`path`,
+        `tasks`, and `task_activations`). `path` points to the corpus
+        folder of the task, `tasks` is an optional list of subtasks, and
         `task_activations` an optional path to the folder containing
         the model activations.
     """

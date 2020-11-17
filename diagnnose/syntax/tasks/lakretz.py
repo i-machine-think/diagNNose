@@ -2,8 +2,9 @@ import os
 from typing import Dict, List, Optional
 
 from diagnnose.corpus import Corpus
+from diagnnose.typedefs.syntax import SyntaxEvalCorpora
 
-from .task import SyntaxEvalCorpora, SyntaxEvalTask
+from ..task import SyntaxEvalTask
 
 
 class LakretzTask(SyntaxEvalTask):

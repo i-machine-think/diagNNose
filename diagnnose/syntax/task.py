@@ -1,7 +1,7 @@
 import glob
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import torch
 from torch import Tensor
@@ -12,11 +12,7 @@ from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
-
-# subtask -> Corpus | (condition -> Corpus)
-SyntaxEvalCorpora = Dict[str, Union[Corpus, Dict[str, Corpus]]]
-# subtask -> accuracy | (condition -> accuracy)
-ResultsDict = Dict[str, Union[float, Dict[str, float]]]
+from diagnnose.typedefs.syntax import ResultsDict, SyntaxEvalCorpora
 
 
 class SyntaxEvalTask:
@@ -113,7 +109,7 @@ class SyntaxEvalTask:
         return results
 
     def _run_corpus(self, corpus: Corpus) -> float:
-        mask_token = self.tokenizer.mask_token
+        mask_token = self.tokenizer._mask_token
 
         if mask_token is not None:
             selection_func = only_mask_token(mask_token, "sen")

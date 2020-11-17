@@ -5,9 +5,10 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from torchtext.data import Example, Field
 
 from diagnnose.corpus import Corpus
+from diagnnose.typedefs.syntax import SyntaxEvalCorpora
 from diagnnose.utils.pickle import load_pickle
 
-from .task import SyntaxEvalCorpora, SyntaxEvalTask
+from ..task import SyntaxEvalTask
 
 
 class MarvinTask(SyntaxEvalTask):

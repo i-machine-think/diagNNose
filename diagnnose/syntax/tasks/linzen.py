@@ -6,8 +6,9 @@ from torchtext.data import Example, Field
 from unidecode import unidecode
 
 from diagnnose.corpus import Corpus
+from diagnnose.typedefs.syntax import SyntaxEvalCorpora
 
-from .task import SyntaxEvalCorpora, SyntaxEvalTask
+from ..task import SyntaxEvalTask
 
 
 class RawItem(NamedTuple):
