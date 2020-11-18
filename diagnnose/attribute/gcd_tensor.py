@@ -7,12 +7,12 @@ class GCDTensor(ShapleyTensor):
     def mul_contributions(self, *args, **kwargs):
         arg1, arg2 = args
 
-        if isinstance(arg1, torch.Tensor):
+        if not isinstance(arg1, ShapleyTensor):
             contributions = [
                 torch.mul(arg1, contribution, **kwargs)
                 for contribution in arg2.contributions
             ]
-        elif isinstance(arg2, torch.Tensor):
+        elif not isinstance(arg2, ShapleyTensor):
             contributions = [
                 torch.mul(contribution, arg2, **kwargs)
                 for contribution in arg1.contributions
