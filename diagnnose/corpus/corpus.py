@@ -100,7 +100,7 @@ class Corpus(Dataset):
             else:
                 header = [sen_column]
 
-        assert sen_column in header, "`sen` should be part of corpus_header!"
+        assert sen_column in header, f"{sen_column} should be part of corpus_header!"
 
         return header
 

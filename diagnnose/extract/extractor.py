@@ -53,9 +53,6 @@ class Extractor:
         Amount of sentences processed per forward step. Higher batch
         size increases extraction speed, but should be done
         accordingly to the amount of available RAM. Defaults to 1.
-    sen_column : str, optional
-        Corpus column that will be tokenized and extracted. Defaults
-        to the ``sen_column`` of ``corpus``.
     """
 
     def __init__(
@@ -66,7 +63,6 @@ class Extractor:
         activations_dir: Optional[str] = None,
         selection_func: Union[SelectionFunc, str] = return_all,
         batch_size: int = BATCH_SIZE,
-        sen_column: Optional[str] = None,
     ) -> None:
         self.model = model
         self.corpus = corpus
@@ -76,9 +72,9 @@ class Extractor:
         else:
             self.selection_func = selection_func
         self.batch_size = batch_size
-        self.sen_column = sen_column or corpus.sen_column
 
-        self.activation_ranges = self._create_activation_ranges()
+        self.activation_ranges = []
+        self.set_activation_ranges()
 
         if activations_dir is None:
             self.activation_writer: Optional[ActivationWriter] = None
@@ -171,7 +167,7 @@ class Extractor:
         """Processes the items in `batch` and selects the activations
         that should should be extracted according to selection_func.
         """
-        sens, sen_lens = getattr(batch, self.sen_column)
+        sens, sen_lens = getattr(batch, self.corpus.sen_column)
 
         compute_out = any("out" in a_name for a_name in self.activation_names)
         with torch.no_grad():
@@ -203,7 +199,7 @@ class Extractor:
 
         for b_idx, sen_idx in enumerate(batch.sen_idx):
             item = self.corpus[sen_idx]
-            sen_len = len(getattr(item, self.sen_column))
+            sen_len = len(getattr(item, self.corpus.sen_column))
             for w_idx in range(sen_len):
                 if self.selection_func(w_idx, item):
                     for a_name in batch_activations:
@@ -213,20 +209,20 @@ class Extractor:
 
         return batch_activations
 
-    def _create_activation_ranges(self) -> ActivationRanges:
+    def set_activation_ranges(self) -> ActivationRanges:
         activation_ranges: ActivationRanges = []
         tot_extracted = 0
 
         for item in self.corpus:
             start = tot_extracted
-            sen_len = len(getattr(item, self.sen_column))
+            sen_len = len(getattr(item, self.corpus.sen_column))
             for w_idx in range(sen_len):
                 if self.selection_func(w_idx, item):
                     tot_extracted += 1
 
             activation_ranges.append((start, tot_extracted))
 
-        return activation_ranges
+        self.activation_ranges = activation_ranges
 
     def _init_activation_dict(self, n_items: int, dump: bool = False) -> ActivationDict:
         # If activations are dumped we don't keep track of the full activation dictionary,
