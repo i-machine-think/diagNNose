@@ -187,4 +187,4 @@ class TransformerLM(LanguageModel):
         return self.pretrained_model.config.hidden_size
 
     def activation_names(self) -> ActivationNames:
-        return [(self.top_layer, "hx")]
+        return [(-1, "out")]
