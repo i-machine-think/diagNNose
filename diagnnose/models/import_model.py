@@ -1,7 +1,5 @@
 from typing import Type
 
-import diagnnose.models.wrappers as wrappers
-
 from .init_states import _create_zero_states
 from .language_model import LanguageModel
 from .recurrent_lm import RecurrentLM
@@ -37,6 +35,8 @@ def _import_recurrent_lm(*args, **kwargs) -> RecurrentLM:
 
     assert "model_type" in kwargs, "model_type should be given for recurrent LM"
     model_type = kwargs.pop("model_type")
+
+    import diagnnose.models.wrappers as wrappers
 
     model_constructor: Type[RecurrentLM] = getattr(wrappers, model_type)
     model = model_constructor(*args, **kwargs)
