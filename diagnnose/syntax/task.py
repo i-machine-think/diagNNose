@@ -124,9 +124,8 @@ class SyntaxEvalTask:
             else:
                 selection_func = final_token("counter_sen")
 
-            counter_activations = self._calc_final_hidden(
-                corpus, selection_func, sen_column="counter_sen"
-            )
+            corpus.sen_column = "counter_sen"
+            counter_activations = self._calc_final_hidden(corpus, selection_func)
         else:
             counter_activations = None
 
@@ -142,7 +141,6 @@ class SyntaxEvalTask:
         self,
         corpus: Corpus,
         selection_func: SelectionFunc,
-        sen_column: str = "sen",
     ) -> Tensor:
         activation_name = (self.model.top_layer, "hx")
 
@@ -152,7 +150,6 @@ class SyntaxEvalTask:
             [activation_name],
             batch_size=len(corpus),
             selection_func=selection_func,
-            sen_column=sen_column,
         )
 
         activations = torch.cat(activation_reader[:, activation_name], dim=0)
