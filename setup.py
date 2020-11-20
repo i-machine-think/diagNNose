@@ -19,7 +19,7 @@ else:
 
 setup(
     name="diagNNose",
-    version="0.1-alpha",
+    version="1.0",
     description="A library that facilitates a broad set of tools for analysing "
                 "hidden activations of neural models.",
     long_description=long_description,
@@ -28,9 +28,9 @@ setup(
     classifiers=[
         "Intended Audience :: Science/Research",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.6",
     ],
-    keywords="introspection, analysis, deep learning, nlp",
+    keywords="interpretability, analysis, deep learning, nlp",
     url="https://github.com/i-machine-think/diagnnose",
     packages=find_packages(exclude=["contrib", "docs", "test", "scripts"]),
     install_requires=install_requires,
