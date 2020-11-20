@@ -1,27 +1,5 @@
-# Example directory
+# Scripts
 
-In this directory, you can download several examples that illustrate how to use `diagnnose`.
-Currently, all the examples are based on the pretrained model provided by Gulordava et al (2018).
-To download the files required for the examples, first run the file `setup.sh` in this folder:
+This folder contains several example scripts that demonstrate the capacities of `diagNNose`. 
 
-```
-sh setup.sh
-```
-
-# Extract
-
-To extract activations from the downloaded model, you can use the script `extract.py`:
-
-```
-python3 extract.py -c extract.json
-```
-
-Explain what the input and output of this look like and what will be written to where.
-
-# Diagnose
-
-Explain how this file works/what it does.
-
-## References
-
-K. Gulordava, P. Bojanowski, E. Grave, T. Linzen, M. Baroni. 2018. [https://arxiv.org/abs/1803.11138](Colorless green recurrent networks dream hierarchically). Proceedings of NAACL.
+A more detailed overview of these scripts can be found here: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1TzNU4l28NljkUcq_h1qbLizRAQuedvAZ?usp=sharing)
