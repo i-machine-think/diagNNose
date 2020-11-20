@@ -1,5 +1,11 @@
 # diagNNose &middot; [![Build Status](https://travis-ci.com/i-machine-think/diagnnose.svg?branch=master)](https://travis-ci.com/i-machine-think/diagnnose) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
 
+**Paper**: https://arxiv.org/abs/2011.06819
+
+**Demo**: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1TzNU4l28NljkUcq_h1qbLizRAQuedvAZ?usp=sharing)
+
+**Documentation**: https://diagnnose.readthedocs.io
+#
 This library contains a set of modules that can be used to analyse the activations of neural networks, with a focus on NLP architectures such as LSTMs and Transformers.
 In particular, it contains functionality for :
 - **Extracting** activations from different types of (language) models and providing quick access to these stored activations.
@@ -19,9 +25,9 @@ The preferred version of Python is ≥3.6. The required packages are stated in [
 The workflow of `diagNNose` is divided into several building blocks, that can be combined for various experiments.
 
 We provide a few examples that demonstrate the library. 
-An interactive interface for these scripts is provided in the form of a notebook here: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1TzNU4l28NljkUcq_h1qbLizRAQuedvAZ?usp=sharing)
+An interactive and more extensive interface for these scripts is also provided in the form of a notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1TzNU4l28NljkUcq_h1qbLizRAQuedvAZ?usp=sharing)
 
-##### Activation Extraction
+#### Activation Extraction
 The activations of a model can be extracted using an `Extractor` that takes care of batching and selecting activations of interest.
 
 Fine-grained activation selection is possible by defining a `selection_func`, that selects an activation based on the current sentence index and corpus item.
