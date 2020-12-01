@@ -32,7 +32,9 @@ def create_labels_from_corpus(
         label_idx = 0
 
         sen = getattr(item, corpus.sen_column)
-        labels = getattr(item, corpus.labels_column).split()
+        labels = getattr(item, corpus.labels_column)
+        if isinstance(labels, str):
+            labels = labels.split()
 
         each_token_labeled = len(sen) == len(labels)
 
