@@ -5,11 +5,13 @@
     "mode": "causal_lm"
   },
   "corpus": {
-    "path": "data/minicorpus.txt",
-    "header": ["sen", "labels"]
+    "path": "../experiments/gpt2_janie/syntactic_act_pass_v2.tsv",
+    "header_from_first_line": true,
+    "sen_column": "primed_sen",
+    "tokenize_columns": ["primed_sen", "unprimed_sen"],
+    "convert_numerical": true
   },
   "extract": {
-    "activations_dir": "../lm_data/activations/extracted/gpt2",
-    "activation_names": [[-1, "out"]]
+    "batch_size": 5
   }
 }
