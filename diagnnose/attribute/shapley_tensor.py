@@ -27,9 +27,17 @@ class ShapleyTensor:
         Shapley factors that are calculated with `calc_shapley_factors`.
         To prevent unnecessary compute these factors are passed on to
         subsequent ShapleyTensors.
+    num_samples : int, optional
+        Number of feature permutation samples. Increasing the number of
+        samples will reduce the variance of the approximation. If not
+        provided the exact Shapley values will be computed.
     validate : bool, optional
         Toggle to validate at each step whether `contributions` still
         sums up to `data`. Defaults to False.
+    baseline_partition : int, optional
+        Index of the contribution partition to which the baseline fn(0)
+        will be added. If we do not add this baseline the contributions
+        won't sum up to the full output. Defaults to 0.
     """
 
     def __init__(
@@ -39,6 +47,7 @@ class ShapleyTensor:
         shapley_factors: Optional[List[Tuple[List[int], int]]] = None,
         num_samples: Optional[int] = None,
         validate: bool = False,
+        baseline_partition: int = 0,
     ):
         if not utils.MONKEY_PATCH_PERFORMED:
             utils.monkey_patch()
@@ -49,6 +58,7 @@ class ShapleyTensor:
         self.shapley_factors = shapley_factors
         self.num_samples = num_samples
         self.validate = validate
+        self.baseline_partition = baseline_partition
 
         self.current_fn: Optional[str] = None
         self.new_data: Optional[Union[Tensor, Iterable[Tensor]]] = None
@@ -143,6 +153,7 @@ class ShapleyTensor:
             shapley_factors=self.shapley_factors,
             num_samples=self.num_samples,
             validate=self.validate,
+            baseline_partition=self.baseline_partition,
         )
 
     def __setitem__(self, index, value):
@@ -193,6 +204,7 @@ class ShapleyTensor:
                 shapley_factors=self.shapley_factors,
                 num_samples=self.num_samples,
                 validate=self.validate,
+                baseline_partition=self.baseline_partition,
             )
         elif self.current_fn == "_pack_padded_sequence":
             new_contributions = [c[0] for c in new_contributions]
@@ -244,6 +256,7 @@ class ShapleyTensor:
                 self.num_features,
                 self.shapley_factors,
                 self.new_data,
+                self.baseline_partition,
                 *args,
                 **kwargs,
             )
@@ -253,22 +266,31 @@ class ShapleyTensor:
                 self.num_features,
                 self.num_samples,
                 self.new_data,
+                self.baseline_partition,
                 *args,
                 **kwargs,
             )
 
     def cat_contributions(self, *args, **kwargs):
-        # A non-ShapleyTensor only contributes to the default feature, and is padded with 0s.
-        all_contributions = [
-            arg.contributions
-            if hasattr(arg, "contributions")
-            else [arg] + (self.num_features - 1) * [torch.zeros_like(arg)]
-            for arg in args[0]
-        ]
+        def _pad_contributions(arg: Union[Tensor, ShapleyTensor]):
+            """A non-ShapleyTensor only contributes to the baseline
+            partition, and is padded with 0s.
+            """
+            if isinstance(arg, ShapleyTensor):
+                return arg.contributions
+            elif isinstance(arg, Tensor):
+                padded_contribution = self.num_features * [torch.zeros_like(arg)]
+                padded_contribution[self.baseline_partition] = arg
+
+                return padded_contribution
+            else:
+                raise TypeError
+
+        padded_contributions = [_pad_contributions(tensor) for tensor in args[0]]
 
         contributions = [
             torch.cat(
-                [contribution[idx] for contribution in all_contributions], **kwargs
+                [contribution[idx] for contribution in padded_contributions], **kwargs
             )
             for idx in range(self.num_features)
         ]
@@ -293,6 +315,12 @@ class ShapleyTensor:
         return contributions
 
     def dropout_contributions(self, *args, **kwargs):
+        """In principle dropout should be disabled when calculating
+        Shapley contributions, but we should still take care of it.
+
+        We determine the dropout mask by looking at the difference
+        between the new output data and the input.
+        """
         dropout_mask = self.new_data != args[0].data
 
         contributions = args[0].contributions
@@ -307,42 +335,35 @@ class ShapleyTensor:
     def dropout3d_contributions(self, *args, **kwargs):
         return self.dropout_contributions(*args, **kwargs)
 
-    @staticmethod
-    def add_contributions(*args, **kwargs):
-        """ Non-ShapleyTensors are added to the default partition. """
-        arg1, arg2 = args
-        if not isinstance(arg1, ShapleyTensor):
-            contributions = [
-                torch.add(arg1, arg2.contributions[0], **kwargs),
-                *(
-                    torch.add(torch.zeros_like(arg), arg, **kwargs)
-                    for arg in arg2.contributions[1:]
-                ),
-            ]
-        elif not isinstance(arg2, ShapleyTensor):
-            contributions = [
-                torch.add(arg1.contributions[0], arg2, **kwargs),
-                *arg1.contributions[1:],
-            ]
+    def add_contributions(self, *args, **kwargs):
+        """ Non-ShapleyTensors are added to the baseline partition. """
+        input_, other = args
+
+        if not isinstance(input_, ShapleyTensor):
+            contributions = other.contributions
+            contributions[self.baseline_partition] += input_
+        elif not isinstance(other, ShapleyTensor):
+            contributions = input_.contributions
+            contributions[self.baseline_partition] += other
         else:
             contributions = [
                 torch.add(con1, con2, **kwargs)
-                for con1, con2 in zip(arg1.contributions, arg2.contributions)
+                for con1, con2 in zip(input_.contributions, other.contributions)
             ]
 
         return contributions
 
     def mul_contributions(self, *args, **kwargs):
-        arg1, arg2 = args
-        if isinstance(arg1, torch.Tensor):
+        input_, other = args
+        if isinstance(input_, torch.Tensor):
             contributions = [
-                torch.mul(arg1, contribution, **kwargs)
-                for contribution in arg2.contributions
+                torch.mul(input_, contribution, **kwargs)
+                for contribution in other.contributions
             ]
-        elif isinstance(arg2, torch.Tensor):
+        elif isinstance(other, torch.Tensor):
             contributions = [
-                torch.mul(contribution, arg2, **kwargs)
-                for contribution in arg1.contributions
+                torch.mul(contribution, other, **kwargs)
+                for contribution in input_.contributions
             ]
         else:
             contributions = self._calc_shapley_contributions(torch.mul, *args, **kwargs)
@@ -350,16 +371,16 @@ class ShapleyTensor:
         return contributions
 
     def matmul_contributions(self, *args, **kwargs):
-        arg1, arg2 = args
-        if isinstance(arg1, torch.Tensor):
+        input_, other = args
+        if isinstance(input_, torch.Tensor):
             contributions = [
-                torch.matmul(arg1, contribution, **kwargs)
-                for contribution in arg2.contributions
+                torch.matmul(input_, contribution, **kwargs)
+                for contribution in other.contributions
             ]
-        elif isinstance(arg2, torch.Tensor):
+        elif isinstance(other, torch.Tensor):
             contributions = [
-                torch.matmul(contribution, arg2, **kwargs)
-                for contribution in arg1.contributions
+                torch.matmul(contribution, other, **kwargs)
+                for contribution in input_.contributions
             ]
         else:
             contributions = self._calc_shapley_contributions(

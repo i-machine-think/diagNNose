@@ -146,9 +146,33 @@ def calc_exact_shapley_values(
     num_features: int,
     shapley_factors: List[Tuple[List[int], int]],
     new_data: Tensor,
+    baseline_partition: int,
     *args,
     **kwargs,
 ) -> List[Tensor]:
+    """ Calculates the exact Shapley values for some function fn.
+
+    Note that this procedure grows exponentially in the number of
+    features, and should be handled with care.
+
+    Parameters
+    ----------
+    fn : Callable
+        Torch function for which the Shapley values will be computed.
+    num_features : int
+        Number of features for which contributions will be computed.
+    shapley_factors : List[Tuple[List[int], int]]
+        List of `Shapley factors` that is computed using
+        ``calc_shapley_factors``.
+    new_data : Tensor
+        The output tensor that is currently being decomposed into
+        its contributions. We pass this so we can instantiate the
+        contribution tensors with correct shape beforehand.
+    baseline_partition : int
+        Index of the contribution partition to which the baseline fn(0)
+        will be added. If we do not add this baseline the contributions
+        won't sum up to the full output.
+    """
     contributions = []
 
     for f_idx in range(num_features):
@@ -172,7 +196,7 @@ def calc_exact_shapley_values(
     # Add baseline to default feature ([0]).
     zero_input_args = unwrap(args, attr="contributions", coalition=[])
     baseline = fn(*zero_input_args, **kwargs)
-    contributions[0] += baseline
+    contributions[baseline_partition] += baseline
 
     return contributions
 
@@ -182,9 +206,33 @@ def calc_sample_shapley_values(
     num_features: int,
     num_samples: int,
     new_data: Tensor,
+    baseline_partition: int,
     *args,
     **kwargs,
 ) -> List[Tensor]:
+    """ Calculates the approximate Shapley values for some function fn.
+
+    This procedure is based on that of Castro et al. (2008), and
+    approximates Shapley values in polynomial time.
+
+    Parameters
+    ----------
+    fn : Callable
+        Torch function for which the Shapley values will be computed.
+    num_features : int
+        Number of features for which contributions will be computed.
+    num_samples : int
+        Number of feature permutation samples. Increasing the number of
+        samples will reduce the variance of the approximation.
+    new_data : Tensor
+        The output tensor that is currently being decomposed into
+        its contributions. We pass this so we can instantiate the
+        contribution tensors with correct shape beforehand.
+    baseline_partition : int
+        Index of the contribution partition to which the baseline fn(0)
+        will be added. If we do not add this baseline the contributions
+        won't sum up to the full output.
+    """
     contributions = [torch.zeros_like(new_data) for _ in range(num_features)]
 
     generator = perm_generator(num_features, num_samples)
@@ -203,6 +251,6 @@ def calc_sample_shapley_values(
             prev_value = new_value
 
     contributions = [c / num_samples for c in contributions]
-    contributions[0] += baseline
+    contributions[baseline_partition] += baseline
 
     return contributions

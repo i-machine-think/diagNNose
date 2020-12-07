@@ -5,23 +5,23 @@ from .shapley_tensor import ShapleyTensor
 
 class GCDTensor(ShapleyTensor):
     def mul_contributions(self, *args, **kwargs):
-        arg1, arg2 = args
+        gate, source = args
 
-        if not isinstance(arg1, ShapleyTensor):
+        if not isinstance(gate, ShapleyTensor):
             contributions = [
-                torch.mul(arg1, contribution, **kwargs)
-                for contribution in arg2.contributions
+                torch.mul(gate, contribution, **kwargs)
+                for contribution in source.contributions
             ]
-        elif not isinstance(arg2, ShapleyTensor):
+        elif not isinstance(source, ShapleyTensor):
             contributions = [
-                torch.mul(contribution, arg2, **kwargs)
-                for contribution in arg1.contributions
+                torch.mul(contribution, source, **kwargs)
+                for contribution in gate.contributions
             ]
         else:
-            contributions_sum = sum(arg1.contributions)
+            gate_contributions = sum(gate.contributions)
             contributions = [
-                torch.mul(contributions_sum, contribution, **kwargs)
-                for contribution in arg2.contributions
+                torch.mul(gate_contributions, source_contribution, **kwargs)
+                for source_contribution in source.contributions
             ]
 
         return contributions
