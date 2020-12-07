@@ -1,6 +1,6 @@
 {
   "model": {
-    "model_type": "ForwardLSTM",
+    "rnn_type": "ForwardLSTM",
     "state_dict": "data/model/state_dict.pt"
   },
   "tokenizer": {

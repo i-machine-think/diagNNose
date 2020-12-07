@@ -37,7 +37,7 @@ class TransformerLM(LanguageModel):
 
     def __init__(
         self,
-        model_name: str,
+        transformer_type: str,
         mode: Optional[str] = None,
         embeddings_attr: Optional[str] = None,
         cache_dir: Optional[str] = None,
@@ -47,7 +47,7 @@ class TransformerLM(LanguageModel):
         auto_model = mode_to_auto_model.get(mode, AutoModel)
 
         self.pretrained_model: PreTrainedModel = auto_model.from_pretrained(
-            model_name, cache_dir=cache_dir
+            transformer_type, cache_dir=cache_dir
         )
 
         self.embeddings_attr = embeddings_attr

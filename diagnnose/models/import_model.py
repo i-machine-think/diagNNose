@@ -15,10 +15,12 @@ def import_model(*args, **kwargs) -> LanguageModel:
         A LanguageModel instance, based on the provided config_dict.
     """
 
-    if "model_name" in kwargs:
+    if "transformer_type" in kwargs:
         model = _import_transformer_lm(*args, **kwargs)
-    else:
+    elif "rnn_type" in kwargs:
         model = _import_recurrent_lm(*args, **kwargs)
+    else:
+        raise TypeError("`transformer_type` or `rnn_type` must be provided as kwarg.")
 
     model.eval()
 
@@ -33,8 +35,8 @@ def _import_transformer_lm(*args, **kwargs) -> TransformerLM:
 def _import_recurrent_lm(*args, **kwargs) -> RecurrentLM:
     """ Imports a recurrent LM and sets the initial states. """
 
-    assert "model_type" in kwargs, "model_type should be given for recurrent LM"
-    model_type = kwargs.pop("model_type")
+    assert "rnn_type" in kwargs, "rnn_type should be given for recurrent LM"
+    model_type = kwargs.pop("rnn_type")
 
     import diagnnose.models.wrappers as wrappers
 
