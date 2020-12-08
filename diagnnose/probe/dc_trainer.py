@@ -77,9 +77,7 @@ class DCTrainer:
         full_results_dict = {}
 
         for activation_name in self.data_loader.activation_names:
-            results_dict = self._train_one_dc(
-                activation_name,
-            )
+            results_dict = self._train_one_dc(activation_name)
             full_results_dict[activation_name] = results_dict
 
         return full_results_dict
@@ -95,7 +93,7 @@ class DCTrainer:
             print(f"\nStarting fitting model on {activation_name}...")
 
         # Train
-        self._fit(data_dict.test_activations, data_dict.test_labels)
+        self._fit(data_dict.train_activations, data_dict.train_labels)
 
         results_dict = self._eval(data_dict.test_activations, data_dict.test_labels)
 
