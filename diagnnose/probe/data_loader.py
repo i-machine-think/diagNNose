@@ -30,10 +30,13 @@ class DataLoader:
 
     Parameters
     ----------
-    activations_dir : str
-        Directory containing the extracted activations.
     corpus : Corpus
         Corpus containing the labels for each sentence.
+    activations_dir : str, optional
+        Directory containing the extracted activations. If not provided,
+        new activations will be extracted. If ``create_new_activations``
+        is set to ``True``, the newly extracted activations will be
+        stored in this directory.
     test_activations_dir : str, optional
         Directory containing the extracted test activations. If not
         provided the train activation set will be split and partially
@@ -59,6 +62,10 @@ class DataLoader:
         activations are provided this split won't be used.
         Defaults to None, but must be provided if no test_selection_func
         is passed.
+    create_new_activations : bool, optional
+        Toggle to create new activations based on corpus and model.
+        Overwrites existing activations that might be present in
+        ``activations_dir``.
     """
 
     def __init__(
@@ -73,6 +80,7 @@ class DataLoader:
         test_selection_func: Optional[SelectionFunc] = None,
         control_task: Optional[ControlTask] = None,
         train_test_ratio: Optional[float] = None,
+        create_new_activations: bool = False,
     ) -> None:
         assert (
             None not in [test_corpus, test_selection_func]
@@ -83,6 +91,9 @@ class DataLoader:
             "or a train_test_ratio. The docstring of DataLoader contains more precise information."
         )
 
+        self.activation_names = activation_names
+        self.create_new_activations = create_new_activations
+
         selection_func = (
             union((train_selection_func, test_selection_func))
             if test_selection_func is not None and test_corpus is None
@@ -90,7 +101,7 @@ class DataLoader:
         )
 
         train_activation_reader = self._create_activation_reader(
-            model, corpus, activation_names, activations_dir, selection_func
+            model, corpus, activations_dir, selection_func
         )
 
         self.train_ids, self.test_ids = self._train_test_ids(
@@ -111,7 +122,6 @@ class DataLoader:
         if test_corpus is not None:
             test_activation_reader = self._create_test_split(
                 model,
-                activation_names,
                 test_activations_dir,
                 test_corpus,
                 test_selection_func,
@@ -127,7 +137,6 @@ class DataLoader:
             control_task,
         )
 
-        self.activation_names = train_activation_reader.activation_names
         self.label_vocab: Dict[str, int] = corpus.fields[corpus.labels_column].vocab
 
         assert len(self.test_split.labels) > 0, (
@@ -135,21 +144,21 @@ class DataLoader:
             "test_activation_dir or train_test_ratio are set up correctly"
         )
 
-    @staticmethod
     def _create_activation_reader(
+        self,
         model: Optional[LanguageModel],
         corpus: Corpus,
-        activation_names: ActivationNames,
         activations_dir: str,
         selection_func: Optional[SelectionFunc],
     ) -> ActivationReader:
-        if activations_dir is None:
+        if activations_dir is None or self.create_new_activations:
             assert model is not None
 
             activation_reader, _ = simple_extract(
                 model,
                 corpus,
-                activation_names,
+                self.activation_names,
+                activations_dir=activations_dir,
                 selection_func=selection_func or return_all,
             )
             activation_reader.cat_activations = True
@@ -191,7 +200,6 @@ class DataLoader:
     def _create_test_split(
         self,
         model: Optional[LanguageModel],
-        activation_names: Optional[ActivationNames],
         test_activations_dir: Optional[str],
         test_corpus: Optional[Corpus],
         test_selection_func: Optional[SelectionFunc],
@@ -202,7 +210,6 @@ class DataLoader:
         test_activation_reader = self._create_activation_reader(
             model,
             test_corpus,
-            activation_names,
             test_activations_dir,
             test_selection_func,
         )
