@@ -148,3 +148,6 @@ def _set_tokenizer(config_dict: ConfigDict) -> None:
         and "tokenizer" not in config_dict
     ):
         config_dict["tokenizer"] = {"path": config_dict["model"]["transformer_type"]}
+
+        if "cache_dir" in config_dict["model"]:
+            config_dict["tokenizer"]["cache_dir"] = config_dict["model"]["cache_dir"]
