@@ -54,10 +54,10 @@ class TransformerLM(LanguageModel):
 
     def forward(
         self,
-        input_ids: Optional[Tensor] = None,
+        input_ids: Optional[Union[Tensor, List[int]]] = None,
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[List[int]] = None,
-        attention_mask: Optional[Tensor] = None,
+        attention_mask: Optional[Union[Tensor, List[int]]] = None,
         compute_out: bool = True,
         only_return_top_embs: bool = True,
     ) -> Union[ActivationDict, Tensor]:
@@ -74,6 +74,8 @@ class TransformerLM(LanguageModel):
         if input_lengths is None:
             batch_size, max_sen_len = inputs_embeds.shape[:2]
             input_lengths = torch.tensor(batch_size * [max_sen_len])
+        if isinstance(attention_mask, list):
+            attention_mask = torch.tensor(attention_mask)
         if attention_mask is None:
             attention_mask = self.create_attention_mask(input_lengths)
 
@@ -116,7 +118,10 @@ class TransformerLM(LanguageModel):
 
         return attention_mask
 
-    def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
+    def create_inputs_embeds(self, input_ids: Union[Tensor, List[int]]) -> Tensor:
+        if isinstance(input_ids, list):
+            input_ids = torch.tensor(input_ids)
+
         if self.embeddings_attr is not None:
             attrs = self.embeddings_attr.split(".")
             embeddings = reduce(getattr, attrs, self.pretrained_model)
