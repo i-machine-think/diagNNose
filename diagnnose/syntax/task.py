@@ -109,20 +109,20 @@ class SyntaxEvalTask:
         return results
 
     def _run_corpus(self, corpus: Corpus) -> float:
-        mask_token = self.tokenizer._mask_token
-
-        if mask_token is not None:
-            selection_func = only_mask_token(mask_token, "sen")
-        else:
+        if self.model.is_recurrent:
             selection_func = final_token("sen")
+        else:
+            selection_func = only_mask_token(self.tokenizer.mask_token, "sen")
 
         activations = self._calc_final_hidden(corpus, selection_func)
 
         if "counter_sen" in corpus.fields:
-            if mask_token is not None:
-                selection_func = only_mask_token(mask_token, "counter_sen")
-            else:
+            if self.model.is_recurrent:
                 selection_func = final_token("counter_sen")
+            else:
+                selection_func = only_mask_token(
+                    self.tokenizer.mask_token, "counter_sen"
+                )
 
             corpus.sen_column = "counter_sen"
             counter_activations = self._calc_final_hidden(corpus, selection_func)

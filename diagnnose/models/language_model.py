@@ -16,6 +16,7 @@ from diagnnose.typedefs.activations import (
 class LanguageModel(ABC, nn.Module):
     device: str = "cpu"
     sizes: SizeDict = {}
+    is_recurrent: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
