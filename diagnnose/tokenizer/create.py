@@ -74,7 +74,7 @@ def create_tokenizer(
         return tokenizer
 
     # Subword-based vocabulary, used by Transformer models
-    tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir)
+    tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=False)
     if hasattr(tokenizer, "encoder"):
         # GPT-2 & Roberta use a different attribute for the underlying vocab dictionary.
         encoder: Dict[str, int] = getattr(tokenizer, "encoder")

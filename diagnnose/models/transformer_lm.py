@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -84,13 +84,19 @@ class TransformerLM(LanguageModel):
         )
         output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
 
-        if isinstance(output, tuple):
-            output = output[0]
+        if hasattr(output, "logits"):
+            logits: Tensor = output.logits
+            activation_name = (-1, "out")
+        elif hasattr(output, "last_hidden_state"):
+            logits = output.last_hidden_state
+            activation_name = (-1, "hx")
+        else:
+            raise AttributeError
 
         if only_return_top_embs:
-            return output
+            return logits
 
-        return {(-1, "out"): output}
+        return {activation_name: logits}
 
     @staticmethod
     def create_attention_mask(input_lengths: List[int]) -> Tensor:
@@ -118,37 +124,40 @@ class TransformerLM(LanguageModel):
 
         return attention_mask
 
-    def create_inputs_embeds(self, input_ids: Union[Tensor, List[int]]) -> Tensor:
-        if isinstance(input_ids, list):
-            input_ids = torch.tensor(input_ids)
-
+    @property
+    def embeddings(self) -> Callable[[Tensor], Tensor]:
         if self.embeddings_attr is not None:
             attrs = self.embeddings_attr.split(".")
-            embeddings = reduce(getattr, attrs, self.pretrained_model)
-            inputs_embeds: Tensor = embeddings(input_ids)
+            return reduce(getattr, attrs, self.pretrained_model)
         else:
             base_model = self.pretrained_model.base_model
             if hasattr(base_model, "wte"):
                 # GPT-2
-                inputs_embeds: Tensor = base_model.wte(input_ids)
+                return base_model.wte
             elif hasattr(base_model, "embeddings"):
                 if hasattr(base_model.embeddings, "word_embeddings"):
                     # BERT-based models, Electra, Longformer, Reformer
-                    inputs_embeds = base_model.embeddings.word_embeddings(input_ids)
+                    return base_model.embeddings.word_embeddings
                 else:
                     # XLM
-                    inputs_embeds = base_model.embeddings(input_ids)
+                    return base_model.embeddings
             elif hasattr(base_model, "word_embedding"):
                 # XLNet
-                inputs_embeds = base_model.word_embedding(input_ids)
+                return base_model.word_embedding
             elif hasattr(base_model, "w"):
                 # CTRL
-                inputs_embeds = base_model.w(input_ids)
+                return base_model.w
             elif hasattr(base_model, "encoder"):
                 # T5
-                inputs_embeds = base_model.encoder.embed_tokens(input_ids)
+                return base_model.encoder.embed_tokens
             else:
                 raise AttributeError("word embedding attribute not found")
+
+    def create_inputs_embeds(self, input_ids: Union[Tensor, List[int]]) -> Tensor:
+        if isinstance(input_ids, list):
+            input_ids = torch.tensor(input_ids)
+
+        inputs_embeds = self.embeddings(input_ids)
 
         return inputs_embeds
 
@@ -178,12 +187,7 @@ class TransformerLM(LanguageModel):
 
     @property
     def top_layer(self) -> int:
-        if hasattr(self.pretrained_model.config, "n_layer"):
-            return int(self.pretrained_model.config.n_layer) - 1
-        elif hasattr(self.pretrained_model.config, "num_hidden_layers"):
-            return int(self.pretrained_model.config.num_hidden_layers) - 1
-        else:
-            raise AttributeError("Number of layers attribute not found in config")
+        return -1
 
     def nhid(self, activation_name: ActivationName) -> int:
         if activation_name[1] == "out":
