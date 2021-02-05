@@ -33,7 +33,31 @@ mode_to_auto_model = {
 
 
 class TransformerLM(LanguageModel):
-    """ Huggingface LM wrapper. """
+    """Huggingface LM wrapper.
+
+    Parameters
+    ----------
+    transformer_type: str
+        Transformer type that can be passed to
+        ``auto_model.from_pretrained`` as one of the valid models made
+        available by Huggingface, e.g. ``"roberta-base"``.
+    mode : str, optional
+        Language model mode, one of ``"causal_lm"``, ``"masked_lm"``,
+        ``"question_answering"``, ``"sequence_classification"``, or
+        ``"token_classification"``. If not provided the model will be
+        imported using ``AutoModel``, which often yields an LM with no
+        task-specific head on top.
+    embeddings_attr : str, optional
+        Attribute name of the word embeddings of the model. Can be
+        nested. For example, if the word embeddings are stored as an
+        ``"wte"`` attribute that is part of the ``"encoder"`` attribute
+        of the full model, you would pass ``"encoder.wte"``. For the
+        following models this parameter does not need to be passed:
+        ``"(distil)-(Ro)BERT(a)"``, ``"(distil)-gpt2"``, ``"XLM"``, ``""``, ``""``,
+    device : str, optional
+        Torch device on which forward passes will be run.
+        Defaults to cpu.
+    """
 
     def __init__(
         self,
@@ -41,6 +65,7 @@ class TransformerLM(LanguageModel):
         mode: Optional[str] = None,
         embeddings_attr: Optional[str] = None,
         cache_dir: Optional[str] = None,
+        device: str = "cpu",
     ):
         super().__init__()
 
@@ -51,6 +76,7 @@ class TransformerLM(LanguageModel):
         )
 
         self.embeddings_attr = embeddings_attr
+        self.device = device
 
     def forward(
         self,
@@ -73,15 +99,18 @@ class TransformerLM(LanguageModel):
             inputs_embeds = inputs_embeds.unsqueeze(0)  # Add batch dimension
         if input_lengths is None:
             batch_size, max_sen_len = inputs_embeds.shape[:2]
-            input_lengths = torch.tensor(batch_size * [max_sen_len])
+            input_lengths = torch.tensor(batch_size * [max_sen_len], device=self.device)
         if isinstance(attention_mask, list):
-            attention_mask = torch.tensor(attention_mask)
+            attention_mask = torch.tensor(attention_mask, device=self.device)
         if attention_mask is None:
             attention_mask = self.create_attention_mask(input_lengths)
 
         model = (
             self.pretrained_model if compute_out else self.pretrained_model.base_model
         )
+        inputs_embeds = inputs_embeds.to(self.device)
+        attention_mask = attention_mask.to(self.device)
+
         output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
 
         if hasattr(output, "logits"):
@@ -98,8 +127,7 @@ class TransformerLM(LanguageModel):
 
         return {activation_name: logits}
 
-    @staticmethod
-    def create_attention_mask(input_lengths: List[int]) -> Tensor:
+    def create_attention_mask(self, input_lengths: List[int]) -> Tensor:
         """Creates an attention mask as described in:
         https://huggingface.co/transformers/glossary.html#attention-mask
 
@@ -117,7 +145,9 @@ class TransformerLM(LanguageModel):
         """
         max_sen_len = max(input_lengths)
 
-        attention_mask = torch.zeros(len(input_lengths), max_sen_len)
+        attention_mask = torch.zeros(
+            len(input_lengths), max_sen_len, device=self.device
+        )
 
         for idx, length in enumerate(input_lengths):
             attention_mask[idx, :length] = 1.0
@@ -155,7 +185,7 @@ class TransformerLM(LanguageModel):
 
     def create_inputs_embeds(self, input_ids: Union[Tensor, List[int]]) -> Tensor:
         if isinstance(input_ids, list):
-            input_ids = torch.tensor(input_ids)
+            input_ids = torch.tensor(input_ids, device=self.device)
 
         inputs_embeds = self.embeddings(input_ids)
 

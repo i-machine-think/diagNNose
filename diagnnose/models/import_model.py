@@ -24,6 +24,10 @@ def import_model(*args, **kwargs) -> LanguageModel:
 
     model.eval()
 
+    device = kwargs.get("device", "cpu")
+    model.device = device
+    model.to(device)
+
     return model
 
 

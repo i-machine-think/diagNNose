@@ -150,7 +150,7 @@ def calc_exact_shapley_values(
     *args,
     **kwargs,
 ) -> List[Tensor]:
-    """ Calculates the exact Shapley values for some function fn.
+    """Calculates the exact Shapley values for some function fn.
 
     Note that this procedure grows exponentially in the number of
     features, and should be handled with care.
@@ -210,7 +210,7 @@ def calc_sample_shapley_values(
     *args,
     **kwargs,
 ) -> List[Tensor]:
-    """ Calculates the approximate Shapley values for some function fn.
+    """Calculates the approximate Shapley values for some function fn.
 
     This procedure is based on that of Castro et al. (2008), and
     approximates Shapley values in polynomial time.

@@ -54,7 +54,6 @@ class ForwardLSTM(RecurrentLM):
         with open(os.path.expanduser(state_dict), "rb") as mf:
             params: Dict[str, Tensor] = torch.load(mf, map_location=device)
 
-        self.device: str = device
         self.weight: LayeredTensors = {}
         self.bias: LayeredTensors = {}
 
@@ -87,6 +86,8 @@ class ForwardLSTM(RecurrentLM):
             inputs_embeds = self.create_inputs_embeds(input_ids)
         if len(inputs_embeds.shape) == 2:
             inputs_embeds = inputs_embeds.unsqueeze(0)
+
+        inputs_embeds = inputs_embeds.to(self.device)
 
         iterator, unsorted_indices = self._create_iterator(inputs_embeds, input_lengths)
 
@@ -121,7 +122,7 @@ class ForwardLSTM(RecurrentLM):
 
     @staticmethod
     def _create_iterator(
-        input_ids: Tensor, input_lengths: Optional[Tensor]
+        inputs_embeds: Tensor, input_lengths: Optional[Tensor]
     ) -> Tuple[Tuple[Tensor, ...], Tensor]:
         """Creates a PackedSequence that handles batching for the RNN.
 
@@ -136,11 +137,11 @@ class ForwardLSTM(RecurrentLM):
             Original order of the corpus prior to sorting.
         """
         if input_lengths is None:
-            batch_size = input_ids.size(0)
-            input_lengths = torch.tensor(batch_size * [input_ids.size(1)])
+            batch_size = inputs_embeds.size(0)
+            input_lengths = torch.tensor(batch_size * [inputs_embeds.size(1)])
 
         packed_batch: PackedSequence = pack_padded_sequence(
-            input_ids, lengths=input_lengths, batch_first=True, enforce_sorted=False
+            inputs_embeds, lengths=input_lengths, batch_first=True, enforce_sorted=False
         )
 
         iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
