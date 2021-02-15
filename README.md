@@ -60,6 +60,7 @@ if __name__ == "__main__":
 #
 #### Research using `diagNNose`
 - Jumelet, Zuidema & Hupkes (2019): _[Analysing Neural Language Models: Contextual Decomposition Reveals Default Reasoning in Number and Gender Assignment](https://arxiv.org/pdf/1909.08975.pdf)_
+- Weber, Jumelet, Bruni & Hupkes (2021): _[Language Modeling as a Multi-Task Problem](https://arxiv.org/pdf/2101.11287.pdf)_
 
 #### Citing
 If you intend on using `diagNNose` for your research, please cite us as follows. Feel free to reach out, we'd love to help!
