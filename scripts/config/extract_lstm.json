@@ -1,6 +1,6 @@
 {
   "model": {
-    "model_type": "ForwardLSTM",
+    "rnn_type": "ForwardLSTM",
     "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
   "init_states": {

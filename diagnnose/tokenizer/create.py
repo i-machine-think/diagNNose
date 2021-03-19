@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
@@ -26,7 +26,9 @@ def token_to_index(path: str) -> Dict[str, int]:
     return w2i
 
 
-def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer:
+def create_tokenizer(
+    path: str, notify_unk: bool = False, cache_dir: Optional[str] = None
+) -> PreTrainedTokenizer:
     """Creates a tokenizer from a path.
 
     A LSTM tokenizer is defined as a file with an entry at each line,
@@ -43,6 +45,8 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
     notify_unk : bool, optional
         Optional toggle to notify a user if a token is not present in
         the vocabulary of the tokenizer. Defaults to False.
+    cache_dir : str, optional
+        Cache directory for Huggingface tokenizers.
 
     Returns
     -------
@@ -70,7 +74,7 @@ def create_tokenizer(path: str, notify_unk: bool = False) -> PreTrainedTokenizer
         return tokenizer
 
     # Subword-based vocabulary, used by Transformer models
-    tokenizer = AutoTokenizer.from_pretrained(path)
+    tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=False)
     if hasattr(tokenizer, "encoder"):
         # GPT-2 & Roberta use a different attribute for the underlying vocab dictionary.
         encoder: Dict[str, int] = getattr(tokenizer, "encoder")

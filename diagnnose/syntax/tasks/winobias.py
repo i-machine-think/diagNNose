@@ -49,13 +49,13 @@ class WinobiasTask(SyntaxEvalTask):
 
     @staticmethod
     def _add_output_classes(corpus: Corpus) -> None:
-        """ Set the correct and incorrect verb for each sentence. """
+        """ Set the the pronouns for each sentence. """
         corpus.fields["token"] = RawField()
-        corpus.fields["wrong_token"] = RawField()
+        corpus.fields["counter_token"] = RawField()
 
         corpus.fields["token"].is_target = False
-        corpus.fields["wrong_token"].is_target = False
+        corpus.fields["counter_token"].is_target = False
 
         for ex in corpus:
-            setattr(ex, "token", ["he"])
-            setattr(ex, "wrong_token", ["she"])
+            setattr(ex, "token", "he")
+            setattr(ex, "counter_token", "she")

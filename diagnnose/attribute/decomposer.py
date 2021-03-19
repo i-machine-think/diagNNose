@@ -136,20 +136,19 @@ class ContextualDecomposer(Decomposer):
         input_ids = torch.tensor(batch_encoding["input_ids"])
         shapley_tensors = self.wrap_inputs_embeds(input_ids)
 
-        contributions = []
+        all_contributions = []
 
         for w_idx, inputs_embeds in enumerate(shapley_tensors):
             with torch.no_grad():
-                out, c = self.model(
+                out, (beta, _gamma) = self.model(
                     inputs_embeds=inputs_embeds,
                     input_lengths=batch_encoding.data.get("length", None),
                     compute_out=True,
                     only_return_top_embs=True,
                 )
-            beta = c[0] if w_idx == 0 else c[1]
-            contributions.append(beta)
+            all_contributions.append(beta)
 
-        return GCDTensor(out, contributions)
+        return GCDTensor(out, all_contributions)
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> List[ShapleyTensor]:
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
@@ -170,13 +169,14 @@ class ContextualDecomposer(Decomposer):
             beta[:, w_idx] = gamma[:, w_idx]
             gamma[:, w_idx] = 0.0
 
-            contributions = [gamma, beta]
+            contributions = [beta, gamma]
 
             shapley_in = GCDTensor(
                 inputs_embeds,
                 contributions=contributions,
                 validate=False,
                 num_samples=self.num_samples,
+                baseline_partition=1,
             )
 
             all_shapley_in.append(shapley_in)

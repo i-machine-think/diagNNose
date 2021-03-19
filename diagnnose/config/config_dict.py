@@ -144,8 +144,10 @@ def _cast_activation_names(config_dict: ConfigDict) -> None:
 def _set_tokenizer(config_dict: ConfigDict) -> None:
     """ Set tokenizer name manually for Huggingface models. """
     if (
-        "model" in config_dict
-        and "model_name" in config_dict["model"]
+        "transformer_type" in config_dict.get("model", {})
         and "tokenizer" not in config_dict
     ):
-        config_dict["tokenizer"] = {"path": config_dict["model"]["model_name"]}
+        config_dict["tokenizer"] = {"path": config_dict["model"]["transformer_type"]}
+
+        if "cache_dir" in config_dict["model"]:
+            config_dict["tokenizer"]["cache_dir"] = config_dict["model"]["cache_dir"]

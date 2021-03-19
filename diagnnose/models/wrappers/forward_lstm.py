@@ -4,6 +4,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
+from torch.nn.functional import log_softmax
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 from diagnnose.attribute import ShapleyTensor
@@ -54,7 +55,6 @@ class ForwardLSTM(RecurrentLM):
         with open(os.path.expanduser(state_dict), "rb") as mf:
             params: Dict[str, Tensor] = torch.load(mf, map_location=device)
 
-        self.device: str = device
         self.weight: LayeredTensors = {}
         self.bias: LayeredTensors = {}
 
@@ -74,6 +74,7 @@ class ForwardLSTM(RecurrentLM):
         input_ids: Optional[Tensor] = None,
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[Tensor] = None,
+        calc_causal_lm_probs: bool = False,
         compute_out: bool = False,
         only_return_top_embs: bool = False,
     ) -> Union[ActivationDict, Tensor]:
@@ -87,6 +88,8 @@ class ForwardLSTM(RecurrentLM):
             inputs_embeds = self.create_inputs_embeds(input_ids)
         if len(inputs_embeds.shape) == 2:
             inputs_embeds = inputs_embeds.unsqueeze(0)
+
+        inputs_embeds = inputs_embeds.to(self.device)
 
         iterator, unsorted_indices = self._create_iterator(inputs_embeds, input_lengths)
 
@@ -109,6 +112,12 @@ class ForwardLSTM(RecurrentLM):
         for a_name, activations in all_activations.items():
             all_activations[a_name] = activations[unsorted_indices]
 
+        if calc_causal_lm_probs:
+            output_ids = input_ids[:, 1:].unsqueeze(-1)
+            logits = all_activations[self.top_layer, "out"]
+            probs = log_softmax(logits[:, :-1], dim=-1)
+            all_activations[self.top_layer, "out"] = torch.gather(probs, -1, output_ids)
+
         if only_return_top_embs and compute_out:
             return all_activations[self.top_layer, "out"]
         elif only_return_top_embs:
@@ -121,7 +130,7 @@ class ForwardLSTM(RecurrentLM):
 
     @staticmethod
     def _create_iterator(
-        input_ids: Tensor, input_lengths: Optional[Tensor]
+        inputs_embeds: Tensor, input_lengths: Optional[Tensor]
     ) -> Tuple[Tuple[Tensor, ...], Tensor]:
         """Creates a PackedSequence that handles batching for the RNN.
 
@@ -136,11 +145,11 @@ class ForwardLSTM(RecurrentLM):
             Original order of the corpus prior to sorting.
         """
         if input_lengths is None:
-            batch_size = input_ids.size(0)
-            input_lengths = torch.tensor(batch_size * [input_ids.size(1)])
+            batch_size = inputs_embeds.size(0)
+            input_lengths = torch.tensor(batch_size * [inputs_embeds.size(1)])
 
         packed_batch: PackedSequence = pack_padded_sequence(
-            input_ids, lengths=input_lengths, batch_first=True, enforce_sorted=False
+            inputs_embeds, lengths=input_lengths, batch_first=True, enforce_sorted=False
         )
 
         iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))

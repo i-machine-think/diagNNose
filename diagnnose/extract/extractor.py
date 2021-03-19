@@ -231,7 +231,9 @@ class Extractor:
             return {}
 
         corpus_activations = {
-            a_name: torch.zeros(n_items, self.model.nhid(a_name))
+            a_name: torch.zeros(
+                n_items, self.model.nhid(a_name), device=self.model.device
+            )
             for a_name in self.activation_names
         }
 
