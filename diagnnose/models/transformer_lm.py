@@ -3,6 +3,8 @@ from typing import Callable, List, Optional, Union
 
 import torch
 from torch import Tensor
+from torch.nn.functional import log_softmax
+
 from transformers import (
     AutoModel,
     AutoModelForCausalLM,
@@ -85,6 +87,7 @@ class TransformerLM(LanguageModel):
         input_lengths: Optional[List[int]] = None,
         attention_mask: Optional[Union[Tensor, List[int]]] = None,
         compute_out: bool = True,
+        calc_causal_lm_probs: bool = False,
         only_return_top_embs: bool = True,
     ) -> Union[ActivationDict, Tensor]:
         if input_ids is not None and inputs_embeds is not None:
@@ -121,6 +124,11 @@ class TransformerLM(LanguageModel):
             activation_name = (-1, "hx")
         else:
             raise AttributeError
+
+        if calc_causal_lm_probs:
+            output_ids = input_ids[:, 1:].unsqueeze(-1)
+            probs = log_softmax(logits[:, :-1], dim=-1)
+            logits = torch.gather(probs, -1, output_ids)
 
         if only_return_top_embs:
             return logits

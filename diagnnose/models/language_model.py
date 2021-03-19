@@ -28,6 +28,7 @@ class LanguageModel(ABC, nn.Module):
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[Tensor] = None,
         compute_out: bool = False,
+        calc_causal_lm_probs: bool = False,
         only_return_top_embs: bool = False,
     ) -> Union[ActivationDict, Tensor]:
         """Performs a single forward pass across all LM layers.
@@ -52,6 +53,11 @@ class LanguageModel(ABC, nn.Module):
             Toggles the computation of the final decoder projection.
             If set to False this projection is not calculated.
             Defaults to False.
+        calc_causal_lm_probs : bool, optional
+            Toggle to directly compute the output probabilities of the
+            next token within the forward pass. Next token is inferred
+            based on the shifted input tokens. Should only be toggled
+            for Causal (a.k.a. auto-regressive) LMs. Defaults to False.
         only_return_top_embs : bool, optional
             Toggle to only return the tensor of the hidden state of the
             top layer of the network, instead of the full activation

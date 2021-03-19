@@ -4,6 +4,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
+from torch.nn.functional import log_softmax
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
 
 from diagnnose.attribute import ShapleyTensor
@@ -73,6 +74,7 @@ class ForwardLSTM(RecurrentLM):
         input_ids: Optional[Tensor] = None,
         inputs_embeds: Optional[Union[Tensor, ShapleyTensor]] = None,
         input_lengths: Optional[Tensor] = None,
+        calc_causal_lm_probs: bool = False,
         compute_out: bool = False,
         only_return_top_embs: bool = False,
     ) -> Union[ActivationDict, Tensor]:
@@ -109,6 +111,12 @@ class ForwardLSTM(RecurrentLM):
         # Batch had been sorted and needs to be unsorted to retain the original order
         for a_name, activations in all_activations.items():
             all_activations[a_name] = activations[unsorted_indices]
+
+        if calc_causal_lm_probs:
+            output_ids = input_ids[:, 1:].unsqueeze(-1)
+            logits = all_activations[self.top_layer, "out"]
+            probs = log_softmax(logits[:, :-1], dim=-1)
+            all_activations[self.top_layer, "out"] = torch.gather(probs, -1, output_ids)
 
         if only_return_top_embs and compute_out:
             return all_activations[self.top_layer, "out"]
