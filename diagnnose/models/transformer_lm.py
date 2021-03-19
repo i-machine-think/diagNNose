@@ -4,7 +4,6 @@ from typing import Callable, List, Optional, Union
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
-
 from transformers import (
     AutoModel,
     AutoModelForCausalLM,
