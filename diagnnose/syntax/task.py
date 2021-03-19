@@ -152,7 +152,7 @@ class SyntaxEvalTask:
             selection_func=selection_func,
         )
 
-        activations = torch.cat(activation_reader[:, activation_name], dim=0)
+        activations = activation_reader.activation_dict[activation_name]
 
         return activations
 

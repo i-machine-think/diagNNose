@@ -1,6 +1,6 @@
 import os
 import pickle
-from typing import Optional, Tuple, Union
+from typing import Iterator, Optional, Union
 
 import torch
 from torch import Tensor
@@ -89,7 +89,7 @@ class ActivationReader:
         self.store_multiple_activations = store_multiple_activations
         self.cat_activations = cat_activations
 
-    def __getitem__(self, key: ActivationKey) -> Union[Tensor, Tuple[Tensor, ...]]:
+    def __getitem__(self, key: ActivationKey) -> Union[Tensor, Iterator[Tensor]]:
         """Allows for concise and efficient indexing of activations.
 
         The ``key`` argument should be either an ``ActivationIndex``
@@ -101,8 +101,9 @@ class ActivationReader:
         ``activation_name`` must be provided, otherwise it can be left
         out.
 
-        The return value is a tuple of tensors, with each tensor of
-        shape (sen_len, nhid).
+        The return value is a generator of tensors, with each tensor of
+        shape (sen_len, nhid), or a concatenated tensor if
+        ``self.cat_activations`` is set to ``True``.
 
         Example usage:
 
@@ -133,10 +134,11 @@ class ActivationReader:
 
         Returns
         -------
-        split_activations : Tensor | Tuple[Tensor, ...]
+        split_activations : Tensor | Iterator[Tensor, ...]
             Tensor, if ``self.cat_activations`` is set to True.
-            Otherwise a tuple of tensors, with each item corresponding
-            to the extracted activations of a specific sentence.
+            Otherwise a Generator of tensors, with each item
+            corresponding to the extracted activations of a specific
+            sentence.
 
         .. automethod:: __getitem__
         """
@@ -155,19 +157,30 @@ class ActivationReader:
         ranges = [self.activation_ranges[idx] for idx in iterable_index]
 
         sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
-        activations = self.activations(activation_name)[sen_indices]
+
+        if activation_name not in self.activation_dict:
+            self._read_activations(activation_name)
 
         if self.cat_activations:
-            return activations
+            return self.activation_dict[activation_name][sen_indices]
 
-        lengths = [x[1] - x[0] for x in ranges]
-        split_activations: Tuple[Tensor, ...] = torch.split(activations, lengths)
+        return self.get_item_generator(ranges, self.activation_dict[activation_name])
 
-        return split_activations
+    @staticmethod
+    def get_item_generator(ranges, activations) -> Iterator[Tensor]:
+        for start, stop in ranges:
+            yield activations[start:stop]
 
     def __len__(self) -> int:
         """ Returns the total number of extracted activations. """
         return self.activation_ranges[-1][1]
+
+    def to(self, device: str) -> None:
+        """ Cast activations to a different device. """
+        self.activation_dict = {
+            a_name: activation.to(device)
+            for a_name, activation in self.activation_dict.items()
+        }
 
     @property
     def activation_ranges(self) -> ActivationRanges:
@@ -196,7 +209,7 @@ class ActivationReader:
 
         return activations
 
-    def _read_activations(self, activation_name: ActivationName) -> Tensor:
+    def _read_activations(self, activation_name: ActivationName) -> None:
         """Reads the pickled activations of activation_name
 
         Parameters
@@ -228,7 +241,9 @@ class ActivationReader:
                     if activations is None:
                         hidden_size = sen_activations.shape[1]
                         activations = torch.empty(
-                            (len(self), hidden_size), dtype=sen_activations.dtype
+                            (len(self), hidden_size),
+                            dtype=sen_activations.dtype,
+                            device=sen_activations.device,
                         )
 
                     i = len(sen_activations)
@@ -242,4 +257,6 @@ class ActivationReader:
             f"check if file exists and is non-empty."
         )
 
-        return activations
+        if not self.store_multiple_activations:
+            self.activation_dict = {}  # reset activation_dict
+        self.activation_dict[activation_name] = activations
