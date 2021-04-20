@@ -12,6 +12,7 @@
     "convert_numerical": true
   },
   "extract": {
-    "batch_size": 5
+    "batch_size": 5,
+    "activation_names": [[-1, "hx"]]
   }
 }

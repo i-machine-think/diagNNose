@@ -78,6 +78,7 @@ class TransformerLM(LanguageModel):
 
         self.embeddings_attr = embeddings_attr
         self.device = device
+        self.is_causal = mode == "causal_lm"
 
     def forward(
         self,

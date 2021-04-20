@@ -79,6 +79,9 @@ class ShapleyDecomposer(Decomposer):
         return shapley_out
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> ShapleyTensor:
+        if input_ids.ndim == 1:
+            input_ids = input_ids.unsqueeze(0)
+
         # Shape: batch_size x max_sen_len x nhid
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
 from warnings import warn
 
 import torch
@@ -87,6 +87,9 @@ class ShapleyTensor:
 
     def size(self, *args, **kwargs):
         return self.data.size(*args, **kwargs)
+
+    def dim(self, *args, **kwargs):
+        return self.data.dim(*args, **kwargs)
 
     def __iter__(self):
         """Allows a ShapleyTensor to be unpacked directly as:
@@ -213,17 +216,17 @@ class ShapleyTensor:
         elif isinstance(new_data, (list, tuple)):
             iterable_type = type(new_data)
 
-            if len(new_contributions) == 0:
+            if self.num_features == 0:
                 return iterable_type(self._pack_output(item, []) for item in new_data)
 
             return iterable_type(
-                self._pack_output(item, new_contributions[idx])
-                for idx, item in enumerate(new_data)
+                self._pack_output(data, contributions)
+                for data, contributions in zip(new_data, new_contributions)
             )
 
         return new_data
 
-    def _calc_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
+    def _calc_contributions(self, fn, *args, **kwargs) -> Union[List[Tensor], Sequence[List[Tensor]]]:
         """
         Some methods have custom behaviour for how the output is
         decomposed into a new set of contributions.
@@ -231,8 +234,8 @@ class ShapleyTensor:
         if self.num_features == 0:
             return []
         elif hasattr(self, f"{fn.__name__}_contributions"):
-            fn = getattr(self, f"{fn.__name__}_contributions")
-            return fn(*args, **kwargs)
+            fn_contributions = getattr(self, f"{fn.__name__}_contributions")
+            return fn_contributions(*args, **kwargs)
         elif fn.__name__ in [
             "squeeze",
             "unsqueeze",
@@ -244,11 +247,13 @@ class ShapleyTensor:
 
         return self._calc_shapley_contributions(fn, *args, **kwargs)
 
-    def _calc_shapley_contributions(self, fn, *args, **kwargs) -> List[Tensor]:
+    def _calc_shapley_contributions(self, fn, *args, **kwargs) -> Union[List[Tensor], Sequence[List[Tensor]]]:
         """ Calculates the Shapley decomposition of the current fn. """
-        assert isinstance(
-            self.new_data, Tensor
-        ), f"Current operation {self.current_fn} is not supported for Shapley calculation"
+        warning_msg = f"Current operation {self.current_fn} is not supported for Shapley calculation"
+        if isinstance(self.new_data, Iterable):
+            assert all(isinstance(data, Tensor) for data in self.new_data), warning_msg
+        else:
+            assert isinstance(self.new_data, Tensor), warning_msg
 
         if self.num_samples is None:
             return utils.calc_exact_shapley_values(
@@ -369,6 +374,18 @@ class ShapleyTensor:
             contributions = self._calc_shapley_contributions(torch.mul, *args, **kwargs)
 
         return contributions
+
+    def linear_contributions(self, *args, **kwargs):
+        input_, weight = args
+        bias = kwargs.get("bias", None)
+
+        output = self.matmul_contributions(input_, weight.t())
+
+        # Bias term is added to the baseline partition
+        if bias is not None:
+            output[self.baseline_partition] += bias
+
+        return output
 
     def matmul_contributions(self, *args, **kwargs):
         input_, other = args

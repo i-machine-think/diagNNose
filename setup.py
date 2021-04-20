@@ -19,7 +19,7 @@ else:
 
 setup(
     name="diagNNose",
-    version="1.0",
+    version="1.1",
     description="A library that facilitates a broad set of tools for analysing "
                 "hidden activations of neural models.",
     long_description=long_description,

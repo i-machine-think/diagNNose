@@ -55,6 +55,8 @@ class ForwardLSTM(RecurrentLM):
         with open(os.path.expanduser(state_dict), "rb") as mf:
             params: Dict[str, Tensor] = torch.load(mf, map_location=device)
 
+        params = params["state_dict"] if "state_dict" in params else params
+
         self.weight: LayeredTensors = {}
         self.bias: LayeredTensors = {}
 

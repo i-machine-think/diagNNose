@@ -1,7 +1,7 @@
 import itertools
 from functools import wraps
 from math import factorial
-from typing import Any, Callable, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union, Sequence
 
 import torch
 from torch import Tensor
@@ -141,15 +141,63 @@ def perm_generator(num_features: int, num_samples: int) -> Iterable[List[int]]:
         yield torch.randperm(num_features).tolist()
 
 
+def init_contributions(
+    new_data: Union[Tensor, Sequence[Tensor]], num_features: int
+) -> Union[List[Tensor], Sequence[List[Tensor]]]:
+    if isinstance(new_data, Sequence):
+        return type(new_data)(
+            [torch.zeros_like(data) for _ in range(num_features)] for data in new_data
+        )
+    else:
+        return [torch.zeros_like(new_data) for _ in range(num_features)]
+
+
+def update_contributions(
+    contributions: Union[List[Tensor], Sequence[List[Tensor]]],
+    f_idx: int,
+    output_is_sequential: bool,
+    data_with: Union[Tensor, Sequence[Tensor]],
+    data_wo: Optional[Union[Tensor, Sequence[Tensor]]] = None,
+    factor: float = 1.0,
+) -> None:
+    if output_is_sequential:
+        for output_idx in range(len(data_with)):
+            if data_wo is None:
+                contributions[output_idx][f_idx] += factor * data_with[output_idx]
+            else:
+                contributions[output_idx][f_idx] += factor * (
+                    data_with[output_idx] - data_wo[output_idx]
+                )
+    else:
+        if data_wo is None:
+            contributions[f_idx] += factor * data_with
+        else:
+            contributions[f_idx] += factor * (data_with - data_wo)
+
+
+def normalize_contributions(
+    contributions: Union[List[Tensor], Sequence[List[Tensor]]],
+    factor: int,
+    output_is_sequential: bool,
+) -> None:
+    if output_is_sequential:
+        for sub_contributions in contributions:
+            for contribution in sub_contributions:
+                contribution /= factor
+    else:
+        for contribution in contributions:
+            contribution /= factor
+
+
 def calc_exact_shapley_values(
     fn: Callable,
     num_features: int,
     shapley_factors: List[Tuple[List[int], int]],
-    new_data: Tensor,
+    new_data: Union[Tensor, Sequence[Tensor]],
     baseline_partition: int,
     *args,
     **kwargs,
-) -> List[Tensor]:
+) -> Union[List[Tensor], Sequence[List[Tensor]]]:
     """Calculates the exact Shapley values for some function fn.
 
     Note that this procedure grows exponentially in the number of
@@ -164,7 +212,7 @@ def calc_exact_shapley_values(
     shapley_factors : List[Tuple[List[int], int]]
         List of `Shapley factors` that is computed using
         ``calc_shapley_factors``.
-    new_data : Tensor
+    new_data : Tensor | Sequence[Tensor]
         The output tensor that is currently being decomposed into
         its contributions. We pass this so we can instantiate the
         contribution tensors with correct shape beforehand.
@@ -173,12 +221,11 @@ def calc_exact_shapley_values(
         will be added. If we do not add this baseline the contributions
         won't sum up to the full output.
     """
-    contributions = []
+    output_is_sequential: bool = isinstance(new_data, Sequence)
+    contributions = init_contributions(new_data, num_features)
 
     for f_idx in range(num_features):
         other_ids = torch.tensor([i for i in range(num_features) if i != f_idx])
-
-        contribution = torch.zeros_like(new_data)
 
         for coalition_ids, factor in shapley_factors:
             coalition = list(other_ids[coalition_ids])
@@ -188,15 +235,24 @@ def calc_exact_shapley_values(
                 args, attr="contributions", coalition=(coalition + [f_idx])
             )
 
-            contribution += factor * (fn(*args_with, **kwargs) - fn(*args_wo, **kwargs))
+            data_with = fn(*args_with, **kwargs)
+            data_wo = fn(*args_wo, **kwargs)
 
-        contribution /= factorial(num_features)
-        contributions.append(contribution)
+            update_contributions(
+                contributions,
+                f_idx,
+                output_is_sequential,
+                data_with,
+                data_wo=data_wo,
+                factor=factor,
+            )
+
+    normalize_contributions(contributions, factorial(num_features), output_is_sequential)
 
     # Add baseline to default feature ([0]).
     zero_input_args = unwrap(args, attr="contributions", coalition=[])
     baseline = fn(*zero_input_args, **kwargs)
-    contributions[baseline_partition] += baseline
+    update_contributions(contributions, baseline_partition, output_is_sequential, baseline)
 
     return contributions
 
@@ -205,11 +261,11 @@ def calc_sample_shapley_values(
     fn: Callable,
     num_features: int,
     num_samples: int,
-    new_data: Tensor,
+    new_data: Union[Tensor, Sequence[Tensor]],
     baseline_partition: int,
     *args,
     **kwargs,
-) -> List[Tensor]:
+) -> Union[List[Tensor], Sequence[List[Tensor]]]:
     """Calculates the approximate Shapley values for some function fn.
 
     This procedure is based on that of Castro et al. (2008), and
@@ -224,7 +280,7 @@ def calc_sample_shapley_values(
     num_samples : int
         Number of feature permutation samples. Increasing the number of
         samples will reduce the variance of the approximation.
-    new_data : Tensor
+    new_data : Tensor | Sequence[Tensor]
         The output tensor that is currently being decomposed into
         its contributions. We pass this so we can instantiate the
         contribution tensors with correct shape beforehand.
@@ -233,7 +289,8 @@ def calc_sample_shapley_values(
         will be added. If we do not add this baseline the contributions
         won't sum up to the full output.
     """
-    contributions = [torch.zeros_like(new_data) for _ in range(num_features)]
+    contributions = init_contributions(new_data, num_features)
+    output_is_sequential: bool = isinstance(new_data, Sequence)
 
     generator = perm_generator(num_features, num_samples)
 
@@ -241,16 +298,19 @@ def calc_sample_shapley_values(
     baseline = fn(*zero_input_args, **kwargs)
 
     for sample in generator:
-        prev_value = baseline
+        data_wo = baseline
         for sample_idx, feature_idx in enumerate(sample, start=1):
             coalition = sample[:sample_idx]
             coalition_args = unwrap(args, attr="contributions", coalition=coalition)
 
-            new_value = fn(*coalition_args, **kwargs)
-            contributions[feature_idx] += new_value - prev_value
-            prev_value = new_value
+            data_with = fn(*coalition_args, **kwargs)
 
-    contributions = [c / num_samples for c in contributions]
-    contributions[baseline_partition] += baseline
+            update_contributions(contributions, feature_idx, output_is_sequential, data_with, data_wo=data_wo)
+
+            data_wo = data_with
+
+    normalize_contributions(contributions, num_samples, output_is_sequential)
+
+    update_contributions(contributions, baseline_partition, output_is_sequential, baseline)
 
     return contributions
