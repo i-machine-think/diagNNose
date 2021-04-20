@@ -72,7 +72,7 @@ def create_tokenizer(
         tokenizer._convert_token_to_id = lambda w: vocab[w]
 
         return tokenizer
-
+    x = os.path.expanduser(path)
     # Subword-based vocabulary, used by Transformer models
     tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=False)
     if hasattr(tokenizer, "encoder"):

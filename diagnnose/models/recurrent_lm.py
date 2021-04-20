@@ -9,7 +9,7 @@ from diagnnose.typedefs.activations import ActivationDict, ActivationName
 class RecurrentLM(LanguageModel):
     """ Abstract class for RNN LM with intermediate activations """
 
-    is_recurrent: bool = True
+    is_causal: bool = True
     forget_offset: int = 0
     ih_concat_order: List[str] = ["h", "i"]
     split_order: List[str]

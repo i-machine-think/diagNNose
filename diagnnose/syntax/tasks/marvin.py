@@ -54,8 +54,8 @@ class MarvinTask(SyntaxEvalTask):
 
         return corpora
 
-    def _initialize_subtask(self, subtask: str, corpus_path: str) -> Dict[str, Corpus]:
-        corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(corpus_path)
+    def _initialize_subtask(self, subtask: str, subtask_path: str) -> Dict[str, Corpus]:
+        corpus_dict: Dict[str, List[Sequence[str]]] = load_pickle(subtask_path)
 
         if "npi" in subtask:
             header = ["sen", "counter_sen", "token"]

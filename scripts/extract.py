@@ -13,3 +13,7 @@ if __name__ == "__main__":
 
     extractor = Extractor(model, corpus, **config_dict["extract"])
     a_reader = extractor.extract()
+
+    a_reader.cat_activations = True
+
+    activations = print(a_reader[:10])
