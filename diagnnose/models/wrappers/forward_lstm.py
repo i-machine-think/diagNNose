@@ -59,12 +59,6 @@ class ForwardLSTM(RecurrentLM):
 
         print("Model initialisation finished.")
 
-    def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
-        return self.word_embeddings[input_ids]
-
-    def decode(self, hidden_state: Tensor) -> Tensor:
-        return hidden_state @ self.decoder_w.t() + self.decoder_b
-
     def _set_lstm_weights(self, params: Dict[str, Tensor], rnn_name: str) -> None:
         # LSTM weights
         layer = 0
