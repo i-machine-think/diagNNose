@@ -82,7 +82,7 @@ def _create_zero_states(model: RecurrentLM) -> ActivationDict:
         Dictionary mapping (layer, name) tuple to zero-tensor.
     """
     init_states: ActivationDict = {
-        a_name: torch.zeros((1, model.nhid(a_name)))
+        a_name: torch.zeros((1, model.nhid(a_name)), device=model.device)
         for a_name in product(range(model.num_layers), ["cx", "hx"])
     }
 

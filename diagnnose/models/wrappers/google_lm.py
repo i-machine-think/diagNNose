@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,6 @@ from torch import Tensor
 from diagnnose.models.recurrent_lm import RecurrentLM
 from diagnnose.tokenizer import create_char_vocab
 from diagnnose.tokenizer.c2i import C2I
-from diagnnose.typedefs.activations import ActivationDict, LayeredTensors
 
 
 class GoogleLM(RecurrentLM):
@@ -23,15 +22,8 @@ class GoogleLM(RecurrentLM):
 
     Parameters
     ----------
-    pbtxt_path : str
-        Path to the .pbtxt file containing the GraphDef model setup.
     ckpt_dir : str
         Path to folder containing parameter checkpoint files.
-    full_vocab_path : str
-        Path to the full model vocabulary of 800k tokens. Note that
-        `vocab_path` can be passed along as well, pointing toward the
-        corpus that will be extracted. In that case only a subset of
-        the model softmax will be loaded in.
     corpus_vocab_path : str, optional
         Path to the corpus for which a vocabulary will be created. This
         allows for only a subset of the model softmax to be loaded in.
@@ -41,169 +33,55 @@ class GoogleLM(RecurrentLM):
         the case during activation extraction, for example.
     """
 
+    sizes = {
+        (layer, name): size
+        for layer in range(2)
+        for name, size in [("emb", 1024), ("hx", 1024), ("cx", 8192)]
+    }
     forget_offset = 1
     ih_concat_order = ["i", "h"]
-    sizes = {l: {"x": 1024, "h": 1024, "c": 8192} for l in range(2)}
     split_order = ["i", "g", "f", "o"]
     use_char_embs = True
+    use_peepholes = True
 
     def __init__(
         self,
-        pbtxt_path: str,
         ckpt_dir: str,
-        full_vocab_path: str,
         corpus_vocab_path: Optional[Union[str, List[str]]] = None,
         create_decoder: bool = True,
         device: str = "cpu",
     ) -> None:
-        super().__init__()
+        super().__init__(device)
         print("Loading pretrained model...")
 
-        vocab: C2I = create_char_vocab(corpus_vocab_path or full_vocab_path)
+        full_vocab_path = os.path.join(ckpt_dir, "vocab-2016-09-10.txt")
+        vocab: C2I = create_char_vocab(
+            corpus_vocab_path or full_vocab_path, unk_token="<UNK>"
+        )
 
-        self.device = device
-        self.decoder_w = None
-        self.decoder_b = None
+        self.encoder = CharCNN(ckpt_dir, vocab, device)
 
-        try:
-            self.encoder = CharCNN(pbtxt_path, ckpt_dir, vocab, device)
-            self.lstm = LSTM(
-                ckpt_dir, self.num_layers, self.split_order, self.forget_offset, device
+        self._set_lstm_weights(ckpt_dir, device)
+
+        if create_decoder:
+            self.decoder = SoftMax(
+                vocab, full_vocab_path, ckpt_dir, self.sizes[1, "hx"], device
             )
-            if create_decoder:
-                self.decoder = SoftMax(
-                    vocab, full_vocab_path, ckpt_dir, self.sizes[1]["h"], device
-                )
-                self.decoder_w = self.decoder.decoder_w
-                self.decoder_b = self.decoder.decoder_b
-        except ImportError:
-            raise ImportError("tensorflow and protobuf are needed for GoogleLM")
+            self.decoder_w = self.decoder.decoder_w
+            self.decoder_b = self.decoder.decoder_b
 
         print("Model initialisation finished.")
 
-    @property
-    def vocab(self) -> C2I:
-        return self.encoder.vocab
+    def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
+        return self.encoder(input_ids)
 
-    @property
-    def weight(self) -> LayeredTensors:
-        return self.lstm.weight
+    def decode(self, hidden_state: Tensor) -> Tensor:
+        return self.decoder_w @ hidden_state + self.decoder_b
 
-    @property
-    def bias(self) -> LayeredTensors:
-        return self.lstm.bias
-
-    @property
-    def peepholes(self) -> ActivationDict:
-        return self.lstm.peepholes
-
-    def forward(
-        self,
-        tokens: List[str],
-        prev_activations: Optional[ActivationDict] = None,
-        compute_out: bool = True,
-    ) -> Tuple[Optional[Tensor], ActivationDict]:
-        # Create the embeddings of the input words
-        embs = self.encoder(tokens)
-
-        if prev_activations is None:
-            prev_activations = self.init_hidden(1)
-
-        logits, activations = self.lstm(embs, prev_activations)
-
-        if compute_out and self.decoder_w is not None:
-            out = self.decoder_w @ logits + self.decoder_b
-        else:
-            out = None
-
-        return out, activations
-
-
-class CharCNN(nn.Module):
-    def __init__(self, pbtxt_path: str, ckpt_dir: str, vocab: C2I, device: str) -> None:
-        print("Loading CharCNN...")
-        super().__init__()
-
-        self.cnn_sess, self.cnn_t = self._load_char_cnn(pbtxt_path, ckpt_dir)
-        self.cnn_embs: Dict[str, Tensor] = {}
-        self.vocab = vocab
-        self.device = device
-
-    @staticmethod
-    def _load_char_cnn(pbtxt_path: str, ckpt_dir: str) -> Any:
-        import tensorflow as tf
-        from google.protobuf import text_format
-
-        ckpt_file = os.path.join(ckpt_dir, "ckpt-char-embedding")
-
-        with tf.Graph().as_default():
-            sys.stderr.write("Recovering graph.\n")
-            with tf.gfile.FastGFile(pbtxt_path, "r") as f:
-                s = f.read()
-                gd = tf.GraphDef()
-                text_format.Merge(s, gd)
-
-            t = dict()
-            [t["char_inputs_in"], t["all_embs"]] = tf.import_graph_def(
-                gd, {}, ["char_inputs_in:0", "all_embs_out:0"], name=""
-            )
-
-            sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-            sess.run(f"save/Assign", {"save/Const:0": ckpt_file})
-            # The following was recovered from the graph structure, the first 62 assign modules
-            # relate to the parameters of the char CNN.
-            for i in range(1, 62):
-                sess.run(f"save/Assign_{i}", {"save/Const:0": ckpt_file})
-
-        return sess, t
-
-    def forward(self, tokens: List[str]) -> Tensor:
-        embs = torch.zeros((len(tokens), 1024), device=self.device)
-        for i, token in enumerate(tokens):
-            if token not in self.cnn_embs:
-                char_ids = self.vocab.token_to_char_ids(token)
-                input_dict = {self.cnn_t["char_inputs_in"]: char_ids}
-                emb = torch.from_numpy(
-                    self.cnn_sess.run(self.cnn_t["all_embs"], input_dict)
-                ).to(self.device)
-                self.cnn_embs[token] = emb
-            else:
-                emb = self.cnn_embs[token]
-            embs[i] = emb
-
-        return embs
-
-
-class LSTM(nn.Module):
-    def __init__(
-        self,
-        ckpt_dir: str,
-        num_layers: int,
-        split_order: List[str],
-        forget_offset: int,
-        device: str,
-    ) -> None:
-        super().__init__()
+    def _set_lstm_weights(self, ckpt_dir: str, device: str) -> None:
+        from tensorflow.compat.v1.train import NewCheckpointReader
 
         print("Loading LSTM...")
-
-        self.num_layers = num_layers
-        self.split_order = split_order
-        self.forget_offset = forget_offset
-
-        # Projects hidden+input (2*1024) onto cell state dimension (8192)
-        self.weight: LayeredTensors = {}
-        self.bias: LayeredTensors = {}
-
-        # Projects cell state dimension (8192) back to hidden dimension (1024)
-        self.weight_P: LayeredTensors = {}
-        # The 3 peepholes are weighted by a diagonal matrix
-        self.peepholes: ActivationDict = {}
-
-        self._load_lstm(ckpt_dir, device)
-
-    def _load_lstm(self, ckpt_dir: str, device: str) -> None:
-        from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
 
         lstm_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-lstm"))
 
@@ -243,49 +121,79 @@ class LSTM(nn.Module):
             for p in ["f", "i", "o"]:
                 self.peepholes[l, p] = self.peepholes[l, p].to(device)
 
-    def forward_step(
-        self, layer: int, emb: Tensor, prev_hx: Tensor, prev_cx: Tensor
-    ) -> ActivationDict:
-        proj: Tensor = torch.cat((emb, prev_hx), dim=1) @ self.weight[layer]
-        proj += self.bias[layer]
 
-        split_proj: Dict[str, Tensor] = dict(
-            zip(self.split_order, torch.chunk(proj, 4, dim=1))
-        )
+class CharCNN(nn.Module):
+    def __init__(self, ckpt_dir: str, vocab: C2I, device: str) -> None:
+        print("Loading CharCNN...")
+        super().__init__()
 
-        f_g = torch.sigmoid(
-            split_proj["f"] + prev_cx * self.peepholes[layer, "f"] + self.forget_offset
-        )
-        i_g = torch.sigmoid(split_proj["i"] + prev_cx * self.peepholes[layer, "i"])
-        c_tilde_g = torch.tanh(split_proj["g"])
+        self.cnn_sess, self.cnn_t = self._load_char_cnn(ckpt_dir)
+        self.cnn_embs: Dict[str, Tensor] = {}
+        self.vocab = vocab
+        self.device = device
 
-        cx = f_g * prev_cx + i_g * c_tilde_g
-        o_g = torch.sigmoid(split_proj["o"] + cx * self.peepholes[layer, "o"])
-        hx = (o_g * torch.tanh(cx)) @ self.weight_P[layer]
+    @staticmethod
+    def _load_char_cnn(ckpt_dir: str) -> Any:
+        import tensorflow as tf
+        from google.protobuf import text_format
 
-        return {
-            (layer, "emb"): emb,
-            (layer, "hx"): hx,
-            (layer, "cx"): cx,
-            (layer, "f_g"): f_g,
-            (layer, "i_g"): i_g,
-            (layer, "o_g"): o_g,
-            (layer, "c_tilde_g"): c_tilde_g,
-        }
+        pbtxt_file = os.path.join(ckpt_dir, "graph-2016-09-10.pbtxt")
+        ckpt_file = os.path.join(ckpt_dir, "ckpt-char-embedding")
 
-    def forward(
-        self, input_: Tensor, prev_activations: ActivationDict
-    ) -> Tuple[Optional[Tensor], ActivationDict]:
-        # Iteratively compute and store intermediate rnn activations
-        activations: ActivationDict = {}
+        with tf.compat.v1.Graph().as_default():
+            sys.stderr.write("Recovering graph.\n")
+            with tf.compat.v1.gfile.FastGFile(pbtxt_file, "r") as f:
+                s = f.read()
+                gd = tf.compat.v1.GraphDef()
+                text_format.Merge(s, gd)
 
-        for l in range(self.num_layers):
-            prev_hx = prev_activations[l, "hx"]
-            prev_cx = prev_activations[l, "cx"]
-            activations.update(self.forward_step(l, input_, prev_hx, prev_cx))
-            input_ = activations[l, "hx"]
+            t = dict()
+            [t["char_inputs_in"], t["all_embs"]] = tf.import_graph_def(
+                gd, {}, ["char_inputs_in:0", "all_embs_out:0"], name=""
+            )
 
-        return input_, activations
+            sess = tf.compat.v1.Session(
+                config=tf.compat.v1.ConfigProto(allow_soft_placement=True)
+            )
+            sess.run(f"save/Assign", {"save/Const:0": ckpt_file})
+            # The following was recovered from the graph structure, the first 62 assign modules
+            # relate to the parameters of the char CNN.
+            for i in range(1, 62):
+                sess.run(f"save/Assign_{i}", {"save/Const:0": ckpt_file})
+
+        return sess, t
+
+    def forward(self, input_ids: Tensor) -> Tensor:
+        """Fetches the character-CNN embeddings of a batch
+
+        Parameters
+        ----------
+        input_ids : (batch_size, max_sen_len)
+
+        Returns
+        -------
+        inputs_embeds : (batch_size, max_sen_len, emb_dim)
+        """
+        inputs_embeds = torch.zeros((*input_ids.shape, 1024), device=self.device)
+
+        for batch_idx in range(input_ids.shape[0]):
+            tokens: List[str] = [
+                self.vocab.i2w[token_idx] for token_idx in input_ids[batch_idx]
+            ]
+
+            for i, token in enumerate(tokens):
+                if token not in self.cnn_embs:
+                    char_ids = self.vocab.token_to_char_ids(token)
+                    input_dict = {self.cnn_t["char_inputs_in"]: char_ids}
+                    emb = torch.from_numpy(
+                        self.cnn_sess.run(self.cnn_t["all_embs"], input_dict)
+                    ).to(self.device)
+                    self.cnn_embs[token] = emb
+                else:
+                    emb = self.cnn_embs[token]
+                inputs_embeds[batch_idx, i] = emb
+
+        return inputs_embeds
 
 
 class SoftMax:
@@ -304,10 +212,10 @@ class SoftMax:
         self._load_softmax(vocab, full_vocab_path, ckpt_dir)
 
     def _load_softmax(self, vocab: C2I, full_vocab_path: str, ckpt_dir: str) -> None:
-        from tensorflow.python.pywrap_tensorflow import NewCheckpointReader
+        from tensorflow.compat.v1.train import NewCheckpointReader
 
-        with open(full_vocab_path) as f:
-            full_vocab: List[str] = f.read().strip().split("\n")
+        with open(full_vocab_path, encoding="ISO-8859-1") as f:
+            full_vocab: List[str] = [token.strip() for token in f]
 
         bias_reader = NewCheckpointReader(os.path.join(ckpt_dir, "ckpt-softmax8"))
         full_bias = torch.from_numpy(bias_reader.get_tensor("softmax/b"))
@@ -317,20 +225,13 @@ class SoftMax:
             sm_reader = NewCheckpointReader(os.path.join(ckpt_dir, f"ckpt-softmax{i}"))
 
             sm_chunk = torch.from_numpy(sm_reader.get_tensor(f"softmax/W_{i}"))
-            bias_chunk = full_bias[i : full_bias.size(0) : 8]
-            vocab_chunk = full_vocab[i : full_bias.size(0) : 8]
+            bias_chunk = full_bias[i : full_bias.shape[0] : 8]
+            vocab_chunk = full_vocab[i : full_bias.shape[0] : 8]
 
             for j, w in enumerate(vocab_chunk):
                 sm = sm_chunk[j]
                 bias = bias_chunk[j]
 
-                if w in vocab:
+                if w in vocab and vocab[w] < self.decoder_w.shape[0]:
                     self.decoder_w[vocab[w]] = sm
                     self.decoder_b[vocab[w]] = bias
-
-                if w == "</S>":
-                    self.decoder_w[vocab[vocab.eos_token]] = sm
-                    self.decoder_b[vocab[vocab.eos_token]] = bias
-                elif w == "<UNK>":
-                    self.decoder_w[vocab[vocab.unk_token]] = sm
-                    self.decoder_b[vocab[vocab.unk_token]] = bias

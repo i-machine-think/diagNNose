@@ -4,25 +4,17 @@ from typing import Callable, List, Optional, Union
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
-from transformers import (
-    AutoModel,
-    AutoModelForCausalLM,
-    AutoModelForMaskedLM,
-    AutoModelForQuestionAnswering,
-    AutoModelForSequenceClassification,
-    AutoModelForTokenClassification,
-    DistilBertForMaskedLM,
-    PreTrainedModel,
-    XLMWithLMHeadModel,
-)
+from transformers import (AutoModel, AutoModelForCausalLM,
+                          AutoModelForMaskedLM, AutoModelForQuestionAnswering,
+                          AutoModelForSequenceClassification,
+                          AutoModelForTokenClassification,
+                          DistilBertForMaskedLM, PreTrainedModel,
+                          XLMWithLMHeadModel)
 
 from diagnnose.attribute import ShapleyTensor
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationName,
-    ActivationNames,
-)
+from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
+                                            ActivationNames)
 
 mode_to_auto_model = {
     "causal_lm": AutoModelForCausalLM,
@@ -68,7 +60,7 @@ class TransformerLM(LanguageModel):
         cache_dir: Optional[str] = None,
         device: str = "cpu",
     ):
-        super().__init__()
+        super().__init__(device)
 
         auto_model = mode_to_auto_model.get(mode, AutoModel)
 
@@ -77,7 +69,6 @@ class TransformerLM(LanguageModel):
         )
 
         self.embeddings_attr = embeddings_attr
-        self.device = device
         self.is_causal = mode == "causal_lm"
 
     def forward(
@@ -188,6 +179,9 @@ class TransformerLM(LanguageModel):
             elif hasattr(base_model, "encoder"):
                 # T5
                 return base_model.encoder.embed_tokens
+            elif hasattr(base_model, "word_emb"):
+                # Transformer-XL
+                return base_model.word_emb
             else:
                 raise AttributeError("word embedding attribute not found")
 
@@ -233,5 +227,6 @@ class TransformerLM(LanguageModel):
 
         return self.pretrained_model.config.hidden_size
 
-    def activation_names(self) -> ActivationNames:
+    @staticmethod
+    def activation_names() -> ActivationNames:
         return [(-1, "out")]
