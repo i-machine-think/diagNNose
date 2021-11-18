@@ -1,4 +1,5 @@
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import (Any, Callable, Iterable, List, Optional, Sequence, Tuple,
+                    Union)
 from warnings import warn
 
 import torch
@@ -226,7 +227,9 @@ class ShapleyTensor:
 
         return new_data
 
-    def _calc_contributions(self, fn, *args, **kwargs) -> Union[List[Tensor], Sequence[List[Tensor]]]:
+    def _calc_contributions(
+        self, fn, *args, **kwargs
+    ) -> Union[List[Tensor], Sequence[List[Tensor]]]:
         """
         Some methods have custom behaviour for how the output is
         decomposed into a new set of contributions.
@@ -247,7 +250,9 @@ class ShapleyTensor:
 
         return self._calc_shapley_contributions(fn, *args, **kwargs)
 
-    def _calc_shapley_contributions(self, fn, *args, **kwargs) -> Union[List[Tensor], Sequence[List[Tensor]]]:
+    def _calc_shapley_contributions(
+        self, fn, *args, **kwargs
+    ) -> Union[List[Tensor], Sequence[List[Tensor]]]:
         """ Calculates the Shapley decomposition of the current fn. """
         warning_msg = f"Current operation {self.current_fn} is not supported for Shapley calculation"
         if isinstance(self.new_data, Iterable):

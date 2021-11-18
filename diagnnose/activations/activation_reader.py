@@ -6,14 +6,9 @@ import torch
 from torch import Tensor
 
 from diagnnose.activations.activation_index import activation_index_to_iterable
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationKey,
-    ActivationName,
-    ActivationNames,
-    ActivationRanges,
-    SelectionFunc,
-)
+from diagnnose.typedefs.activations import (ActivationDict, ActivationKey,
+                                            ActivationName, ActivationNames,
+                                            ActivationRanges, SelectionFunc)
 from diagnnose.utils.pickle import load_pickle
 
 
@@ -209,7 +204,7 @@ class ActivationReader:
 
         return activations
 
-    def _read_activations(self, activation_name: ActivationName) -> None:
+    def _read_activations(self, activation_name: ActivationName) -> Tensor:
         """Reads the pickled activations of activation_name
 
         Parameters
@@ -257,6 +252,4 @@ class ActivationReader:
             f"check if file exists and is non-empty."
         )
 
-        if not self.store_multiple_activations:
-            self.activation_dict = {}  # reset activation_dict
-        self.activation_dict[activation_name] = activations
+        return activations

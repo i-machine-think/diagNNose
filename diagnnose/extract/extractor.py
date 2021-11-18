@@ -8,13 +8,9 @@ from tqdm import tqdm
 import diagnnose.activations.selection_funcs as selection_funcs
 from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
-from diagnnose.corpus import Corpus,create_iterator
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationNames,
-    ActivationRanges,
-    SelectionFunc,
-)
+from diagnnose.corpus import Corpus, create_iterator
+from diagnnose.typedefs.activations import (ActivationDict, ActivationNames,
+                                            ActivationRanges, SelectionFunc)
 
 if TYPE_CHECKING:
     from diagnnose.models import LanguageModel
@@ -67,7 +63,9 @@ class Extractor:
         self.corpus = corpus
         self.activation_names = activation_names or model.activation_names()
         if isinstance(selection_func, str):
-            self.selection_func: SelectionFunc = getattr(selection_funcs, selection_func)
+            self.selection_func: SelectionFunc = getattr(
+                selection_funcs, selection_func
+            )
         else:
             self.selection_func = selection_func
         self.batch_size = batch_size

@@ -5,11 +5,8 @@ from diagnnose.activations import ActivationReader
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (
-    ActivationNames,
-    RemoveCallback,
-    SelectionFunc,
-)
+from diagnnose.typedefs.activations import (ActivationNames, RemoveCallback,
+                                            SelectionFunc)
 from diagnnose.utils.misc import suppress_print
 
 from .extractor import BATCH_SIZE, Extractor

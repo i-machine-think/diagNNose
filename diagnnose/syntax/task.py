@@ -13,7 +13,8 @@ from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
-from diagnnose.typedefs.syntax import AccuracyDict, ScoresDict, SyntaxEvalCorpora
+from diagnnose.typedefs.syntax import (AccuracyDict, ScoresDict,
+                                       SyntaxEvalCorpora)
 
 
 class SyntaxEvalTask:
@@ -108,9 +109,11 @@ class SyntaxEvalTask:
             else:
                 for condition, corpus in subtask_corpora.items():
                     scores_df = self._run_corpus(corpus)
-                    scores[subtask] = scores_df
+                    scores.setdefault(subtask, {})[condition] = scores_df
 
-                    accuracy: float = (scores_df.scores > scores_df.counter_scores).mean()
+                    accuracy: float = (
+                        scores_df.scores > scores_df.counter_scores
+                    ).mean()
                     accuracies.setdefault(subtask, {})[condition] = accuracy
 
         return accuracies, scores
@@ -164,7 +167,9 @@ class SyntaxEvalTask:
                 continue
             if hasattr(ex, "counter_token") and ex.counter_token not in vocab:
                 continue
-            if hasattr(ex, "counter_sen") and any(w not in vocab for w in ex.counter_sen):
+            if hasattr(ex, "counter_sen") and any(
+                w not in vocab for w in ex.counter_sen
+            ):
                 continue
 
             sen_ids.append(idx)
@@ -204,10 +209,12 @@ class SyntaxEvalTask:
             [self.tokenizer.convert_tokens_to_ids(ex.token) for ex in corpus]
         )
 
-        scores_df = pd.DataFrame({
-            "sen": [ex.sen for ex in corpus],
-            "token": [ex.token for ex in corpus],
-        })
+        scores_df = pd.DataFrame(
+            {
+                "sen": [ex.sen for ex in corpus],
+                "token": [ex.token for ex in corpus],
+            }
+        )
 
         if counter_activations is None:
             scores_df["counter_token"] = [ex.counter_token for ex in corpus]

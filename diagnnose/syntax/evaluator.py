@@ -6,7 +6,8 @@ from diagnnose.models import LanguageModel
 from diagnnose.typedefs.syntax import AccuracyDict, ScoresDict
 
 from .task import SyntaxEvalTask
-from .tasks import BlimpTask, LakretzTask, LinzenTask, MarvinTask, WarstadtTask, WinobiasTask
+from .tasks import (BlimpTask, LakretzTask, LinzenTask, MarvinTask,
+                    WarstadtTask, WinobiasTask)
 
 task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
     "blimp": BlimpTask,
@@ -54,6 +55,7 @@ class SyntacticEvaluator:
         print("Initializing syntactic evaluation tasks...")
 
         for task_name in tasks or config.keys():
+            print(task_name)
             constructor = task_constructors.get(task_name, SyntaxEvalTask)
 
             self.tasks[task_name] = constructor(

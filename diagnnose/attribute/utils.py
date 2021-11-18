@@ -1,7 +1,8 @@
 import itertools
 from functools import wraps
 from math import factorial
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union, Sequence
+from typing import (Any, Callable, Iterable, List, Optional, Sequence, Tuple,
+                    Union)
 
 import torch
 from torch import Tensor
@@ -247,12 +248,16 @@ def calc_exact_shapley_values(
                 factor=factor,
             )
 
-    normalize_contributions(contributions, factorial(num_features), output_is_sequential)
+    normalize_contributions(
+        contributions, factorial(num_features), output_is_sequential
+    )
 
     # Add baseline to default feature ([0]).
     zero_input_args = unwrap(args, attr="contributions", coalition=[])
     baseline = fn(*zero_input_args, **kwargs)
-    update_contributions(contributions, baseline_partition, output_is_sequential, baseline)
+    update_contributions(
+        contributions, baseline_partition, output_is_sequential, baseline
+    )
 
     return contributions
 
@@ -305,12 +310,20 @@ def calc_sample_shapley_values(
 
             data_with = fn(*coalition_args, **kwargs)
 
-            update_contributions(contributions, feature_idx, output_is_sequential, data_with, data_wo=data_wo)
+            update_contributions(
+                contributions,
+                feature_idx,
+                output_is_sequential,
+                data_with,
+                data_wo=data_wo,
+            )
 
             data_wo = data_with
 
     normalize_contributions(contributions, num_samples, output_is_sequential)
 
-    update_contributions(contributions, baseline_partition, output_is_sequential, baseline)
+    update_contributions(
+        contributions, baseline_partition, output_is_sequential, baseline
+    )
 
     return contributions
