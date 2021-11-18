@@ -214,7 +214,7 @@ def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:
         including those that will be mapped to <unk> later.
         """
         if isinstance(text, list):
-            return text
+            text = " ".join(text)
 
         return tokenizer.tokenize(text)
 

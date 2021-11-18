@@ -27,7 +27,7 @@ def token_to_index(path: str) -> Dict[str, int]:
 
 
 def create_tokenizer(
-    path: str, notify_unk: bool = False, cache_dir: Optional[str] = None
+    path: str, notify_unk: bool = False, cache_dir: Optional[str] = None, **kwargs
 ) -> PreTrainedTokenizer:
     """Creates a tokenizer from a path.
 
@@ -55,7 +55,7 @@ def create_tokenizer(
     """
     if os.path.exists(os.path.expanduser(path)):
         # Word-based vocabulary, used by older LSTM models
-        vocab = W2I(token_to_index(path), notify_unk=notify_unk)
+        vocab = W2I(token_to_index(path), notify_unk=notify_unk, **kwargs)
 
         tokenizer = PreTrainedTokenizer()
 
@@ -72,7 +72,7 @@ def create_tokenizer(
         tokenizer._convert_token_to_id = lambda w: vocab[w]
 
         return tokenizer
-    x = os.path.expanduser(path)
+
     # Subword-based vocabulary, used by Transformer models
     tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=False)
     if hasattr(tokenizer, "encoder"):
@@ -80,6 +80,14 @@ def create_tokenizer(
         encoder: Dict[str, int] = getattr(tokenizer, "encoder")
         tokenizer.vocab = W2I(encoder, unk_token=tokenizer.unk_token)
         tokenizer.ids_to_tokens = tokenizer.decoder
+    elif hasattr(tokenizer, "sp_model"):
+        # XLNet uses a sentencepiece tokenizer without an explicit vocab dict
+        vocab = {
+            tokenizer.sp_model.id_to_piece(idx): idx
+            for idx in range(len(tokenizer.sp_model))
+        }
+        tokenizer.vocab = vocab
+        tokenizer.ids_to_tokens = {idx: w for w, idx in vocab.items()}
 
     if getattr(tokenizer, "pad_token", None) is None:
         tokenizer.pad_token = tokenizer.unk_token
@@ -87,5 +95,5 @@ def create_tokenizer(
     return tokenizer
 
 
-def create_char_vocab(corpus_path: Union[str, List[str]]) -> C2I:
-    return C2I(token_to_index(corpus_path))
+def create_char_vocab(corpus_path: Union[str, List[str]], **kwargs) -> C2I:
+    return C2I(token_to_index(corpus_path), **kwargs)
