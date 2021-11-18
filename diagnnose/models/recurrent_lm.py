@@ -1,3 +1,4 @@
+import os
 from itertools import product
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -5,15 +6,27 @@ import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence
+from transformers import PreTrainedTokenizer
 
+from diagnnose.activations.selection_funcs import final_sen_token
 from diagnnose.attribute import ShapleyTensor
+from diagnnose.corpus import Corpus
+from diagnnose.extract import Extractor
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
                                             ActivationNames)
+from diagnnose.utils import __file__ as diagnnose_utils_init
+from diagnnose.utils.misc import suppress_print
+from diagnnose.utils.pickle import load_pickle
 
 
 class RecurrentLM(LanguageModel):
-    """ Base class for RNN LM with intermediate activations """
+    """Base class for RNN LM with intermediate activations.
+
+    This class contains all the base logic (including forward passes)
+    for LSTM-type LMs, except for loading in the weights of a specific
+    model.
+    """
 
     is_causal: bool = True
     forget_offset: int = 0
@@ -39,10 +52,10 @@ class RecurrentLM(LanguageModel):
         self.decoder_b: Optional[Tensor] = None
 
     def create_inputs_embeds(self, input_ids: Tensor) -> Tensor:
-        raise NotImplementedError
+        return self.word_embeddings[input_ids]
 
     def decode(self, hidden_state: Tensor) -> Tensor:
-        raise NotImplementedError
+        return hidden_state @ self.decoder_w.t() + self.decoder_b
 
     @property
     def num_layers(self) -> int:
@@ -55,6 +68,40 @@ class RecurrentLM(LanguageModel):
     @property
     def output_size(self) -> int:
         return self.sizes[self.top_layer, "hx"]
+
+    def nhid(self, activation_name: ActivationName) -> int:
+        """Returns number of hidden units for a (layer, name) tuple.
+
+        If `name` != emb/hx/cx returns the size of (layer, `cx`).
+        """
+        layer, name = activation_name
+
+        return self.sizes.get((layer, name), self.sizes[layer, "cx"])
+
+    def activation_names(self, compute_out: bool = False) -> ActivationNames:
+        """Returns a list of all the model's activation names.
+
+        Parameters
+        ----------
+        compute_out : bool, optional
+            Toggles the computation of the final decoder projection.
+            If set to False this projection is not calculated.
+            Defaults to True.
+
+        Returns
+        -------
+        activation_names : ActivationNames
+            List of (layer, name) tuples.
+        """
+        lstm_names = ["hx", "cx", "f_g", "i_g", "o_g", "c_tilde_g"]
+
+        activation_names = list(product(range(self.num_layers), lstm_names))
+        activation_names.append((0, "emb"))
+
+        if compute_out:
+            activation_names.append((self.top_layer, "out"))
+
+        return activation_names
 
     def forward(
         self,
@@ -228,6 +275,37 @@ class RecurrentLM(LanguageModel):
 
         return activation_dict
 
+    @staticmethod
+    def _create_iterator(
+        inputs_embeds: Tensor, input_lengths: Optional[Tensor]
+    ) -> Tuple[Tuple[Tensor, ...], Tensor]:
+        """Creates a PackedSequence that handles batching for the RNN.
+
+        Batch items are sorted based on sentence length, allowing
+        <pad> tokens to be skipped efficiently during the forward pass.
+
+        Returns
+        -------
+        iterator : Tuple[Tensor, ...]
+            Tuple of input tensors for each step in the sequence.
+        unsorted_indices : Tensor
+            Original order of the corpus prior to sorting.
+        """
+        if input_lengths is None:
+            batch_size = inputs_embeds.shape[0]
+            input_lengths = torch.tensor(batch_size * [inputs_embeds.shape[1]])
+
+        packed_batch: PackedSequence = pack_padded_sequence(
+            inputs_embeds,
+            lengths=input_lengths.cpu(),
+            batch_first=True,
+            enforce_sorted=False,
+        )
+
+        iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
+
+        return iterator, packed_batch.unsorted_indices
+
     def _init_activations(
         self, inputs_embeds: Tensor, compute_out: bool
     ) -> ActivationDict:
@@ -292,67 +370,127 @@ class RecurrentLM(LanguageModel):
         """
         return hidden[self.top_layer, "hx"].squeeze()
 
-    def nhid(self, activation_name: ActivationName) -> int:
-        """Returns number of hidden units for a (layer, name) tuple.
+    def set_init_states(
+        self,
+        pickle_path: Optional[str] = None,
+        corpus_path: Optional[str] = None,
+        use_default: bool = False,
+        tokenizer: Optional[PreTrainedTokenizer] = None,
+        save_init_states_to: Optional[str] = None,
+    ) -> None:
+        """Set up the initial LM states.
 
-        If `name` != emb/hx/cx returns the size of (layer, `cx`).
-        """
-        layer, name = activation_name
+        If no path is provided 0-valued embeddings will be used.
+        Note that the loaded init should provide tensors for `hx`
+        and `cx` in all layers of the LM.
 
-        return self.sizes.get((layer, name), self.sizes[layer, "cx"])
-
-    @staticmethod
-    def _create_iterator(
-        inputs_embeds: Tensor, input_lengths: Optional[Tensor]
-    ) -> Tuple[Tuple[Tensor, ...], Tensor]:
-        """Creates a PackedSequence that handles batching for the RNN.
-
-        Batch items are sorted based on sentence length, allowing
-        <pad> tokens to be skipped efficiently during the forward pass.
-
-        Returns
-        -------
-        iterator : Tuple[Tensor, ...]
-            Tuple of input tensors for each step in the sequence.
-        unsorted_indices : Tensor
-            Original order of the corpus prior to sorting.
-        """
-        if input_lengths is None:
-            batch_size = inputs_embeds.shape[0]
-            input_lengths = torch.tensor(batch_size * [inputs_embeds.shape[1]])
-
-        packed_batch: PackedSequence = pack_padded_sequence(
-            inputs_embeds,
-            lengths=input_lengths.cpu(),
-            batch_first=True,
-            enforce_sorted=False,
-        )
-
-        iterator = torch.split(packed_batch.data, list(packed_batch.batch_sizes))
-
-        return iterator, packed_batch.unsorted_indices
-
-    def activation_names(self, compute_out: bool = False) -> ActivationNames:
-        """Returns a list of all the model's activation names.
+        Note that `init_states_pickle` takes precedence over
+        `init_states_corpus` in case both are provided.
 
         Parameters
         ----------
-        compute_out : bool, optional
-            Toggles the computation of the final decoder projection.
-            If set to False this projection is not calculated.
-            Defaults to True.
+        pickle_path : str, optional
+            Path to pickled file with initial lstm states. If not
+            provided zero-valued init states will be created.
+        corpus_path : str, optional
+            Path to corpus of which the final hidden state will be used
+            as initial states.
+        use_default : bool
+            Toggle to use the default initial sentence `. <eos>`.
+        tokenizer : PreTrainedTokenizer, optional
+            Tokenizer that must be provided when creating the init
+            states from a corpus.
+        save_init_states_to : str, optional
+            Path to which the newly computed init_states will be saved.
+            If not provided these states won't be dumped.
 
         Returns
         -------
-        activation_names : ActivationNames
-            List of (layer, name) tuples.
+        init_states : ActivationTensors
+            ActivationTensors containing the init states for each layer.
         """
-        lstm_names = ["hx", "cx", "f_g", "i_g", "o_g", "c_tilde_g"]
+        if use_default:
+            diagnnose_utils_dir = os.path.dirname(diagnnose_utils_init)
+            corpus_path = os.path.join(diagnnose_utils_dir, "init_sentence.txt")
 
-        activation_names = list(product(range(self.num_layers), lstm_names))
-        activation_names.append((0, "emb"))
+        if pickle_path is not None:
+            init_states = self._create_init_states_from_pickle(pickle_path)
+        elif corpus_path is not None:
+            init_states = self._create_init_states_from_corpus(
+                corpus_path, tokenizer, save_init_states_to
+            )
+        else:
+            init_states = self._create_zero_states()
 
-        if compute_out:
-            activation_names.append((self.top_layer, "out"))
+        self.init_states = init_states
 
-        return activation_names
+    def _create_zero_states(self) -> ActivationDict:
+        """Zero-initialized states if no init state is provided.
+
+        Returns
+        -------
+        init_states : ActivationTensors
+            Dictionary mapping (layer, name) tuple to zero-tensor.
+        """
+        init_states: ActivationDict = {
+            a_name: torch.zeros((1, self.nhid(a_name)), device=self.device)
+            for a_name in product(range(self.num_layers), ["cx", "hx"])
+        }
+
+        return init_states
+
+    @suppress_print
+    def _create_init_states_from_corpus(
+        self,
+        init_states_corpus: str,
+        tokenizer: PreTrainedTokenizer,
+        save_init_states_to: Optional[str] = None,
+    ) -> ActivationDict:
+        assert (
+            tokenizer is not None
+        ), "Tokenizer must be provided when creating init states from corpus"
+
+        corpus: Corpus = Corpus.create(init_states_corpus, tokenizer=tokenizer)
+
+        activation_names: ActivationNames = [
+            (layer, name) for layer in range(self.num_layers) for name in ["hx", "cx"]
+        ]
+
+        extractor = Extractor(
+            self,
+            corpus,
+            activation_names,
+            activations_dir=save_init_states_to,
+            selection_func=final_sen_token,
+        )
+        init_states = extractor.extract().activation_dict
+
+        return init_states
+
+    def _create_init_states_from_pickle(self, pickle_path: str) -> ActivationDict:
+        init_states: ActivationDict = load_pickle(pickle_path)
+
+        self._validate_init_states_from_pickle(init_states)
+
+        return init_states
+
+    def _validate_init_states_from_pickle(self, init_states: ActivationDict) -> None:
+        num_init_layers = max(layer for layer, _name in init_states)
+        assert (
+            num_init_layers == self.num_layers
+        ), "Number of initial layers not correct"
+
+        for (layer, name), size in self.sizes.items():
+            if name in ["hx", "cx"]:
+                assert (
+                    layer,
+                    name,
+                ) in init_states.keys(), (
+                    f"Activation {layer},{name} is not found in init states"
+                )
+
+                init_size = init_states[layer, name].size(1)
+                assert init_size == size, (
+                    f"Initial activation size for {name} is incorrect: "
+                    f"{name}: {init_size}, should be {size}"
+                )
