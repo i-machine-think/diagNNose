@@ -46,7 +46,15 @@ class TransformerLM(LanguageModel):
         ``"wte"`` attribute that is part of the ``"encoder"`` attribute
         of the full model, you would pass ``"encoder.wte"``. For the
         following models this parameter does not need to be passed:
-        ``"(distil)-(Ro)BERT(a)"``, ``"(distil)-gpt2"``, ``"XLM"``, ``""``, ``""``,
+        ``"(distil)-(Ro)BERT(a)"``, ``"(distil)-gpt2"``, ``"XLM"``
+    cache_dir: str, optional
+        Path towards the cache directory where the HF model weights will
+        be stored.
+    compute_pseudo_ll: bool, optional
+        Toggle to compute the Pseudo Log-Likelihood that was introduced
+        by Salazar et al. (2020). This can be used to compute the
+        sentence probabilies of bi-directional masked LMs, masking out
+        one token at the time.
     device : str, optional
         Torch device on which forward passes will be run.
         Defaults to cpu.
@@ -58,6 +66,7 @@ class TransformerLM(LanguageModel):
         mode: Optional[str] = None,
         embeddings_attr: Optional[str] = None,
         cache_dir: Optional[str] = None,
+        compute_pseudo_ll: bool = False,
         device: str = "cpu",
     ):
         super().__init__(device)
@@ -70,6 +79,7 @@ class TransformerLM(LanguageModel):
 
         self.embeddings_attr = embeddings_attr
         self.is_causal = mode == "causal_lm"
+        self.compute_pseudo_ll = compute_pseudo_ll
 
     def forward(
         self,
@@ -80,6 +90,7 @@ class TransformerLM(LanguageModel):
         compute_out: bool = True,
         calc_causal_lm_probs: bool = False,
         only_return_top_embs: bool = True,
+        mask_idx: Optional[int] = None,
     ) -> Union[ActivationDict, Tensor]:
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError(
@@ -105,16 +116,16 @@ class TransformerLM(LanguageModel):
         inputs_embeds = inputs_embeds.to(self.device)
         attention_mask = attention_mask.to(self.device)
 
-        output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
+        activation_name = (-1, "out") if compute_out else (-1, "hx")
 
-        if hasattr(output, "logits"):
-            logits: Tensor = output.logits
-            activation_name = (-1, "out")
-        elif hasattr(output, "last_hidden_state"):
-            logits = output.last_hidden_state
-            activation_name = (-1, "hx")
+        if self.compute_pseudo_ll:
+            logits, activation_name = self._forward_pseudo_ll(
+                model, inputs_embeds, attention_mask, mask_idx, activation_name
+            )
         else:
-            raise AttributeError
+            logits, activation_name = self._forward(
+                model, inputs_embeds, attention_mask
+            )
 
         if calc_causal_lm_probs:
             output_ids = input_ids[:, 1:].unsqueeze(-1)
@@ -125,6 +136,44 @@ class TransformerLM(LanguageModel):
             return logits
 
         return {activation_name: logits}
+
+    @staticmethod
+    def _forward(model, inputs_embeds: Tensor, attention_mask: Tensor) -> Tensor:
+        output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
+
+        if hasattr(output, "logits"):
+            logits: Tensor = output.logits
+        elif hasattr(output, "last_hidden_state"):
+            logits = output.last_hidden_state
+        else:
+            raise AttributeError
+
+        return logits
+
+    def _forward_pseudo_ll(
+        self,
+        model,
+        inputs_embeds: Tensor,
+        attention_mask: Tensor,
+        mask_idx: int,
+        activation_name: ActivationName,
+    ) -> Tensor:
+        mask_embedding = self.embeddings(torch.tensor(mask_idx))
+
+        sen_len = inputs_embeds.shape[1]
+
+        pseudo_ll_logits = torch.zeros(
+            *inputs_embeds.shape[:2], self.nhid(activation_name)
+        )
+
+        for w_idx in range(sen_len):
+            masked_inputs_embeds = inputs_embeds.clone()
+            masked_inputs_embeds[:, w_idx] = mask_embedding
+
+            logits = self._forward(model, masked_inputs_embeds, attention_mask)
+            pseudo_ll_logits[:, w_idx] = logits[:, w_idx]
+
+        return pseudo_ll_logits
 
     def create_attention_mask(self, input_lengths: List[int]) -> Tensor:
         """Creates an attention mask as described in:
