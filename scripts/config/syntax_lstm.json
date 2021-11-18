@@ -8,7 +8,7 @@
     "notify_unk": false
   },
   "downstream": {
-    "tasks": ["blimp"],
+    "tasks": ["marvin"],
     "ignore_unk": true,
     "use_full_model_probs": true,
     "config": {
@@ -19,22 +19,24 @@
         "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv"
       },
       "marvin": {
-        "path": "../lm_data/corpora/downstream/marvin",
-        "subtasks": ["simple_npi_anim", "simple_npi_inanim"]
+        "path": "../lm_data/corpora/downstream/marvin"
       },
       "linzen": {
         "path": "../lm_data/corpora/downstream/linzen",
+        "items_per_subtask": 500,
         "subtasks": [
           "SP",
-          "PS"
+          "PS",
+          "S",
+          "P",
+          "SPP",
+          "PSS",
+          "SPPP",
+          "PSSS"
         ]
       },
       "lakretz": {
-        "path": "../lm_data/corpora/downstream/lakretz",
-        "subtasks": [
-          "nounpp",
-          "simple"
-        ]
+        "path": "../lm_data/corpora/downstream/lakretz"
       },
       "winobias": {
         "path": "../lm_data/corpora/downstream/winobias"
