@@ -167,6 +167,11 @@ class Extractor:
         sens, sen_lens = getattr(batch, self.corpus.sen_column)
 
         compute_out = any("out" in a_name for a_name in self.activation_names)
+        if getattr(self.model, "compute_pseudo_ll", False):
+            kwargs = {"mask_idx": self.corpus.tokenizer.mask_token_id}
+        else:
+            kwargs = {}
+
         with torch.no_grad():
             # a_name -> batch_size x max_sen_len x nhid
             all_activations: ActivationDict = self.model(
@@ -174,6 +179,7 @@ class Extractor:
                 input_lengths=sen_lens,
                 compute_out=compute_out,
                 only_return_top_embs=False,
+                **kwargs,
             )
 
         # a_name -> n_items_in_batch x nhid
