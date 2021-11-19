@@ -1,14 +1,14 @@
 {
     "model": {
         "rnn_type": "ForwardLSTM",
-        "state_dict": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulorgood/40.pt"
+        "state_dict": "/home/jaap/Documents/AI/diagnosing_lms/lm_data/models/gulordava/state_dict.pt"
     },
     "tokenizer": {
-        "path": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulorgood/vocab.txt",
+        "path": "/home/jaap/Documents/AI/diagnosing_lms/lm_data/models/gulordava/vocab.txt",
         "notify_unk": false
     },
     "corpus": {
-        "path": "../lm_data/corpora/npi/lc_detection_binary_NEW.tsv",
+        "path": "../lm_data/corpora/npi/lc_detection_binary_sample.tsv",
         "header_from_first_line": true,
         "labels_column": "labels"
     },

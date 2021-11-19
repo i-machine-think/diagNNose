@@ -7,8 +7,11 @@
     "path": "../lm_data/models/gulordava/vocab.txt",
     "notify_unk": false
   },
+  "init_states": {
+    "use_default": true
+  },
   "downstream": {
-    "tasks": ["marvin"],
+    "tasks": ["lakretz"],
     "ignore_unk": true,
     "use_full_model_probs": true,
     "config": {
@@ -36,7 +39,8 @@
         ]
       },
       "lakretz": {
-        "path": "../lm_data/corpora/downstream/lakretz"
+        "path": "../lm_data/corpora/downstream/lakretz",
+        "subtasks": ["simple"]
       },
       "winobias": {
         "path": "../lm_data/corpora/downstream/winobias"
