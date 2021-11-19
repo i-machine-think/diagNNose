@@ -67,7 +67,7 @@ class Extractor:
                 selection_funcs, selection_func
             )
         else:
-            self.selection_func = selection_func
+            self.selection_func: SelectionFunc = selection_func
         self.batch_size = batch_size
 
         self.activation_ranges = []
@@ -167,10 +167,11 @@ class Extractor:
         sens, sen_lens = getattr(batch, self.corpus.sen_column)
 
         compute_out = any("out" in a_name for a_name in self.activation_names)
+        kwargs = {}
         if getattr(self.model, "compute_pseudo_ll", False):
-            kwargs = {"mask_idx": self.corpus.tokenizer.mask_token_id}
-        else:
-            kwargs = {}
+            kwargs["mask_idx"] = self.corpus.tokenizer.mask_token_id
+            kwargs["selection_func"] = self.selection_func
+            kwargs["batch"] = batch
 
         with torch.no_grad():
             # a_name -> batch_size x max_sen_len x nhid

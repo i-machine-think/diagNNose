@@ -4,6 +4,7 @@ from typing import Callable, List, Optional, Union
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
+from torchtext.data import Batch
 from transformers import (AutoModel, AutoModelForCausalLM,
                           AutoModelForMaskedLM, AutoModelForQuestionAnswering,
                           AutoModelForSequenceClassification,
@@ -14,7 +15,7 @@ from transformers import (AutoModel, AutoModelForCausalLM,
 from diagnnose.attribute import ShapleyTensor
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
-                                            ActivationNames)
+                                            ActivationNames, SelectionFunc)
 
 mode_to_auto_model = {
     "causal_lm": AutoModelForCausalLM,
@@ -91,6 +92,8 @@ class TransformerLM(LanguageModel):
         calc_causal_lm_probs: bool = False,
         only_return_top_embs: bool = True,
         mask_idx: Optional[int] = None,
+        selection_func: Optional[SelectionFunc] = None,
+        batch: Optional[Batch] = None,
     ) -> Union[ActivationDict, Tensor]:
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError(
@@ -119,13 +122,18 @@ class TransformerLM(LanguageModel):
         activation_name = (-1, "out") if compute_out else (-1, "hx")
 
         if self.compute_pseudo_ll:
-            logits, activation_name = self._forward_pseudo_ll(
-                model, inputs_embeds, attention_mask, mask_idx, activation_name
+            assert isinstance(mask_idx, int), "mask_idx must be provided for Pseudo LL"
+            logits = self._forward_pseudo_ll(
+                model,
+                inputs_embeds,
+                attention_mask,
+                mask_idx,
+                activation_name,
+                selection_func=selection_func,
+                batch=batch,
             )
         else:
-            logits, activation_name = self._forward(
-                model, inputs_embeds, attention_mask
-            )
+            logits = self._forward(model, inputs_embeds, attention_mask)
 
         if calc_causal_lm_probs:
             output_ids = input_ids[:, 1:].unsqueeze(-1)
@@ -157,6 +165,8 @@ class TransformerLM(LanguageModel):
         attention_mask: Tensor,
         mask_idx: int,
         activation_name: ActivationName,
+        selection_func: Optional[SelectionFunc] = None,
+        batch: Optional[Batch] = None,
     ) -> Tensor:
         mask_embedding = self.embeddings(torch.tensor(mask_idx))
 
@@ -167,11 +177,22 @@ class TransformerLM(LanguageModel):
         )
 
         for w_idx in range(sen_len):
-            masked_inputs_embeds = inputs_embeds.clone()
-            masked_inputs_embeds[:, w_idx] = mask_embedding
+            if selection_func is not None:
+                sen_ids = []
+                for batch_idx, sen_idx in enumerate(batch.sen_idx):
+                    if selection_func(w_idx, batch.dataset.examples[sen_idx]):
+                        sen_ids.append(batch_idx)
+                if len(sen_ids) == 0:
+                    continue
+            else:
+                sen_ids = slice(0, None)
 
-            logits = self._forward(model, masked_inputs_embeds, attention_mask)
-            pseudo_ll_logits[:, w_idx] = logits[:, w_idx]
+            masked_inputs_embeds = inputs_embeds[sen_ids].clone()
+            masked_inputs_embeds[:, w_idx] = mask_embedding
+            masked_attention_mask = attention_mask[sen_ids].clone()
+
+            logits = self._forward(model, masked_inputs_embeds, masked_attention_mask)
+            pseudo_ll_logits[sen_ids, w_idx] = logits[:, w_idx]
 
         return pseudo_ll_logits
 
