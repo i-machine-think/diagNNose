@@ -1,23 +1,22 @@
 import shutil
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from diagnnose.activations import ActivationReader
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus
-from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (
-    ActivationNames,
-    RemoveCallback,
-    SelectionFunc,
-)
+from diagnnose.typedefs.activations import (ActivationNames, RemoveCallback,
+                                            SelectionFunc)
 from diagnnose.utils.misc import suppress_print
+
+if TYPE_CHECKING:
+    from diagnnose.models import LanguageModel
 
 from .extractor import BATCH_SIZE, Extractor
 
 
 @suppress_print
 def simple_extract(
-    model: LanguageModel,
+    model: "LanguageModel",
     corpus: Corpus,
     activation_names: ActivationNames,
     activations_dir: Optional[str] = None,

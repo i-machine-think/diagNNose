@@ -41,7 +41,7 @@ class W2I(dict):
         self.eos_token = eos_token
         self.pad_token = pad_token
 
-        self.unk_idx = w2i[unk_token]
+        self.unk_idx = w2i.get(unk_token, None)
 
         self.notify_unk = notify_unk
 

@@ -5,21 +5,18 @@ import torch.nn as nn
 from torch import Tensor
 
 from diagnnose.attribute import ShapleyTensor
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationName,
-    ActivationNames,
-    SizeDict,
-)
+from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
+                                            ActivationNames, SizeDict)
 
 
 class LanguageModel(ABC, nn.Module):
-    device: str = "cpu"
     sizes: SizeDict = {}
-    is_recurrent: bool = False
+    is_causal: bool = False
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, device: str = "cpu"):
+        super().__init__()
+
+        self.device = device
 
     @abstractmethod
     def forward(

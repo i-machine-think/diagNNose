@@ -1,14 +1,16 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from transformers import PreTrainedTokenizer
 
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.syntax import ResultsDict
+from diagnnose.typedefs.syntax import AccuracyDict, ScoresDict
 
 from .task import SyntaxEvalTask
-from .tasks import LakretzTask, LinzenTask, MarvinTask, WarstadtTask, WinobiasTask
+from .tasks import (BlimpTask, LakretzTask, LinzenTask, MarvinTask,
+                    WarstadtTask, WinobiasTask)
 
 task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
+    "blimp": BlimpTask,
     "lakretz": LakretzTask,
     "linzen": LinzenTask,
     "marvin": MarvinTask,
@@ -53,6 +55,7 @@ class SyntacticEvaluator:
         print("Initializing syntactic evaluation tasks...")
 
         for task_name in tasks or config.keys():
+            print(task_name)
             constructor = task_constructors.get(task_name, SyntaxEvalTask)
 
             self.tasks[task_name] = constructor(
@@ -65,12 +68,13 @@ class SyntacticEvaluator:
 
         print("Syntactic evaluation task initialization finished")
 
-    def run(self) -> Dict[str, Any]:
-        results: Dict[str, ResultsDict] = {}
+    def run(self) -> Tuple[Dict[str, AccuracyDict], Dict[str, ScoresDict]]:
+        accuracies: Dict[str, AccuracyDict] = {}
+        scores: Dict[str, ScoresDict] = {}
 
         for task_name, task in self.tasks.items():
             print(f"\n--=={task_name.upper()}==--")
 
-            results[task_name] = task.run()
+            accuracies[task_name], scores[task_name] = task.run()
 
-        return results
+        return accuracies, scores

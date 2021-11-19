@@ -6,14 +6,9 @@ import torch
 from torch import Tensor
 
 from diagnnose.activations.activation_index import activation_index_to_iterable
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationKey,
-    ActivationName,
-    ActivationNames,
-    ActivationRanges,
-    SelectionFunc,
-)
+from diagnnose.typedefs.activations import (ActivationDict, ActivationKey,
+                                            ActivationName, ActivationNames,
+                                            ActivationRanges, SelectionFunc)
 from diagnnose.utils.pickle import load_pickle
 
 
@@ -159,7 +154,7 @@ class ActivationReader:
         sen_indices = torch.cat([torch.arange(*r) for r in ranges]).to(torch.long)
 
         if activation_name not in self.activation_dict:
-            self._read_activations(activation_name)
+            self._set_activations(activation_name)
 
         if self.cat_activations:
             return self.activation_dict[activation_name][sen_indices]
@@ -202,14 +197,11 @@ class ActivationReader:
         activations = self.activation_dict.get(activation_name, None)
 
         if activations is None:
-            activations = self._read_activations(activation_name)
-            if not self.store_multiple_activations:
-                self.activation_dict = {}  # reset activation_dict
-            self.activation_dict[activation_name] = activations
+            self._set_activations(activation_name)
 
         return activations
 
-    def _read_activations(self, activation_name: ActivationName) -> None:
+    def _set_activations(self, activation_name: ActivationName) -> None:
         """Reads the pickled activations of activation_name
 
         Parameters
@@ -259,4 +251,5 @@ class ActivationReader:
 
         if not self.store_multiple_activations:
             self.activation_dict = {}  # reset activation_dict
+
         self.activation_dict[activation_name] = activations

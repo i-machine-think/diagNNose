@@ -79,6 +79,9 @@ class ShapleyDecomposer(Decomposer):
         return shapley_out
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> ShapleyTensor:
+        if input_ids.ndim == 1:
+            input_ids = input_ids.unsqueeze(0)
+
         # Shape: batch_size x max_sen_len x nhid
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
@@ -151,6 +154,10 @@ class ContextualDecomposer(Decomposer):
         return GCDTensor(out, all_contributions)
 
     def wrap_inputs_embeds(self, input_ids: Tensor) -> List[ShapleyTensor]:
+        assert (
+            input_ids.ndim == 2
+        ), "Input ids must contain both batch and sentence dimension"
+
         inputs_embeds = self.model.create_inputs_embeds(input_ids)
 
         all_shapley_in = [
@@ -169,14 +176,14 @@ class ContextualDecomposer(Decomposer):
             beta[:, w_idx] = gamma[:, w_idx]
             gamma[:, w_idx] = 0.0
 
-            contributions = [beta, gamma]
+            contributions = [torch.zeros_like(beta), beta, gamma]
 
             shapley_in = GCDTensor(
                 inputs_embeds,
                 contributions=contributions,
-                validate=False,
+                validate=True,
                 num_samples=self.num_samples,
-                baseline_partition=1,
+                baseline_partition=0,
             )
 
             all_shapley_in.append(shapley_in)

@@ -8,14 +8,9 @@ from tqdm import tqdm
 import diagnnose.activations.selection_funcs as selection_funcs
 from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
-from diagnnose.corpus import Corpus
-from diagnnose.corpus.create_iterator import create_iterator
-from diagnnose.typedefs.activations import (
-    ActivationDict,
-    ActivationNames,
-    ActivationRanges,
-    SelectionFunc,
-)
+from diagnnose.corpus import Corpus, create_iterator
+from diagnnose.typedefs.activations import (ActivationDict, ActivationNames,
+                                            ActivationRanges, SelectionFunc)
 
 if TYPE_CHECKING:
     from diagnnose.models import LanguageModel
@@ -68,9 +63,11 @@ class Extractor:
         self.corpus = corpus
         self.activation_names = activation_names or model.activation_names()
         if isinstance(selection_func, str):
-            self.selection_func = getattr(selection_funcs, selection_func)
+            self.selection_func: SelectionFunc = getattr(
+                selection_funcs, selection_func
+            )
         else:
-            self.selection_func = selection_func
+            self.selection_func: SelectionFunc = selection_func
         self.batch_size = batch_size
 
         self.activation_ranges = []
@@ -170,6 +167,12 @@ class Extractor:
         sens, sen_lens = getattr(batch, self.corpus.sen_column)
 
         compute_out = any("out" in a_name for a_name in self.activation_names)
+        kwargs = {}
+        if getattr(self.model, "compute_pseudo_ll", False):
+            kwargs["mask_idx"] = self.corpus.tokenizer.mask_token_id
+            kwargs["selection_func"] = self.selection_func
+            kwargs["batch"] = batch
+
         with torch.no_grad():
             # a_name -> batch_size x max_sen_len x nhid
             all_activations: ActivationDict = self.model(
@@ -177,6 +180,7 @@ class Extractor:
                 input_lengths=sen_lens,
                 compute_out=compute_out,
                 only_return_top_embs=False,
+                **kwargs,
             )
 
         # a_name -> n_items_in_batch x nhid
@@ -209,7 +213,7 @@ class Extractor:
 
         return batch_activations
 
-    def set_activation_ranges(self) -> ActivationRanges:
+    def set_activation_ranges(self) -> None:
         activation_ranges: ActivationRanges = []
         tot_extracted = 0
 

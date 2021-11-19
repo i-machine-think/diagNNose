@@ -1,4 +1,4 @@
 sphinx>=2.2
 sphinx_rtd_theme
 torch
-torchtext
+torchtext==0.6.0

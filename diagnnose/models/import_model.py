@@ -1,9 +1,6 @@
 from typing import Type
 
-from .init_states import _create_zero_states
 from .language_model import LanguageModel
-from .recurrent_lm import RecurrentLM
-from .transformer_lm import TransformerLM
 
 
 def import_model(*args, **kwargs) -> LanguageModel:
@@ -31,13 +28,16 @@ def import_model(*args, **kwargs) -> LanguageModel:
     return model
 
 
-def _import_transformer_lm(*args, **kwargs) -> TransformerLM:
+def _import_transformer_lm(*args, **kwargs) -> "TransformerLM":
     """ Imports a Transformer LM. """
+    from .transformer_lm import TransformerLM
+
     return TransformerLM(*args, **kwargs)
 
 
-def _import_recurrent_lm(*args, **kwargs) -> RecurrentLM:
+def _import_recurrent_lm(*args, **kwargs) -> "RecurrentLM":
     """ Imports a recurrent LM and sets the initial states. """
+    from .recurrent_lm import RecurrentLM
 
     assert "rnn_type" in kwargs, "rnn_type should be given for recurrent LM"
     model_type = kwargs.pop("rnn_type")
@@ -47,6 +47,6 @@ def _import_recurrent_lm(*args, **kwargs) -> RecurrentLM:
     model_constructor: Type[RecurrentLM] = getattr(wrappers, model_type)
     model = model_constructor(*args, **kwargs)
 
-    model.init_states = _create_zero_states(model)
+    model.set_init_states()
 
     return model

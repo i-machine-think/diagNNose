@@ -1,37 +1,46 @@
 {
   "model": {
     "rnn_type": "ForwardLSTM",
-    "state_dict": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulordava/40.pt"
+    "state_dict": "../lm_data/models/gulordava/state_dict.pt"
   },
   "tokenizer": {
-    "path": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/MODELS/gulordava/vocab.txt",
-    "notify_unk": true
+    "path": "../lm_data/models/gulordava/vocab.txt",
+    "notify_unk": false
+  },
+  "init_states": {
+    "use_default": true
   },
   "downstream": {
     "tasks": ["lakretz"],
-    "ignore_unk": false,
+    "ignore_unk": true,
     "use_full_model_probs": true,
     "config": {
+      "blimp": {
+        "path": "../lm_data/corpora/downstream/blimp"
+      },
       "warstadt": {
         "path": "../lm_data/corpora/downstream/warstadt/npi_data_all_environments.tsv"
       },
       "marvin": {
-        "path": "../lm_data/corpora/downstream/marvin",
-        "subtasks": ["npi_across_anim", "npi_across_inanim"]
+        "path": "../lm_data/corpora/downstream/marvin"
       },
       "linzen": {
         "path": "../lm_data/corpora/downstream/linzen",
+        "items_per_subtask": 500,
         "subtasks": [
           "SP",
-          "PS"
+          "PS",
+          "S",
+          "P",
+          "SPP",
+          "PSS",
+          "SPPP",
+          "PSSS"
         ]
       },
       "lakretz": {
         "path": "../lm_data/corpora/downstream/lakretz",
-        "subtasks": [
-          "nounpp",
-          "simple"
-        ]
+        "subtasks": ["simple"]
       },
       "winobias": {
         "path": "../lm_data/corpora/downstream/winobias"

@@ -12,9 +12,6 @@ ActivationDict = Dict[ActivationName, Tensor]
 # LM's layer sizes: (layer, name) -> size
 SizeDict = Dict[ActivationName, int]
 
-# Maps a layer index to a tensor
-LayeredTensors = Dict[int, Tensor]
-
 
 # EXTRACTION
 ActivationFiles = Dict[ActivationName, BinaryIO]

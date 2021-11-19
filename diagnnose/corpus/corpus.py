@@ -22,8 +22,7 @@ class Corpus(Dataset):
         if hasattr(self.fields[sen_column], "vocab"):
             self.tokenizer = self.fields[sen_column].vocab
 
-        if "sen_idx" not in self.fields:
-            self._attach_sen_ids()
+        self._attach_sen_ids()
 
         if create_pos_tags:
             self._create_pos_tags()
@@ -208,16 +207,16 @@ def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:
         Tokenizer that will convert tokens to their index.
     """
 
-    def preprocess(value: Union[str, List[str]]) -> List[str]:
+    def preprocess(text: Union[str, List[str]]) -> List[str]:
         """We only perform the splitting as a preprocessing step.
 
         This allows us to still have access to the original tokens,
         including those that will be mapped to <unk> later.
         """
-        if isinstance(value, list):
-            value = " ".join(value)
+        if isinstance(text, list):
+            text = " ".join(text)
 
-        return [tokenizer.convert_ids_to_tokens(t) for t in tokenizer.encode(value)]
+        return tokenizer.tokenize(text)
 
     field.preprocessing = preprocess
     field.pad_token = tokenizer.pad_token

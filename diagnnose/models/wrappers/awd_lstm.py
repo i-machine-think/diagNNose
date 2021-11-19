@@ -9,7 +9,9 @@ class AWDLSTM(ForwardLSTM):
         super().__init__(*args, **kwargs)
 
     @staticmethod
-    def param_names(layer: int, rnn_name: str, no_suffix: bool = False, **kwargs) -> Dict[str, str]:
+    def param_names(
+        layer: int, rnn_name: str, no_suffix: bool = False, **kwargs
+    ) -> Dict[str, str]:
         # The AWD-LSTM has no separate weight names for a single layer LSTM
         if no_suffix:
             return {

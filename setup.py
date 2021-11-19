@@ -15,11 +15,11 @@ if on_rtd:
     install_requires = []
 else:
     with open('requirements.txt') as f:
-        install_requires = [l.strip() for l in f]
+        install_requires = [line.strip() for line in f]
 
 setup(
     name="diagNNose",
-    version="1.0",
+    version="1.2",
     description="A library that facilitates a broad set of tools for analysing "
                 "hidden activations of neural models.",
     long_description=long_description,
@@ -33,6 +33,7 @@ setup(
     keywords="interpretability, analysis, deep learning, nlp",
     url="https://github.com/i-machine-think/diagnnose",
     packages=find_packages(exclude=["contrib", "docs", "test", "scripts"]),
+    package_data={"diagNNose": ["diagnnose/utils/*.txt"]},
     install_requires=install_requires,
     python_requires=">=3.6.0",
     extras_require={"dev": ["check-manifest"], "test": ["coverage"]},

@@ -1,8 +1,8 @@
 import glob
 import os
-import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import pandas as pd
 import torch
 from torch import Tensor
 from transformers import PreTrainedTokenizer
@@ -12,7 +12,8 @@ from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
-from diagnnose.typedefs.syntax import ResultsDict, SyntaxEvalCorpora
+from diagnnose.typedefs.syntax import (AccuracyDict, ScoresDict,
+                                       SyntaxEvalCorpora)
 
 
 class SyntaxEvalTask:
@@ -85,7 +86,7 @@ class SyntaxEvalTask:
 
         return corpora
 
-    def run(self) -> ResultsDict:
+    def run(self) -> Tuple[AccuracyDict, ScoresDict]:
         """Performs the syntactic evaluation task that is initialised.
 
         Returns
@@ -94,30 +95,44 @@ class SyntaxEvalTask:
             Dictionary mapping a task to a task condition to the model
             accuracy.
         """
-        results: ResultsDict = {}
+        accuracies: AccuracyDict = {}
+        scores: ScoresDict = {}
 
         for subtask, subtask_corpora in self.corpora.items():
             if isinstance(subtask_corpora, Corpus):
-                accuracy = self._run_corpus(subtask_corpora)
-                results[subtask] = accuracy
+                scores_df = self._run_corpus(subtask_corpora)
+                scores[subtask] = scores_df
+
+                accuracy: float = (scores_df.scores > scores_df.counter_scores).mean()
+                accuracies[subtask] = accuracy
             else:
                 for condition, corpus in subtask_corpora.items():
-                    accuracy = self._run_corpus(corpus)
+                    scores_df = self._run_corpus(corpus)
+                    scores.setdefault(subtask, {})[condition] = scores_df
 
-                    results.setdefault(subtask, {})[condition] = accuracy
+                    accuracy: float = (
+                        scores_df.scores > scores_df.counter_scores
+                    ).mean()
+                    accuracies.setdefault(subtask, {})[condition] = accuracy
 
-        return results
+        return accuracies, scores
 
-    def _run_corpus(self, corpus: Corpus) -> float:
-        if self.model.is_recurrent:
+    def _run_corpus(self, corpus: Corpus) -> pd.DataFrame:
+        if self.model.is_causal:
             selection_func = final_token("sen")
         else:
             selection_func = only_mask_token(self.tokenizer.mask_token, "sen")
 
+        if self.ignore_unk:
+            sen_ids = self._create_non_unk_sen_ids(corpus)
+            corpus = corpus.slice(sen_ids)
+            if len(corpus) == 0:
+                return pd.DataFrame(columns=["scores", "counter_scores"])
+
         activations = self._calc_final_hidden(corpus, selection_func)
 
         if "counter_sen" in corpus.fields:
-            if self.model.is_recurrent:
+            if self.model.is_causal:
                 selection_func = final_token("counter_sen")
             else:
                 selection_func = only_mask_token(
@@ -129,13 +144,40 @@ class SyntaxEvalTask:
         else:
             counter_activations = None
 
-        accuracy = self._calc_accuracy(
+        scores_df = self._calc_scores(
             corpus,
             activations,
             counter_activations=counter_activations,
         )
 
-        return accuracy
+        return scores_df
+
+    def _create_non_unk_sen_ids(self, corpus: Corpus) -> List[int]:
+        """
+        Creates a list of sen ids for which none of the items in that
+        sentence are unknown to the tokenizer
+        """
+        sen_ids = []
+        vocab = self.tokenizer.vocab
+
+        # An unk token may neither appear in the prefix sen, nor be the eval token itself.
+        for idx, ex in enumerate(corpus):
+            if any(w not in vocab for w in ex.sen) or ex.token not in vocab:
+                continue
+            if hasattr(ex, "counter_token") and ex.counter_token not in vocab:
+                continue
+            if hasattr(ex, "counter_sen") and any(
+                w not in vocab for w in ex.counter_sen
+            ):
+                continue
+
+            sen_ids.append(idx)
+
+        # skipped = len(corpus) - len(sen_ids)
+        # if skipped:
+        #     warnings.warn(f"{skipped} out of {len(corpus)} items skipped")
+
+        return sen_ids
 
     def _calc_final_hidden(
         self,
@@ -156,72 +198,63 @@ class SyntaxEvalTask:
 
         return activations
 
-    def _calc_accuracy(
+    def _calc_scores(
         self,
         corpus: Corpus,
         activations: Tensor,
         counter_activations: Optional[Tensor] = None,
-    ) -> float:
-        mask = self._create_unk_sen_mask(corpus)
-
-        activations = activations[mask]
-
+    ) -> pd.DataFrame:
         token_ids = torch.tensor(
             [self.tokenizer.convert_tokens_to_ids(ex.token) for ex in corpus]
         )
-        token_ids = token_ids[mask]
+
+        scores_df = pd.DataFrame(
+            {
+                "sen": [ex.sen for ex in corpus],
+                "token": [ex.token for ex in corpus],
+            }
+        )
 
         if counter_activations is None:
+            scores_df["counter_token"] = [ex.counter_token for ex in corpus]
+
             counter_token_ids = torch.tensor(
                 [
                     self.tokenizer.convert_tokens_to_ids(ex.counter_token)
                     for ex in corpus
                 ]
             )
-            counter_token_ids = counter_token_ids[mask]
 
-            accuracy = self._single_context_accuracy(
+            scores, counter_scores = self._single_context_accuracy(
                 activations, token_ids, counter_token_ids
             )
         else:
-            accuracy = self._dual_context_accuracy(
-                activations, counter_activations[mask], token_ids
+            scores_df["counter_sen"] = [ex.counter_sen for ex in corpus]
+
+            scores, counter_scores = self._dual_context_accuracy(
+                activations, counter_activations, token_ids
             )
 
-        return accuracy
+        scores_df["scores"] = scores
+        scores_df["counter_scores"] = counter_scores
 
-    def _create_unk_sen_mask(self, corpus: Corpus) -> Tensor:
-        """
-        Creates a tensor mask for sentences that contain at least one
-        token that is not part of the model's tokenizer.
-        """
-        mask = torch.ones(len(corpus), dtype=torch.bool)
-        if not self.ignore_unk:
-            return mask
-
-        for idx, ex in enumerate(corpus):
-            for w in ex.sen:
-                if w not in self.tokenizer.vocab:
-                    mask[idx] = False
-                    warnings.warn(f"'{w}' is not part of model's tokenizer!")
-
-        return mask
+        return scores_df
 
     def _single_context_accuracy(
         self, activations: Tensor, token_ids: Tensor, counter_token_ids: Tensor
-    ) -> float:
+    ) -> Tuple[Tensor, Tensor]:
         """ Computes accuracy for comparing P(w1|h) > P(w2|h). """
         logits = self._decode(activations, token_ids)
         counter_logits = self._decode(activations, counter_token_ids)
 
-        return torch.mean((logits >= counter_logits).to(torch.float)).item()
+        return logits, counter_logits
 
     def _dual_context_accuracy(
         self,
         activations: Tensor,
         counter_activations: Tensor,
         token_ids: Tensor,
-    ) -> float:
+    ) -> Tuple[Tensor, Tensor]:
         """ Computes accuracy for comparing P(w|h1) > P(w|h2). """
         if self.use_full_model_probs:
             full_probs = self._decode(activations)
@@ -234,7 +267,7 @@ class SyntaxEvalTask:
             probs = self._decode(activations, token_ids)
             counter_probs = self._decode(counter_activations, token_ids)
 
-        return torch.mean((probs >= counter_probs).to(torch.float)).item()
+        return probs, counter_probs
 
     def _decode(
         self, activations: Tensor, token_ids: Optional[Tensor] = None
