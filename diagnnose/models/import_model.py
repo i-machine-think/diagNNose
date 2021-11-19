@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Type
 
 from .language_model import LanguageModel
