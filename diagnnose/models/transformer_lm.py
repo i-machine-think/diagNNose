@@ -168,12 +168,12 @@ class TransformerLM(LanguageModel):
         selection_func: Optional[SelectionFunc] = None,
         batch: Optional[Batch] = None,
     ) -> Tensor:
-        mask_embedding = self.embeddings(torch.tensor(mask_idx))
+        mask_embedding = self.embeddings(torch.tensor(mask_idx, device=self.device))
 
         sen_len = inputs_embeds.shape[1]
 
         pseudo_ll_logits = torch.zeros(
-            *inputs_embeds.shape[:2], self.nhid(activation_name)
+            *inputs_embeds.shape[:2], self.nhid(activation_name), device=self.device
         )
 
         for w_idx in range(sen_len):
