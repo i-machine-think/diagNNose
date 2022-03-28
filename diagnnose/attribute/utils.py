@@ -1,8 +1,7 @@
 import itertools
 from functools import wraps
 from math import factorial
-from typing import (Any, Callable, Iterable, List, Optional, Sequence, Tuple,
-                    Union)
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor

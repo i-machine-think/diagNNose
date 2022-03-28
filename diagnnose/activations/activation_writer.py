@@ -6,9 +6,13 @@ from typing import BinaryIO, Optional
 
 import dill
 
-from diagnnose.typedefs.activations import (ActivationDict, ActivationFiles,
-                                            ActivationNames, ActivationRanges,
-                                            SelectionFunc)
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationFiles,
+    ActivationNames,
+    ActivationRanges,
+    SelectionFunc,
+)
 from diagnnose.utils.pickle import dump_pickle
 
 from .activation_reader import ActivationReader

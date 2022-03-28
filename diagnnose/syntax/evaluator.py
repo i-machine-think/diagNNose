@@ -6,8 +6,14 @@ from diagnnose.models import LanguageModel
 from diagnnose.typedefs.syntax import AccuracyDict, ScoresDict
 
 from .task import SyntaxEvalTask
-from .tasks import (BlimpTask, LakretzTask, LinzenTask, MarvinTask,
-                    WarstadtTask, WinobiasTask)
+from .tasks import (
+    BlimpTask,
+    LakretzTask,
+    LinzenTask,
+    MarvinTask,
+    WarstadtTask,
+    WinobiasTask,
+)
 
 task_constructors: Dict[str, Type[SyntaxEvalTask]] = {
     "blimp": BlimpTask,

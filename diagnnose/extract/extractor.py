@@ -9,8 +9,12 @@ import diagnnose.activations.selection_funcs as selection_funcs
 from diagnnose.activations import ActivationReader, ActivationWriter
 from diagnnose.activations.selection_funcs import return_all
 from diagnnose.corpus import Corpus, create_iterator
-from diagnnose.typedefs.activations import (ActivationDict, ActivationNames,
-                                            ActivationRanges, SelectionFunc)
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationNames,
+    ActivationRanges,
+    SelectionFunc,
+)
 
 if TYPE_CHECKING:
     from diagnnose.models import LanguageModel

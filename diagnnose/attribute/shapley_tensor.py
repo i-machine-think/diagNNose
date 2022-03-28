@@ -1,5 +1,4 @@
-from typing import (Any, Callable, Iterable, List, Optional, Sequence, Tuple,
-                    Union)
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union
 from warnings import warn
 
 import torch

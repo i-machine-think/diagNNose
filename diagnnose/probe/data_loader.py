@@ -9,8 +9,12 @@ from diagnnose.corpus import Corpus
 from diagnnose.corpus.create_labels import create_labels_from_corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (ActivationIndex, ActivationName,
-                                            ActivationNames, SelectionFunc)
+from diagnnose.typedefs.activations import (
+    ActivationIndex,
+    ActivationName,
+    ActivationNames,
+    SelectionFunc,
+)
 from diagnnose.typedefs.probe import ControlTask, DataDict, DataSplit
 
 

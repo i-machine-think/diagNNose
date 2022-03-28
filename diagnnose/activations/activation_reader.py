@@ -6,9 +6,14 @@ import torch
 from torch import Tensor
 
 from diagnnose.activations.activation_index import activation_index_to_iterable
-from diagnnose.typedefs.activations import (ActivationDict, ActivationKey,
-                                            ActivationName, ActivationNames,
-                                            ActivationRanges, SelectionFunc)
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationKey,
+    ActivationName,
+    ActivationNames,
+    ActivationRanges,
+    SelectionFunc,
+)
 from diagnnose.utils.pickle import load_pickle
 
 
