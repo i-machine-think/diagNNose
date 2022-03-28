@@ -12,8 +12,7 @@ from diagnnose.corpus import Corpus
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
-from diagnnose.typedefs.syntax import (AccuracyDict, ScoresDict,
-                                       SyntaxEvalCorpora)
+from diagnnose.typedefs.syntax import AccuracyDict, ScoresDict, SyntaxEvalCorpora
 
 
 class SyntaxEvalTask:
@@ -235,8 +234,8 @@ class SyntaxEvalTask:
                 activations, counter_activations, token_ids
             )
 
-        scores_df["scores"] = scores
-        scores_df["counter_scores"] = counter_scores
+        scores_df["scores"] = scores.detach()
+        scores_df["counter_scores"] = counter_scores.detach()
 
         return scores_df
 

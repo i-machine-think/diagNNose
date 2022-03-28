@@ -13,8 +13,11 @@ from diagnnose.attribute import ShapleyTensor
 from diagnnose.corpus import Corpus
 from diagnnose.extract import Extractor
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
-                                            ActivationNames)
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationName,
+    ActivationNames,
+)
 from diagnnose.utils import __file__ as diagnnose_utils_init
 from diagnnose.utils.misc import suppress_print
 from diagnnose.utils.pickle import load_pickle

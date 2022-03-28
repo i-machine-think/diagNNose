@@ -1,29 +1,19 @@
-from functools import reduce
 from typing import Callable, List, Optional, Union
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 from torch.nn.functional import log_softmax
 from torchtext.data import Batch
-from transformers import (AutoModel, AutoModelForCausalLM,
-                          AutoModelForMaskedLM, AutoModelForQuestionAnswering,
-                          AutoModelForSequenceClassification,
-                          AutoModelForTokenClassification,
-                          DistilBertForMaskedLM, PreTrainedModel,
-                          XLMWithLMHeadModel)
 
 from diagnnose.attribute import ShapleyTensor
 from diagnnose.models import LanguageModel
-from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
-                                            ActivationNames, SelectionFunc)
-
-mode_to_auto_model = {
-    "causal_lm": AutoModelForCausalLM,
-    "masked_lm": AutoModelForMaskedLM,
-    "question_answering": AutoModelForQuestionAnswering,
-    "sequence_classification": AutoModelForSequenceClassification,
-    "token_classification": AutoModelForTokenClassification,
-}
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationName,
+    ActivationNames,
+    SelectionFunc,
+)
 
 
 class TransformerLM(LanguageModel):
@@ -63,24 +53,31 @@ class TransformerLM(LanguageModel):
 
     def __init__(
         self,
-        transformer_type: str,
-        mode: Optional[str] = None,
         embeddings_attr: Optional[str] = None,
-        cache_dir: Optional[str] = None,
         compute_pseudo_ll: bool = False,
         device: str = "cpu",
+        **kwargs,
     ):
         super().__init__(device)
 
-        auto_model = mode_to_auto_model.get(mode, AutoModel)
-
-        self.pretrained_model: PreTrainedModel = auto_model.from_pretrained(
-            transformer_type, cache_dir=cache_dir
-        )
+        self.pretrained_model = self.load_model(**kwargs)
 
         self.embeddings_attr = embeddings_attr
-        self.is_causal = mode == "causal_lm"
         self.compute_pseudo_ll = compute_pseudo_ll
+
+    def load_model(self, *args, **kwargs):
+        raise NotImplementedError
+
+    @property
+    def embeddings(self) -> Callable[[Tensor], Tensor]:
+        raise NotImplementedError
+
+    @property
+    def decoder(self) -> nn.Module:
+        raise NotImplementedError
+
+    def base_model(self, compute_out: bool):
+        return self.pretrained_model
 
     def forward(
         self,
@@ -101,22 +98,22 @@ class TransformerLM(LanguageModel):
             )
         if inputs_embeds is None and input_ids is None:
             raise ValueError("inputs_embeds or input_ids must be provided")
-        if inputs_embeds is None:
-            inputs_embeds = self.create_inputs_embeds(input_ids)
-        if len(inputs_embeds.shape) == 2:
-            inputs_embeds = inputs_embeds.unsqueeze(0)  # Add batch dimension
+        if inputs_embeds is not None:
+            inputs_embeds = inputs_embeds.to(self.device)
+            if len(inputs_embeds.shape) == 2:
+                inputs_embeds = inputs_embeds.unsqueeze(0)  # Add batch dimension
         if input_lengths is None:
-            batch_size, max_sen_len = inputs_embeds.shape[:2]
+            if input_ids is not None:
+                batch_size, max_sen_len = input_ids.shape
+            else:
+                batch_size, max_sen_len = inputs_embeds.shape[:2]
             input_lengths = torch.tensor(batch_size * [max_sen_len], device=self.device)
         if isinstance(attention_mask, list):
             attention_mask = torch.tensor(attention_mask, device=self.device)
         if attention_mask is None:
             attention_mask = self.create_attention_mask(input_lengths)
 
-        model = (
-            self.pretrained_model if compute_out else self.pretrained_model.base_model
-        )
-        inputs_embeds = inputs_embeds.to(self.device)
+        model = self.base_model(compute_out)
         attention_mask = attention_mask.to(self.device)
 
         activation_name = (-1, "out") if compute_out else (-1, "hx")
@@ -133,7 +130,13 @@ class TransformerLM(LanguageModel):
                 batch=batch,
             )
         else:
-            logits = self._forward(model, inputs_embeds, attention_mask)
+            logits = self._forward(
+                model,
+                compute_out,
+                attention_mask,
+                input_ids=input_ids,
+                inputs_embeds=inputs_embeds,
+            )
 
         if calc_causal_lm_probs:
             output_ids = input_ids[:, 1:].unsqueeze(-1)
@@ -146,13 +149,30 @@ class TransformerLM(LanguageModel):
         return {activation_name: logits}
 
     @staticmethod
-    def _forward(model, inputs_embeds: Tensor, attention_mask: Tensor) -> Tensor:
-        output = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
+    def _forward(
+        model,
+        compute_out: bool,
+        attention_mask: Tensor,
+        input_ids: Optional[Tensor] = None,
+        inputs_embeds: Optional[Tensor] = None,
+    ) -> Tensor:
+        output = model(
+            input_ids=input_ids,
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+        )
 
         if hasattr(output, "logits"):
             logits: Tensor = output.logits
         elif hasattr(output, "last_hidden_state"):
             logits = output.last_hidden_state
+        elif isinstance(output, tuple):
+            # Fairseq output logic
+            if compute_out:
+                logits = output[0]
+            else:
+                logits = output[1]["inner_states"][-1].transpose(0, 1)
+                logits = model.decoder.layer_norm(logits)
         else:
             raise AttributeError
 
@@ -223,38 +243,6 @@ class TransformerLM(LanguageModel):
 
         return attention_mask
 
-    @property
-    def embeddings(self) -> Callable[[Tensor], Tensor]:
-        if self.embeddings_attr is not None:
-            attrs = self.embeddings_attr.split(".")
-            return reduce(getattr, attrs, self.pretrained_model)
-        else:
-            base_model = self.pretrained_model.base_model
-            if hasattr(base_model, "wte"):
-                # GPT-2
-                return base_model.wte
-            elif hasattr(base_model, "embeddings"):
-                if hasattr(base_model.embeddings, "word_embeddings"):
-                    # BERT-based models, Electra, Longformer, Reformer
-                    return base_model.embeddings.word_embeddings
-                else:
-                    # XLM
-                    return base_model.embeddings
-            elif hasattr(base_model, "word_embedding"):
-                # XLNet
-                return base_model.word_embedding
-            elif hasattr(base_model, "w"):
-                # CTRL
-                return base_model.w
-            elif hasattr(base_model, "encoder"):
-                # T5
-                return base_model.encoder.embed_tokens
-            elif hasattr(base_model, "word_emb"):
-                # Transformer-XL
-                return base_model.word_emb
-            else:
-                raise AttributeError("word embedding attribute not found")
-
     def create_inputs_embeds(self, input_ids: Union[Tensor, List[int]]) -> Tensor:
         if isinstance(input_ids, list):
             input_ids = torch.tensor(input_ids, device=self.device)
@@ -262,26 +250,6 @@ class TransformerLM(LanguageModel):
         inputs_embeds = self.embeddings(input_ids)
 
         return inputs_embeds
-
-    @property
-    def decoder(self) -> torch.nn.Module:
-        # RoBERTa / BERT
-        for attr in ["lm_head", "cls"]:
-            if hasattr(self.pretrained_model, attr):
-                return getattr(self.pretrained_model, attr)
-
-        if isinstance(self.pretrained_model, DistilBertForMaskedLM):
-            return torch.nn.Sequential(
-                self.pretrained_model.vocab_transform,
-                torch.nn.GELU(),
-                self.pretrained_model.vocab_layer_norm,
-                self.pretrained_model.vocab_projector,
-            )
-
-        if isinstance(self.pretrained_model, XLMWithLMHeadModel):
-            return self.pretrained_model.pred_layer.proj
-
-        raise AttributeError("Model decoder not found")
 
     @property
     def num_layers(self) -> int:

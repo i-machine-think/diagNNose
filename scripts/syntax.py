@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     model: LanguageModel = import_model(**config_dict["model"])
     tokenizer: PreTrainedTokenizer = create_tokenizer(**config_dict["tokenizer"])
-    model.set_init_states(tokenizer=tokenizer, **config_dict["init_states"])
+    # model.set_init_states(tokenizer=tokenizer, **config_dict["init_states"])
 
     suite = SyntacticEvaluator(model, tokenizer, **config_dict["downstream"])
     accuracies, scores = suite.run()

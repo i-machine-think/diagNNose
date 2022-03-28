@@ -5,8 +5,12 @@ import torch.nn as nn
 from torch import Tensor
 
 from diagnnose.attribute import ShapleyTensor
-from diagnnose.typedefs.activations import (ActivationDict, ActivationName,
-                                            ActivationNames, SizeDict)
+from diagnnose.typedefs.activations import (
+    ActivationDict,
+    ActivationName,
+    ActivationNames,
+    SizeDict,
+)
 
 
 class LanguageModel(ABC, nn.Module):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Type
 
 from .language_model import LanguageModel
@@ -31,9 +32,13 @@ def import_model(*args, **kwargs) -> LanguageModel:
 
 def _import_transformer_lm(*args, **kwargs) -> "TransformerLM":
     """ Imports a Transformer LM. """
-    from .transformer_lm import TransformerLM
+    from .fairseq_lm import FairseqLM
+    from .huggingface_lm import HuggingfaceLM
 
-    return TransformerLM(*args, **kwargs)
+    if kwargs["transformer_type"] == "fairseq":
+        return FairseqLM(*args, **kwargs)
+
+    return HuggingfaceLM(*args, **kwargs)
 
 
 def _import_recurrent_lm(*args, **kwargs) -> "RecurrentLM":
