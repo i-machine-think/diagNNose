@@ -83,3 +83,7 @@ class FairseqLM(TransformerLM):
     @property
     def decoder(self) -> nn.Module:
         return self.pretrained_model.decoder.output_projection
+
+    @property
+    def decoder_w(self) -> nn.Module:
+        return self.decoder.weight.data

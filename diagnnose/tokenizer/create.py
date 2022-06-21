@@ -88,6 +88,9 @@ def create_tokenizer(
         }
         tokenizer.vocab = vocab
         tokenizer.ids_to_tokens = {idx: w for w, idx in vocab.items()}
+    elif hasattr(tokenizer, "sym2idx"):
+        tokenizer.vocab = tokenizer.sym2idx
+        tokenizer.ids_to_tokens = tokenizer.idx2sym
 
     if getattr(tokenizer, "pad_token", None) is None:
         tokenizer.pad_token = tokenizer.unk_token
