@@ -271,7 +271,17 @@ class SyntaxEvalTask:
     def _decode(
         self, activations: Tensor, token_ids: Optional[Tensor] = None
     ) -> Tensor:
-        if hasattr(self.model, "decoder_w"):
+        if hasattr(self.model, "decoder"):
+            # Transformers
+            logits = getattr(self.model, "decoder")(activations)
+
+            if token_ids is not None:
+                batch_size = logits.size(0)
+                logits = logits[range(batch_size), token_ids]
+
+            return logits
+        elif hasattr(self.model, "decoder_w"):
+            # LSTMs
             decoder_w = self.model.decoder_w
             decoder_b = self.model.decoder_b
             if token_ids is None:
@@ -285,13 +295,5 @@ class SyntaxEvalTask:
                 logits += decoder_b[token_ids]
 
                 return logits
-        elif hasattr(self.model, "decoder"):
-            logits = getattr(self.model, "decoder")(activations)
-
-            if token_ids is not None:
-                batch_size = logits.size(0)
-                logits = logits[range(batch_size), token_ids]
-
-            return logits
         else:
             raise AttributeError("Model decoder not found")
