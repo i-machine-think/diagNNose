@@ -7,8 +7,12 @@ import torch
 from torch import Tensor
 from transformers import PreTrainedTokenizer
 
-from diagnnose.activations.selection_funcs import final_token, only_mask_token
-from diagnnose.corpus import Corpus
+from diagnnose.activations.selection_funcs import (
+    final_token,
+    only_mask_token,
+    return_all,
+)
+from diagnnose.corpus import Corpus, create_iterator
 from diagnnose.extract import simple_extract
 from diagnnose.models import LanguageModel
 from diagnnose.typedefs.activations import SelectionFunc
@@ -52,6 +56,7 @@ class SyntaxEvalTask:
 
         self.ignore_unk = ignore_unk
         self.use_full_model_probs = use_full_model_probs
+        self.compare_full_sen = config.get("compare_full_sen", False)
 
         # If a single subtask is passed as cmd arg it is not converted to a list yet
         if isinstance(config.get("subtasks", None), str):
@@ -117,7 +122,9 @@ class SyntaxEvalTask:
         return accuracies, scores
 
     def _run_corpus(self, corpus: Corpus) -> pd.DataFrame:
-        if self.model.is_causal:
+        if self.compare_full_sen:
+            selection_func = return_all
+        elif self.model.is_causal:
             selection_func = final_token("sen")
         else:
             selection_func = only_mask_token(self.tokenizer.mask_token, "sen")
@@ -131,7 +138,9 @@ class SyntaxEvalTask:
         activations = self._calc_final_hidden(corpus, selection_func)
 
         if "counter_sen" in corpus.fields:
-            if self.model.is_causal:
+            if self.compare_full_sen:
+                selection_func = return_all
+            elif self.model.is_causal:
                 selection_func = final_token("counter_sen")
             else:
                 selection_func = only_mask_token(
@@ -143,11 +152,18 @@ class SyntaxEvalTask:
         else:
             counter_activations = None
 
-        scores_df = self._calc_scores(
-            corpus,
-            activations,
-            counter_activations=counter_activations,
-        )
+        if self.compare_full_sen:
+            scores_df = self._calc_full_sen_scores(
+                corpus,
+                activations,
+                counter_activations,
+            )
+        else:
+            scores_df = self._calc_scores(
+                corpus,
+                activations,
+                counter_activations=counter_activations,
+            )
 
         return scores_df
 
@@ -193,9 +209,51 @@ class SyntaxEvalTask:
             selection_func=selection_func,
         )
 
-        activations = activation_reader.activation_dict[activation_name]
+        if self.compare_full_sen:
+            activations = activation_reader[:]
+        else:
+            activations = activation_reader.activation_dict[activation_name]
 
         return activations
+
+    def _calc_full_sen_scores(
+        self,
+        corpus: Corpus,
+        activations: Tensor,
+        counter_activations: Tensor,
+    ) -> pd.DataFrame:
+        scores_df = pd.DataFrame(
+            {
+                "sen": [ex.sen for ex in corpus],
+                "counter_sen": [ex.counter_sen for ex in corpus],
+            }
+        )
+
+        scores = torch.zeros(len(corpus))
+        counter_scores = torch.zeros(len(corpus))
+
+        # The iterator tokenizes the sentences for us so we can index the probabilities with the sentence itself
+        corpus_iterator = create_iterator(
+            corpus, batch_size=1, device=self.model.device
+        )
+
+        for idx, (activation, counter_activation, item) in enumerate(
+            zip(activations, counter_activations, corpus_iterator)
+        ):
+            sen_ids = item.sen[0][0]
+            all_logits = self._decode(activation).log_softmax(-1)
+            logits = all_logits[range(len(sen_ids)), sen_ids]
+            scores[idx] = logits.mean()
+
+            counter_sen_ids = item.counter_sen[0][0]
+            all_logits = self._decode(counter_activation).log_softmax(-1)
+            counter_logits = all_logits[range(len(counter_sen_ids)), counter_sen_ids]
+            counter_scores[idx] = counter_logits.mean()
+
+        scores_df["scores"] = scores
+        scores_df["counter_scores"] = counter_scores
+
+        return scores_df
 
     def _calc_scores(
         self,
@@ -273,7 +331,8 @@ class SyntaxEvalTask:
     ) -> Tensor:
         if hasattr(self.model, "decoder"):
             # Transformers
-            logits = getattr(self.model, "decoder")(activations)
+            with torch.no_grad():
+                logits = getattr(self.model, "decoder")(activations)
 
             if token_ids is not None:
                 batch_size = logits.size(0)

@@ -13,7 +13,10 @@ from ..task import SyntaxEvalTask
 
 class BlimpTask(SyntaxEvalTask):
     def initialize(
-        self, path: str, subtasks: Optional[List[str]] = None
+        self,
+        path: str,
+        subtasks: Optional[List[str]] = None,
+        compare_full_sen: bool = False,
     ) -> SyntaxEvalCorpora:
         """Performs the initialization for the BLiMP tasks of
         Warstadt et al. (2020)
@@ -30,6 +33,10 @@ class BlimpTask(SyntaxEvalTask):
         subtasks : List[str], optional
             The downstream tasks that will be tested. If not provided
             this will default to the full set of conditions.
+        compare_full_sen : bool, optional
+            Toggle to compare minimal pairs based on the full sentence
+            probabilities. Otherwise the one- or two-prefix method will
+            be used instead, where applicable.
 
         Returns
         -------
@@ -46,19 +53,25 @@ class BlimpTask(SyntaxEvalTask):
 
         for subtask in subtasks:
             subtask_path = subtask_to_path[subtask]
-            subtask_corpus = self._initialize_subtask(subtask_path)
+            subtask_corpus = self._initialize_subtask(subtask_path, compare_full_sen)
 
             if subtask_corpus is not None:
                 corpora[subtask] = subtask_corpus
 
         return corpora
 
-    def _initialize_subtask(self, subtask_path: str) -> Corpus:
+    def _initialize_subtask(
+        self, subtask_path: str, compare_full_sen: bool
+    ) -> Optional[Corpus]:
         raw_corpus = pd.read_json(path_or_buf=subtask_path, lines=True)
 
         header = raw_corpus.keys().tolist()
 
-        if "one_prefix_prefix" in raw_corpus:
+        if compare_full_sen:
+            header[header.index("sentence_good")] = "sen"
+            header[header.index("sentence_bad")] = "counter_sen"
+            tokenize_columns = ["sen", "counter_sen"]
+        elif "one_prefix_prefix" in raw_corpus:
             header[header.index("one_prefix_prefix")] = "sen"
             header[header.index("one_prefix_word_good")] = "token"
             header[header.index("one_prefix_word_bad")] = "counter_token"

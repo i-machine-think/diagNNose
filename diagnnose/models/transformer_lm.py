@@ -120,12 +120,16 @@ class TransformerLM(LanguageModel):
 
         if self.compute_pseudo_ll:
             assert isinstance(mask_idx, int), "mask_idx must be provided for Pseudo LL"
+            if inputs_embeds is None:
+                inputs_embeds = self.create_inputs_embeds(input_ids)
+
             logits = self._forward_pseudo_ll(
                 model,
                 inputs_embeds,
                 attention_mask,
                 mask_idx,
                 activation_name,
+                compute_out,
                 selection_func=selection_func,
                 batch=batch,
             )
@@ -185,6 +189,7 @@ class TransformerLM(LanguageModel):
         attention_mask: Tensor,
         mask_idx: int,
         activation_name: ActivationName,
+        compute_out: bool,
         selection_func: Optional[SelectionFunc] = None,
         batch: Optional[Batch] = None,
     ) -> Tensor:
@@ -211,7 +216,12 @@ class TransformerLM(LanguageModel):
             masked_inputs_embeds[:, w_idx] = mask_embedding
             masked_attention_mask = attention_mask[sen_ids].clone()
 
-            logits = self._forward(model, masked_inputs_embeds, masked_attention_mask)
+            logits = self._forward(
+                model,
+                compute_out,
+                masked_attention_mask,
+                inputs_embeds=masked_inputs_embeds,
+            )
             pseudo_ll_logits[sen_ids, w_idx] = logits[:, w_idx]
 
         return pseudo_ll_logits
