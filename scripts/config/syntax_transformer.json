@@ -1,15 +1,21 @@
 {
   "model": {
-    "transformer_type": "roberta-base",
-    "cache_dir": "/media/jaap/81b6ce8a-28e5-4eda-9c68-b13e0637cc4f/transformers",
-    "mode": "masked_lm"
+    "transformer_type": "bert-base-uncased",
+    "mode": "masked_lm",
+    "compute_pseudo_ll": true
   },
   "downstream": {
-    "tasks": ["lakretz_transformer"],
+    "tasks": ["blimp"],
     "ignore_unk": false,
     "config": {
       "lakretz_transformer": {
-        "path": "../lm_data/corpora/downstream/transformers/distilroberta-base/lakretz"
+        "path": "../lm_data/corpora/downstream/transformers/distilroberta-base/lakretz",
+        "subtasks": ["simple"]
+      },
+      "blimp": {
+        "path": "../lm_data/corpora/downstream/blimp",
+        "compare_full_sen": true,
+        "subtasks": ["principle_A_domain_1_sample"]
       }
     }
   }

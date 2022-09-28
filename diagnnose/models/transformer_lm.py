@@ -195,22 +195,32 @@ class TransformerLM(LanguageModel):
     ) -> Tensor:
         mask_embedding = self.embeddings(torch.tensor(mask_idx, device=self.device))
 
-        sen_len = inputs_embeds.shape[1]
+        max_sen_len = inputs_embeds.shape[1]
 
         pseudo_ll_logits = torch.zeros(
             *inputs_embeds.shape[:2], self.nhid(activation_name), device=self.device
         )
 
-        for w_idx in range(sen_len):
+        sen_column = batch.dataset.sen_column
+        sen_lens = getattr(batch, sen_column)[1]
+        for w_idx in range(max_sen_len):
             if selection_func is not None:
                 sen_ids = []
-                for batch_idx, sen_idx in enumerate(batch.sen_idx):
-                    if selection_func(w_idx, batch.dataset.examples[sen_idx]):
+                for batch_idx, (sen_idx, sen_len) in enumerate(
+                    zip(batch.sen_idx, sen_lens)
+                ):
+                    if (w_idx < sen_len) and selection_func(
+                        w_idx, batch.dataset.examples[sen_idx]
+                    ):
                         sen_ids.append(batch_idx)
                 if len(sen_ids) == 0:
                     continue
             else:
-                sen_ids = slice(0, None)
+                sen_ids = [
+                    batch_idx
+                    for batch_idx, sen_len in enumerate(sen_lens)
+                    if w_idx < sen_len
+                ]
 
             masked_inputs_embeds = inputs_embeds[sen_ids].clone()
             masked_inputs_embeds[:, w_idx] = mask_embedding

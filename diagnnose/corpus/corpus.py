@@ -212,11 +212,16 @@ def attach_tokenizer(field: Field, tokenizer: PreTrainedTokenizer) -> None:
 
         This allows us to still have access to the original tokens,
         including those that will be mapped to <unk> later.
+
+        We cast the encoded text back to tokens for debugging purposes,
+        making it easier to inspect an example at a later stage.
         """
         if isinstance(text, list):
             text = " ".join(text)
 
-        return tokenizer.tokenize(text)
+        return tokenizer.convert_ids_to_tokens(
+            tokenizer.encode(text, add_special_tokens=True)
+        )
 
     field.preprocessing = preprocess
     field.pad_token = tokenizer.pad_token

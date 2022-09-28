@@ -2,6 +2,7 @@ from functools import reduce
 from typing import Iterable, List
 
 from torchtext.data import Example
+from transformers import PreTrainedTokenizer
 
 from diagnnose.typedefs.activations import SelectionFunc
 
@@ -38,6 +39,20 @@ def only_mask_token(mask_token: str, sen_column: str = "sen") -> SelectionFunc:
         sen = getattr(item, sen_column)
 
         return sen[w_idx] == mask_token
+
+    return selection_func
+
+
+def no_special_tokens(
+    tokenizer: PreTrainedTokenizer, sen_column: str = "sen"
+) -> SelectionFunc:
+    def selection_func(w_idx: int, item: Example) -> bool:
+        sen = getattr(item, sen_column)
+
+        try:
+            return sen[w_idx] not in tokenizer.all_special_tokens
+        except IndexError:
+            raise
 
     return selection_func
 

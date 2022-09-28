@@ -9,6 +9,7 @@ from transformers import PreTrainedTokenizer
 
 from diagnnose.activations.selection_funcs import (
     final_token,
+    no_special_tokens,
     only_mask_token,
     return_all,
 )
@@ -123,7 +124,7 @@ class SyntaxEvalTask:
 
     def _run_corpus(self, corpus: Corpus) -> pd.DataFrame:
         if self.compare_full_sen:
-            selection_func = return_all
+            selection_func = no_special_tokens(self.tokenizer)
         elif self.model.is_causal:
             selection_func = final_token("sen")
         else:
@@ -139,16 +140,20 @@ class SyntaxEvalTask:
 
         if "counter_sen" in corpus.fields:
             if self.compare_full_sen:
-                selection_func = return_all
+                counter_selection_func = no_special_tokens(
+                    self.tokenizer, sen_column="counter_sen"
+                )
             elif self.model.is_causal:
-                selection_func = final_token("counter_sen")
+                counter_selection_func = final_token("counter_sen")
             else:
-                selection_func = only_mask_token(
+                counter_selection_func = only_mask_token(
                     self.tokenizer.mask_token, "counter_sen"
                 )
 
             corpus.sen_column = "counter_sen"
-            counter_activations = self._calc_final_hidden(corpus, selection_func)
+            counter_activations = self._calc_final_hidden(
+                corpus, counter_selection_func
+            )
         else:
             counter_activations = None
 
@@ -157,6 +162,8 @@ class SyntaxEvalTask:
                 corpus,
                 activations,
                 counter_activations,
+                selection_func,
+                counter_selection_func,
             )
         else:
             scores_df = self._calc_scores(
@@ -221,6 +228,8 @@ class SyntaxEvalTask:
         corpus: Corpus,
         activations: Tensor,
         counter_activations: Tensor,
+        selection_func: SelectionFunc,
+        counter_selection_func: SelectionFunc,
     ) -> pd.DataFrame:
         scores_df = pd.DataFrame(
             {
@@ -237,18 +246,30 @@ class SyntaxEvalTask:
             corpus, batch_size=1, device=self.model.device
         )
 
-        for idx, (activation, counter_activation, item) in enumerate(
-            zip(activations, counter_activations, corpus_iterator)
+        for idx, (activation, counter_activation, batch_item, corpus_item) in enumerate(
+            zip(activations, counter_activations, corpus_iterator, corpus.examples)
         ):
-            sen_ids = item.sen[0][0]
+            sen = batch_item.sen[0].squeeze()
+            token_ids = [
+                token_idx
+                for w_idx, token_idx in enumerate(sen)
+                if selection_func(w_idx, corpus_item)
+            ]
             all_logits = self._decode(activation).log_softmax(-1)
-            logits = all_logits[range(len(sen_ids)), sen_ids]
-            scores[idx] = logits.mean()
+            logits = all_logits[range(len(token_ids)), token_ids]
+            scores[idx] = logits.sum()
 
-            counter_sen_ids = item.counter_sen[0][0]
+            counter_sen = batch_item.counter_sen[0].squeeze()
+            counter_token_ids = [
+                token_idx
+                for w_idx, token_idx in enumerate(counter_sen)
+                if counter_selection_func(w_idx, corpus_item)
+            ]
             all_logits = self._decode(counter_activation).log_softmax(-1)
-            counter_logits = all_logits[range(len(counter_sen_ids)), counter_sen_ids]
-            counter_scores[idx] = counter_logits.mean()
+            counter_logits = all_logits[
+                range(len(counter_token_ids)), counter_token_ids
+            ]
+            counter_scores[idx] = counter_logits.sum()
 
         scores_df["scores"] = scores
         scores_df["counter_scores"] = counter_scores
