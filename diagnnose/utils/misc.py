@@ -2,7 +2,7 @@ import contextlib
 import cProfile
 import io
 import pstats
-from collections import MutableMapping
+from collections.abc import MutableMapping
 from functools import wraps
 from typing import Any, Callable, Dict
 
