@@ -74,6 +74,9 @@ class HuggingfaceLM(TransformerLM):
             elif hasattr(base_model, "word_emb"):
                 # Transformer-XL
                 return base_model.word_emb
+            elif hasattr(base_model, "decoder"):
+                # OPT
+                return base_model.decoder.embed_tokens
             else:
                 raise AttributeError("word embedding attribute not found")
 
