@@ -30,12 +30,11 @@ def import_model(*args, **kwargs) -> LanguageModel:
 
 def _import_transformer_lm(*args, **kwargs):
     """ Imports a Transformer LM. """
-    from .fairseq_lm import FairseqLM
-    from .huggingface_lm import HuggingfaceLM
-
     if kwargs["transformer_type"] == "fairseq":
+        from .fairseq_lm import FairseqLM
         return FairseqLM(*args, **kwargs)
 
+    from .huggingface_lm import HuggingfaceLM
     return HuggingfaceLM(*args, **kwargs)
 
 

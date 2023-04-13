@@ -280,10 +280,14 @@ class TransformerLM(LanguageModel):
         return -1
 
     def nhid(self, activation_name: ActivationName) -> int:
-        if activation_name[1] == "out":
-            return self.pretrained_model.config.vocab_size
+        model_config = self.pretrained_model.config
 
-        return self.pretrained_model.config.hidden_size
+        if activation_name[1] == "out":
+            return model_config.vocab_size
+        elif hasattr(model_config, "word_embed_proj_dim"):
+            return model_config.word_embed_proj_dim
+        else:
+            return self.pretrained_model.config.hidden_size
 
     @staticmethod
     def activation_names() -> ActivationNames:
