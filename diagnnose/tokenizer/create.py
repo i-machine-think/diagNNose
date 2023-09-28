@@ -27,7 +27,11 @@ def token_to_index(path: str) -> Dict[str, int]:
 
 
 def create_tokenizer(
-    path: str, notify_unk: bool = False, cache_dir: Optional[str] = None, **kwargs
+    path: str, 
+    notify_unk: bool = False, 
+    cache_dir: Optional[str] = None, 
+    use_fast: bool = False
+    **kwargs
 ) -> PreTrainedTokenizer:
     """Creates a tokenizer from a path.
 
@@ -74,7 +78,7 @@ def create_tokenizer(
         return tokenizer
 
     # Subword-based vocabulary, used by Transformer models
-    tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(path, cache_dir=cache_dir, use_fast=use_fast)
     if hasattr(tokenizer, "encoder"):
         # GPT-2 & Roberta use a different attribute for the underlying vocab dictionary.
         encoder: Dict[str, int] = getattr(tokenizer, "encoder")

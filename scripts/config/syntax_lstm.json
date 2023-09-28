@@ -39,8 +39,7 @@
         ]
       },
       "lakretz": {
-        "path": "../lm_data/corpora/downstream/lakretz",
-        "subtasks": ["simple"]
+        "path": "../lm_data/corpora/downstream/lakretz"
       },
       "winobias": {
         "path": "../lm_data/corpora/downstream/winobias"
