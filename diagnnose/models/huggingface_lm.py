@@ -32,12 +32,13 @@ class HuggingfaceLM(TransformerLM):
         transformer_type: str,
         mode: Optional[str] = None,
         cache_dir: Optional[str] = None,
+        **kwargsm
     ):
         auto_model = mode_to_auto_model.get(mode, AutoModel)
 
         self.is_causal = mode == "causal_lm"
 
-        return auto_model.from_pretrained(transformer_type, cache_dir=cache_dir)
+        return auto_model.from_pretrained(transformer_type, cache_dir=cache_dir, **kwargs)
 
     def base_model(self, compute_out: bool):
         if compute_out:
